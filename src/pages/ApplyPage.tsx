@@ -1,7 +1,9 @@
 import { Check, Clock, History, Loader2, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { ErrorPresentation } from "../components/error/ErrorPresentation";
 import { getApplyModeLabelForMode } from "../components/apply/ApplyModeBadge";
+import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
 import { readPendingApplyResult } from "../core/windows/WindowsOptimizationService";
 import type { OptimizationApplyResult } from "../core/windows/WindowsOptimizationService";
@@ -76,14 +78,30 @@ export function ApplyPage() {
 
   if (completed) {
     const isSuccess = executionResult?.status === "success";
-    const title = isSuccess ? "Optimization completed successfully." : "Optimization could not be completed.";
+    const applyError = executionResult ? ErrorPresentationService.fromApplyResult(executionResult) : null;
+
+    if (!isSuccess && applyError) {
+      return (
+        <div className="flex flex-1 items-center justify-center">
+          <ErrorPresentation
+            actions={{
+              goBackHref: `/confirm/${executionResult.optimizationId}?from=decision`,
+              historyHref: "/history",
+              retryHref: `/confirm/${executionResult.optimizationId}?from=decision`
+            }}
+            descriptor={applyError}
+            layout="centered"
+          />
+        </div>
+      );
+    }
+
     const message =
-      executionResult?.error ??
-      (isSuccess
+      isSuccess
         ? executionResult.applyMode === "real"
           ? "The successful real apply result was recorded in History. Run Verification Center to compare expected and actual state."
           : "This mock apply result completed without modifying Windows."
-        : "TweakMind did not record a success History entry because Apply failed.");
+        : "TweakMind did not record a success History entry because Apply failed.";
 
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -91,7 +109,7 @@ export function ApplyPage() {
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
             <Check size={28} aria-hidden="true" />
           </div>
-          <h2 className="mt-5 text-4xl font-semibold tracking-tight text-slate-950">{title}</h2>
+          <h2 className="mt-5 text-4xl font-semibold tracking-tight text-slate-950">Optimization completed successfully.</h2>
           <div className="mt-4 inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
             {getApplyModeLabelForMode(executionResult.applyMode)}
           </div>

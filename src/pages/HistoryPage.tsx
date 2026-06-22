@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { ErrorPresentation } from "../components/error/ErrorPresentation";
 import { getApplyModeLabelForMode } from "../components/apply/ApplyModeBadge";
+import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
 import { OptimizationCapabilityRegistry } from "../core/execution/OptimizationCapabilityRegistry";
 import { RuntimeScanService } from "../core/scan/RuntimeScanService";
 import {
@@ -53,7 +55,10 @@ export function HistoryPage() {
             No optimizations have been applied yet.
           </div>
         ) : (
-          history.map((entry) => (
+          history.map((entry) => {
+            const historyError = ErrorPresentationService.forHistoryEntry(entry);
+
+            return (
             <article className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm" key={entry.id}>
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div>
@@ -79,7 +84,26 @@ export function HistoryPage() {
                       Recovery: {entry.recoveryStatus ?? "Not Started"}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">{entry.recoveryMessage ?? entry.message}</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    {historyError ? "This record needs review before you continue." : entry.recoveryMessage ?? entry.message}
+                  </p>
+                  {historyError ? (
+                    <div className="mt-4">
+                      <ErrorPresentation
+                        actions={{
+                          goBackHref: "/dashboard",
+                          historyHref: "/history",
+                          retryHref:
+                            entry.recoveryStatus === "Failed"
+                              ? `/recovery?historyId=${entry.id}`
+                              : entry.verificationStatus === "Failed"
+                                ? `/verify?id=${entry.optimizationId}&mode=${entry.recoveryStatus === "Success" ? "recovery" : "apply"}&historyId=${entry.id}`
+                                : `/confirm/${entry.optimizationId}?from=decision`
+                        }}
+                        descriptor={historyError}
+                      />
+                    </div>
+                  ) : null}
                   <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-6">
                     <div>
                       <dt className="font-semibold text-slate-500">Apply mode</dt>
@@ -139,7 +163,8 @@ export function HistoryPage() {
                 )}
               </div>
             </article>
-          ))
+            );
+          })
         )}
       </section>
     </div>

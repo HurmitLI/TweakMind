@@ -112,6 +112,8 @@ None
 
 - PRODUCT-010 Settings & Preferences
 
+- PRODUCT-011 Error Experience
+
 ---
 
 # In Progress
@@ -122,7 +124,7 @@ None
 
 # Next Development
 
-PRODUCT-011 Error Experience
+RELEASE-001 Alpha Release Preparation
 
 ---
 

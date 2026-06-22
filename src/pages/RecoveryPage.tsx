@@ -1,6 +1,8 @@
 import { Check, Clock, History, Loader2, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { ErrorPresentation } from "../components/error/ErrorPresentation";
+import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
 import { OptimizationExecutor } from "../core/windows/OptimizationExecutor";
 import {
   readPendingRecoveryResult,
@@ -74,21 +76,37 @@ export function RecoveryPage() {
   if (!entry) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <section className="w-full max-w-3xl rounded-lg border border-amber-100 bg-white/90 p-8 text-center shadow-sm backdrop-blur">
-          <h2 className="text-4xl font-semibold tracking-tight text-slate-950">Recovery Not Available</h2>
-          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600">
-            A valid History record is required before Recovery can start.
-          </p>
-          <Link className="mt-8 inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700" to="/history">
-            Open History
-          </Link>
-        </section>
+        <ErrorPresentation
+          actions={{
+            goBackHref: "/history",
+            historyHref: "/history"
+          }}
+          descriptor={ErrorPresentationService.forRecoveryUnavailable()}
+          layout="centered"
+        />
       </div>
     );
   }
 
   if (completed) {
     const isSuccess = result.status === "success";
+    const recoveryError = ErrorPresentationService.fromRecoveryResult(result);
+
+    if (!isSuccess && recoveryError) {
+      return (
+        <div className="flex flex-1 items-center justify-center">
+          <ErrorPresentation
+            actions={{
+              goBackHref: "/history",
+              historyHref: "/history",
+              retryHref: `/recovery?historyId=${entry.id}`
+            }}
+            descriptor={recoveryError}
+            layout="centered"
+          />
+        </div>
+      );
+    }
 
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -96,26 +114,22 @@ export function RecoveryPage() {
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
             <Check size={28} aria-hidden="true" />
           </div>
-          <h2 className="mt-5 text-4xl font-semibold tracking-tight text-slate-950">
-            {isSuccess ? "Recovery completed successfully." : "Recovery could not be completed."}
-          </h2>
+          <h2 className="mt-5 text-4xl font-semibold tracking-tight text-slate-950">Recovery completed successfully.</h2>
           <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600">
-            {result.error ?? result.message ?? "Recovery result was recorded in History."}
+            {result.message ?? "Recovery result was recorded in History."}
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Link className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950" to="/history">
               <History size={17} aria-hidden="true" />
               Open History
             </Link>
-            {isSuccess ? (
-              <Link
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-                to={`/verify?id=${entry.optimizationId}&mode=recovery&historyId=${entry.id}`}
-              >
-                <ShieldCheck size={17} aria-hidden="true" />
-                Verify Recovery
-              </Link>
-            ) : null}
+            <Link
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+              to={`/verify?id=${entry.optimizationId}&mode=recovery&historyId=${entry.id}`}
+            >
+              <ShieldCheck size={17} aria-hidden="true" />
+              Verify Recovery
+            </Link>
           </div>
         </section>
       </div>

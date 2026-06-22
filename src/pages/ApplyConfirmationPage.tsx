@@ -2,7 +2,9 @@ import { ArrowLeft, CheckCircle2, Info, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ApplyModeBadge, getApplyModeLabel } from "../components/apply/ApplyModeBadge";
+import { ErrorPresentation } from "../components/error/ErrorPresentation";
 import { RecommendationBadge } from "../components/decision/RecommendationBadge";
+import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
 import { getApplyConfirmationPlan } from "../core/apply/ApplyConfirmationPlan";
 import { OptimizationExecutor } from "../core/windows/OptimizationExecutor";
@@ -56,7 +58,7 @@ export function ApplyConfirmationPage() {
         ? `/decision?id=${optimization.id}&from=report`
         : "/report";
   const [isConfirming, setIsConfirming] = useState(false);
-  const [applyError, setApplyError] = useState<string | null>(null);
+  const [applyError, setApplyError] = useState<ReturnType<typeof ErrorPresentationService.fromTechnicalError> | null>(null);
 
   async function confirmAndApply() {
     setApplyError(null);
@@ -67,7 +69,9 @@ export function ApplyConfirmationPage() {
       storePendingApplyResult(result);
       navigate(`/apply?id=${optimization.id}`);
     } catch (error) {
-      setApplyError(error instanceof Error ? error.message : String(error));
+      setApplyError(
+        ErrorPresentationService.fromTechnicalError(error instanceof Error ? error.message : String(error), "apply")
+      );
     } finally {
       setIsConfirming(false);
     }
@@ -185,9 +189,14 @@ export function ApplyConfirmationPage() {
       </div>
 
       {applyError ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
-          {applyError}
-        </div>
+        <ErrorPresentation
+          actions={{
+            goBackHref: cancelTarget,
+            onDismiss: () => setApplyError(null),
+            onRetry: confirmAndApply
+          }}
+          descriptor={applyError}
+        />
       ) : null}
 
       <footer className="flex flex-col-reverse gap-3 rounded-lg border border-slate-200 bg-white/90 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">

@@ -1,11 +1,13 @@
 import { ArrowLeft, Check, X } from "lucide-react";
 import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { ErrorPresentation } from "../components/error/ErrorPresentation";
 import { ApplyModeBadge } from "../components/apply/ApplyModeBadge";
 import { BulletListSection } from "../components/decision/BulletListSection";
 import { DecisionSection } from "../components/decision/DecisionSection";
 import { OptimizationWorkflowStrip } from "../components/decision/OptimizationWorkflowStrip";
 import { RecommendationBadge } from "../components/decision/RecommendationBadge";
+import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
 import { OptimizationCapabilityRegistry } from "../core/execution/OptimizationCapabilityRegistry";
 import { KnowledgeRepository } from "../core/knowledge/KnowledgeRepository";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
@@ -95,8 +97,19 @@ export function KnowledgeDetailPage() {
           <ArrowLeft size={17} aria-hidden="true" />
           {backLabel}
         </Link>
-        <section className="rounded-lg border border-slate-200 bg-white/95 p-6 text-sm text-slate-600 shadow-sm">
-          This optimization is not available in the knowledge base.
+        <section className="rounded-lg border border-slate-200 bg-white/95 p-6 shadow-sm">
+          <ErrorPresentation
+            actions={{ goBackHref: backTarget }}
+            descriptor={ErrorPresentationService.fromTechnicalError(
+              "This optimization is not available in the knowledge base.",
+              "knowledge",
+              {
+                title: "Optimization Not Available",
+                explanation: "This optimization is not available in the knowledge base.",
+                recommendedAction: "Return to the previous page and choose a supported optimization."
+              }
+            )}
+          />
         </section>
       </div>
     );
@@ -107,6 +120,10 @@ export function KnowledgeDetailPage() {
   const recoveryTime =
     knowledge.recovery.estimatedTime === "Unknown" ? "Unknown" : knowledge.recovery.estimatedTime;
   const displayTitle = SettingsService.resolveKnowledgeTitle(knowledge, settings.terminologyMode);
+  const applyUnavailableError = ErrorPresentationService.forApplyUnavailable(canRealApply);
+  const runtimeScanError = ErrorPresentationService.forRuntimeScanUnavailable(
+    runtimeScan?.unavailableReason ?? scanCapability.unavailableReason
+  );
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -141,12 +158,17 @@ export function KnowledgeDetailPage() {
       </section>
 
       {currentScanState === "Scan Required" ? (
-        <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-          Run a scan before applying so TweakMind can detect the current state and recommendation for this optimization.
-          <Link className="ml-2 font-semibold underline" to="/scan">
-            Go to Scan
-          </Link>
-        </section>
+        <ErrorPresentation
+          actions={{
+            goBackHref: backTarget,
+            retryHref: "/scan"
+          }}
+          descriptor={ErrorPresentationService.forScanRequired()}
+        />
+      ) : null}
+
+      {applyUnavailableError ? (
+        <ErrorPresentation actions={{ goBackHref: backTarget }} descriptor={applyUnavailableError} />
       ) : null}
 
       <DecisionSection title="Summary">
@@ -229,12 +251,9 @@ export function KnowledgeDetailPage() {
               {runtimeScan?.detectionConfidence ?? (scanCapability.scanCapability === "Not Supported Yet" ? "None" : "None")}
             </dd>
           </div>
-          {runtimeScan?.unavailableReason || scanCapability.unavailableReason ? (
+          {runtimeScanError ? (
             <div className="md:col-span-2">
-              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reason when unavailable</dt>
-              <dd className="mt-2 text-sm leading-6 text-slate-700">
-                {runtimeScan?.unavailableReason ?? scanCapability.unavailableReason}
-              </dd>
+              <ErrorPresentation actions={{ retryHref: "/scan" }} descriptor={runtimeScanError} />
             </div>
           ) : null}
         </dl>

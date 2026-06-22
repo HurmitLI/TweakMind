@@ -1,7 +1,9 @@
 import { AlertTriangle, CheckCircle2, Clock, History, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { ErrorPresentation } from "../components/error/ErrorPresentation";
 import { getTargetStateForOptimization } from "../core/apply/ApplyConfirmationPlan";
+import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
 import { RuntimeScanService } from "../core/scan/RuntimeScanService";
 import { VerificationService } from "../core/verification/VerificationService";
@@ -41,6 +43,7 @@ export function VerificationPage() {
   const scanCapability = RuntimeScanService.getCapability(optimization.id);
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [isVerifying, setIsVerifying] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -58,10 +61,11 @@ export function VerificationPage() {
     return () => {
       isMounted = false;
     };
-  }, [historyEntryId, mode, optimization.id]);
+  }, [historyEntryId, mode, optimization.id, retryCount]);
 
   const status = result?.status ?? "Pending / Not Available";
   const StatusIcon = isVerifying ? Loader2 : statusIcons[status];
+  const verificationError = result ? ErrorPresentationService.fromVerificationResult(result) : null;
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -90,15 +94,26 @@ export function VerificationPage() {
         <Field label="Detection confidence" value={runtimeScan?.detectionConfidence ?? "None"} />
       </dl>
 
-      <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
-        <h3 className="text-lg font-semibold tracking-tight text-slate-950">Verification Result</h3>
-        <p className="mt-4 text-sm leading-6 text-slate-600">
-          {isVerifying ? `Reading the current ${optimization.title} state...` : result?.message}
-        </p>
-        <p className="mt-4 text-sm leading-6 text-slate-500">
-          Verification is read-only. It does not modify Windows settings.
-        </p>
-      </section>
+      {verificationError && !isVerifying ? (
+        <ErrorPresentation
+          actions={{
+            goBackHref: "/dashboard",
+            historyHref: "/history",
+            onRetry: () => setRetryCount((count) => count + 1)
+          }}
+          descriptor={verificationError}
+        />
+      ) : (
+        <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
+          <h3 className="text-lg font-semibold tracking-tight text-slate-950">Verification Result</h3>
+          <p className="mt-4 text-sm leading-6 text-slate-600">
+            {isVerifying ? `Reading the current ${optimization.title} state...` : result?.message}
+          </p>
+          <p className="mt-4 text-sm leading-6 text-slate-500">
+            Verification is read-only. It does not modify Windows settings.
+          </p>
+        </section>
+      )}
 
       <footer className="flex flex-col-reverse gap-3 rounded-lg border border-slate-200 bg-white/90 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <Link
