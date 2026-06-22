@@ -4,6 +4,13 @@ import {
   type OptimizationHistoryEntry,
   WindowsOptimizationService
 } from "../core/windows/WindowsOptimizationService";
+import type { VerificationStatus } from "../core/verification/VerificationResult";
+
+const verificationStyles: Record<VerificationStatus, string> = {
+  Verified: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  Failed: "border-rose-200 bg-rose-50 text-rose-700",
+  "Pending / Not Available": "border-amber-200 bg-amber-50 text-amber-700"
+};
 
 export function HistoryPage() {
   const [history] = useState<OptimizationHistoryEntry[]>(() => WindowsOptimizationService.getHistory());
@@ -33,9 +40,17 @@ export function HistoryPage() {
                     <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
                       {entry.status}
                     </span>
+                    <span
+                      className={[
+                        "rounded-full border px-3 py-1 text-xs font-semibold",
+                        verificationStyles[entry.verificationStatus ?? "Pending / Not Available"]
+                      ].join(" ")}
+                    >
+                      Verification: {entry.verificationStatus ?? "Pending / Not Available"}
+                    </span>
                   </div>
                   <p className="mt-2 text-sm leading-6 text-slate-600">{entry.message}</p>
-                  <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-5">
+                  <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-6">
                     <div>
                       <dt className="font-semibold text-slate-500">Apply mode</dt>
                       <dd className="mt-1 text-slate-950">
@@ -49,6 +64,10 @@ export function HistoryPage() {
                     <div>
                       <dt className="font-semibold text-slate-500">New state</dt>
                       <dd className="mt-1 text-slate-950">{entry.newState}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-slate-500">Verified actual</dt>
+                      <dd className="mt-1 text-slate-950">{entry.verificationActualState ?? "Unknown"}</dd>
                     </div>
                     <div>
                       <dt className="font-semibold text-slate-500">Timestamp</dt>

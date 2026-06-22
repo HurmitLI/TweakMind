@@ -9,6 +9,7 @@ import { KnowledgePage } from "../pages/KnowledgePage";
 import { ReportPage } from "../pages/ReportPage";
 import { ScanPage } from "../pages/ScanPage";
 import { SettingsPage } from "../pages/SettingsPage";
+import { VerificationPage } from "../pages/VerificationPage";
 
 export const router = createBrowserRouter([
   {
@@ -46,6 +47,10 @@ export const router = createBrowserRouter([
       {
         path: "apply",
         element: <ApplyPage />
+      },
+      {
+        path: "verify",
+        element: <VerificationPage />
       },
       {
         path: "history",

@@ -74,6 +74,8 @@ None
 
 - PRODUCT-004 Apply Confirmation
 
+- PRODUCT-005 Verification Center
+
 ---
 
 # In Progress
@@ -84,7 +86,7 @@ None
 
 # Next Development
 
-PRODUCT-005 Verification Center
+PRODUCT-006 Recovery Center
 
 ---
 

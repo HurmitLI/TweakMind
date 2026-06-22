@@ -1,4 +1,4 @@
-import { Check, Clock, Home, History, Loader2 } from "lucide-react";
+import { Check, Clock, History, Loader2, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { getApplyModeLabelForMode } from "../components/apply/ApplyModeBadge";
@@ -81,7 +81,7 @@ export function ApplyPage() {
       executionResult?.error ??
       (isSuccess
         ? executionResult.applyMode === "real"
-          ? "The successful real apply result was recorded in History. Verification will be handled in PRODUCT-005."
+          ? "The successful real apply result was recorded in History. Run Verification Center to compare expected and actual state."
           : "This mock apply result completed without modifying Windows."
         : "TweakMind did not record a success History entry because Apply failed.");
 
@@ -101,18 +101,20 @@ export function ApplyPage() {
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Link
               className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950"
-              to="/dashboard"
-            >
-              <Home size={17} aria-hidden="true" />
-              Return Home
-            </Link>
-            <Link
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
               to="/history"
             >
               <History size={17} aria-hidden="true" />
               Open History
             </Link>
+            {isSuccess ? (
+              <Link
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                to={`/verify?id=${executionResult.optimizationId}`}
+              >
+                <ShieldCheck size={17} aria-hidden="true" />
+                Verify Result
+              </Link>
+            ) : null}
           </div>
         </section>
       </div>

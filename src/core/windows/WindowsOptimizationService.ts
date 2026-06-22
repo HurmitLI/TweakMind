@@ -1,4 +1,5 @@
 import type { OptimizationId, OptimizationStatus } from "../../types/optimization";
+import type { VerificationResult, VerificationStatus } from "../verification/VerificationResult";
 
 export type OptimizationExecutionStatus = "Success" | "Failed";
 export type OptimizationApplyMode = "real" | "mock" | "unsupported";
@@ -28,6 +29,10 @@ export interface OptimizationHistoryEntry {
   message: string;
   isAdmin: boolean;
   applyMode?: OptimizationApplyMode;
+  verificationStatus?: VerificationStatus;
+  verificationExpectedState?: OptimizationStatus;
+  verificationActualState?: OptimizationStatus;
+  verificationTimestamp?: string;
 }
 
 export type OptimizationExecutionResult = OptimizationHistoryEntry;
@@ -55,6 +60,27 @@ export class WindowsOptimizationService {
 
   static recordHistory(entry: OptimizationHistoryEntry) {
     writeHistory([entry, ...readHistory()]);
+  }
+
+  static recordVerification(result: VerificationResult) {
+    const history = readHistory();
+    let updated = false;
+    const nextHistory = history.map((entry) => {
+      if (updated || entry.optimizationId !== result.optimizationId || entry.status !== "Success") {
+        return entry;
+      }
+
+      updated = true;
+      return {
+        ...entry,
+        verificationStatus: result.status,
+        verificationExpectedState: result.expectedState,
+        verificationActualState: result.actualState,
+        verificationTimestamp: result.timestamp
+      };
+    });
+
+    writeHistory(nextHistory);
   }
 }
 
