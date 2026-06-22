@@ -1,0 +1,15 @@
+node_modules/
+dist/
+dist-electron/
+dist-renderer/
+.vite/
+.DS_Store
+*.log
+coverage/
+node_modules/
+dist/
+src-tauri/target/
+screenshots/
+*.exe
+*.pdb
+*.log
