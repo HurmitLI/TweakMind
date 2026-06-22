@@ -100,6 +100,12 @@ export function RecoveryConfirmationPage() {
           <p className="mt-4 text-sm leading-6 text-slate-600">
             Recovery uses the History record created during Real Apply. The UI does not modify Windows directly.
           </p>
+          {entry.optimizationId === "sysmain" ? (
+            <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+              Restoring SysMain may re-enable app launch prefetching and change memory behavior. TweakMind does not
+              guarantee performance improvements from disabling or re-enabling SysMain.
+            </p>
+          ) : null}
         </section>
       </div>
 

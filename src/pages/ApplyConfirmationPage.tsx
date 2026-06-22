@@ -132,6 +132,14 @@ export function ApplyConfirmationPage() {
               <p>{plan.readinessMessage}</p>
             </div>
           </div>
+          {plan.safetyNotice ? (
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+              <div className="flex items-start gap-3">
+                <Info className="mt-0.5 shrink-0" size={18} aria-hidden="true" />
+                <p>{plan.safetyNotice}</p>
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">

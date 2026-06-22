@@ -18,7 +18,8 @@ export function getTargetStateForOptimization(
     "windows-search": "Disabled",
     "game-mode": "Enabled",
     "core-isolation": "Enabled",
-    "delivery-optimization": "Disabled"
+    "delivery-optimization": "Disabled",
+    sysmain: "Disabled"
   };
 
   return targetStates[id] ?? "Unknown";
@@ -47,6 +48,10 @@ export function getApplyConfirmationPlan(id: OptimizationId) {
   const currentStatus = recommendation.currentStatus ?? "Unknown";
   const capabilities = OptimizationCapabilityRegistry.get(optimization.id);
   const isAlreadyOptimized = recommendation.recommendation === "Already Optimized";
+  const safetyNotices: Partial<Record<OptimizationId, string>> = {
+    sysmain:
+      "Disabling SysMain may reduce app launch prefetching and change memory behavior. TweakMind does not guarantee FPS or performance gains. Review the trade-offs before applying rather than disabling blindly."
+  };
 
   return {
     optimization,
@@ -54,6 +59,7 @@ export function getApplyConfirmationPlan(id: OptimizationId) {
     recommendation,
     currentStatus,
     targetState: getTargetStateForOptimization(optimization.id, recommendation.recommendation, currentStatus),
+    safetyNotice: safetyNotices[optimization.id],
     whatWillChange:
       capabilities.canRealApply && !isAlreadyOptimized
         ? `TweakMind will capture the current ${optimization.title} state, then ask the native executor to move it to the target state.`
