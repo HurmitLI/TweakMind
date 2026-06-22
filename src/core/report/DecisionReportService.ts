@@ -1,0 +1,282 @@
+import type {
+  OptimizationBenefitLevel,
+  OptimizationCategory,
+  OptimizationRecommendation,
+  OptimizationRiskLevel
+} from "../../types/optimization";
+import { OptimizationCapabilityRegistry } from "../execution/OptimizationCapabilityRegistry";
+import type { KnowledgePriority } from "../knowledge/KnowledgeDefinition";
+import { KnowledgeRepository } from "../knowledge/KnowledgeRepository";
+import { scanAvailabilityFor } from "../knowledge/knowledgeSchemaHelpers";
+import type { OptimizationScanResult, ScanResult } from "../scan/ScanResult";
+import { WindowsOptimizationService } from "../windows/WindowsOptimizationService";
+import type {
+  DecisionReportApplyState,
+  DecisionReportFilterId,
+  DecisionReportItem,
+  DecisionReportModel,
+  DecisionReportSection,
+  DecisionReportSectionId,
+  DecisionReportSelectionSummary
+} from "./DecisionReportTypes";
+
+const sectionMeta: Record<DecisionReportSectionId, { title: string; description: string }> = {
+  recommended: {
+    title: "Recommended",
+    description: "These optimizations deserve attention first based on your scan."
+  },
+  optional: {
+    title: "Optional",
+    description: "Review these when the trade-offs fit your goals."
+  },
+  "keep-current": {
+    title: "Keep Current",
+    description: "These settings already match a sensible default for your scan."
+  },
+  unavailable: {
+    title: "Unavailable",
+    description: "Scan or real apply is not available for these items in the current MVP step."
+  }
+};
+
+const sectionOrder: DecisionReportSectionId[] = ["recommended", "optional", "keep-current", "unavailable"];
+
+const priorityOrder: Record<KnowledgePriority, number> = {
+  High: 0,
+  Medium: 1,
+  Low: 2,
+  Unknown: 3
+};
+
+const riskOrder: Record<OptimizationRiskLevel | "Unknown", number> = {
+  High: 0,
+  Medium: 1,
+  Low: 2,
+  Unknown: 3
+};
+
+const benefitOrder: Record<OptimizationBenefitLevel | "Unknown", number> = {
+  High: 0,
+  Medium: 1,
+  Low: 2,
+  Unknown: 3
+};
+
+function parseEstimatedMinutes(value: string | undefined): number {
+  if (!value || value === "Unknown") {
+    return 1;
+  }
+
+  const match = value.match(/(\d+)/);
+  return match ? Number(match[1]) : 1;
+}
+
+function classifySection(
+  recommendation: OptimizationRecommendation,
+  scanAvailable: boolean
+): DecisionReportSectionId {
+  if (!scanAvailable) {
+    return "unavailable";
+  }
+
+  if (recommendation === "Recommended") {
+    return "recommended";
+  }
+
+  if (recommendation === "Optional") {
+    return "optional";
+  }
+
+  if (recommendation === "Keep Default" || recommendation === "Keep Enabled" || recommendation === "Already Optimized") {
+    return "keep-current";
+  }
+
+  return "optional";
+}
+
+function buildItem(result: OptimizationScanResult): DecisionReportItem | null {
+  const knowledge = KnowledgeRepository.getById(result.id);
+
+  if (!knowledge) {
+    return null;
+  }
+
+  const capabilities = OptimizationCapabilityRegistry.get(result.id);
+  const scanAvailable = scanAvailabilityFor(result.id) === "Available";
+  const history = WindowsOptimizationService.getHistory().find((entry) => entry.optimizationId === result.id);
+  const lastAppliedLabel = history
+    ? new Date(Number(history.timestamp) * 1000).toLocaleString()
+    : undefined;
+
+  return {
+    id: result.id,
+    title: knowledge.identity.title,
+    category: knowledge.identity.category,
+    recommendation: result.recommendation,
+    reason: result.reason,
+    currentState: result.normalizedStatus,
+    riskLevel: knowledge.risks.riskLevel,
+    expectedBenefit: knowledge.decisionSupport.expectedBenefit,
+    priority: knowledge.identity.priority,
+    canRealApply: capabilities.canRealApply,
+    canVerify: capabilities.canVerify,
+    canRecover: capabilities.canRecover,
+    scanAvailable,
+    section: classifySection(result.recommendation, scanAvailable),
+    ignoreConsequence: knowledge.tradeOffs.cons[0] ?? knowledge.decisionSupport.decisionNotes,
+    estimatedMinutes: parseEstimatedMinutes(
+      knowledge.recovery.estimatedTime === "Unknown" ? undefined : knowledge.recovery.estimatedTime
+    ),
+    lastAppliedLabel
+  };
+}
+
+function sortItems(items: DecisionReportItem[]): DecisionReportItem[] {
+  return [...items].sort((left, right) => {
+    const priorityDiff = priorityOrder[left.priority] - priorityOrder[right.priority];
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
+
+    const riskDiff = riskOrder[left.riskLevel] - riskOrder[right.riskLevel];
+    if (riskDiff !== 0) {
+      return riskDiff;
+    }
+
+    const benefitDiff = benefitOrder[left.expectedBenefit] - benefitOrder[right.expectedBenefit];
+    if (benefitDiff !== 0) {
+      return benefitDiff;
+    }
+
+    return left.title.localeCompare(right.title);
+  });
+}
+
+function buildSections(items: DecisionReportItem[]): DecisionReportSection[] {
+  return sectionOrder.map((id) => ({
+    id,
+    title: sectionMeta[id].title,
+    description: sectionMeta[id].description,
+    items: sortItems(items.filter((item) => item.section === id))
+  }));
+}
+
+export class DecisionReportService {
+  static buildModel(scanResult: ScanResult | null): DecisionReportModel {
+    if (!scanResult) {
+      return {
+        hasScan: false,
+        sections: sectionOrder.map((id) => ({
+          id,
+          title: sectionMeta[id].title,
+          description: sectionMeta[id].description,
+          items: []
+        })),
+        allItems: []
+      };
+    }
+
+    const allItems = sortItems(
+      scanResult.optimizationResults
+        .map((result) => buildItem(result))
+        .filter((item): item is DecisionReportItem => item !== null)
+    );
+
+    return {
+      hasScan: true,
+      sections: buildSections(allItems),
+      allItems
+    };
+  }
+
+  static filterItems(
+    items: DecisionReportItem[],
+    filter: DecisionReportFilterId,
+    riskLevel?: OptimizationRiskLevel,
+    category?: OptimizationCategory
+  ): DecisionReportItem[] {
+    return items.filter((item) => {
+      if (filter === "real-apply" && !item.canRealApply) {
+        return false;
+      }
+
+      if (filter === "knowledge-only" && item.canRealApply) {
+        return false;
+      }
+
+      if (filter === "risk" && riskLevel && item.riskLevel !== riskLevel) {
+        return false;
+      }
+
+      if (filter === "category" && category && item.category !== category) {
+        return false;
+      }
+
+      return true;
+    });
+  }
+
+  static summarizeSelection(selectedIds: string[], items: DecisionReportItem[]): DecisionReportSelectionSummary {
+    const selectedItems = items.filter((item) => selectedIds.includes(item.id));
+    const supportedSelected = selectedItems.filter((item) => item.canRealApply);
+    const unsupportedSelected = selectedItems.filter((item) => !item.canRealApply);
+
+    const highestSelectedRisk = selectedItems.reduce<OptimizationRiskLevel | "Unknown" | "None">((current, item) => {
+      if (current === "None") {
+        return item.riskLevel;
+      }
+
+      if (item.riskLevel === "Unknown") {
+        return current;
+      }
+
+      if (current === "Unknown") {
+        return item.riskLevel;
+      }
+
+      return riskOrder[item.riskLevel] < riskOrder[current] ? item.riskLevel : current;
+    }, "None");
+
+    const estimatedMinutes = selectedItems.reduce((total, item) => total + item.estimatedMinutes, 0);
+    const estimatedExecutionTime =
+      selectedItems.length === 0
+        ? "None selected"
+        : estimatedMinutes <= 1
+          ? "About 1 minute"
+          : `About ${estimatedMinutes} minutes`;
+
+    let applyState: DecisionReportApplyState = "disabled-none";
+    let applyMessage = "Select a supported optimization to continue.";
+    let applyTargetId: DecisionReportSelectionSummary["applyTargetId"];
+
+    if (selectedItems.length === 0) {
+      applyState = "disabled-none";
+      applyMessage = "Select at least one optimization to review apply options.";
+    } else if (supportedSelected.length === 0) {
+      applyState = "disabled-unsupported";
+      applyMessage = "Selected optimizations are not available for real apply in this MVP step.";
+    } else if (supportedSelected.length > 1) {
+      applyState = "disabled-multiple";
+      applyMessage = "MVP applies one optimization at a time. Select one supported optimization to continue.";
+    } else {
+      applyState = "ready";
+      applyMessage = "Continue to Apply Confirmation for the selected optimization.";
+      applyTargetId = supportedSelected[0]?.id;
+    }
+
+    if (unsupportedSelected.length > 0 && supportedSelected.length > 0) {
+      applyMessage = `${unsupportedSelected.length} selected item(s) are not available for real apply. ${applyMessage}`;
+    }
+
+    return {
+      selectedCount: selectedItems.length,
+      supportedSelectedCount: supportedSelected.length,
+      unsupportedSelectedCount: unsupportedSelected.length,
+      estimatedExecutionTime,
+      highestSelectedRisk,
+      applyState,
+      applyMessage,
+      applyTargetId
+    };
+  }
+}
