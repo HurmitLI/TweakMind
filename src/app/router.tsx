@@ -4,6 +4,7 @@ import { ApplyConfirmationPage } from "../pages/ApplyConfirmationPage";
 import { ApplyPage } from "../pages/ApplyPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { DecisionPage } from "../pages/DecisionPage";
+import { KnowledgeDetailPage } from "../pages/KnowledgeDetailPage";
 import { HistoryPage } from "../pages/HistoryPage";
 import { KnowledgePage } from "../pages/KnowledgePage";
 import { ReportPage } from "../pages/ReportPage";
@@ -37,6 +38,10 @@ export const router = createBrowserRouter([
       {
         path: "report",
         element: <ReportPage />
+      },
+      {
+        path: "knowledge/detail",
+        element: <KnowledgeDetailPage />
       },
       {
         path: "decision",

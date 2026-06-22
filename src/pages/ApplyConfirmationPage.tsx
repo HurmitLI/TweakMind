@@ -48,8 +48,13 @@ export function ApplyConfirmationPage() {
   const requestedOptimizationId = (optimizationId as OptimizationId | undefined) ?? defaultOptimization.id;
   const plan = useMemo(() => getApplyConfirmationPlan(requestedOptimizationId), [requestedOptimizationId]);
   const { currentStatus, knowledge, optimization, recommendation, targetState } = plan;
-  const source = searchParams.get("from") === "decision" ? "decision" : "report";
-  const cancelTarget = source === "decision" ? `/decision?id=${optimization.id}` : "/report";
+  const from = searchParams.get("from");
+  const cancelTarget =
+    from === "knowledge-detail" || from === "knowledge"
+      ? `/knowledge/detail?id=${optimization.id}&from=knowledge`
+      : from === "decision"
+        ? `/decision?id=${optimization.id}&from=report`
+        : "/report";
   const [isConfirming, setIsConfirming] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
 

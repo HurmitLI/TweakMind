@@ -126,7 +126,7 @@ export function KnowledgePage() {
           <Link
             className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             key={knowledge.identity.id}
-            to={`/decision?id=${knowledge.identity.id}`}
+            to={`/knowledge/detail?id=${knowledge.identity.id}&from=knowledge`}
           >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">

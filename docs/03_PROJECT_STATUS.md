@@ -96,6 +96,8 @@ None
 
 - PRODUCT-006 Recovery Center
 
+- PRODUCT-007 Knowledge Detail 2.0
+
 ---
 
 # In Progress
@@ -106,7 +108,7 @@ None
 
 # Next Development
 
-PRODUCT-007 Knowledge Detail 2.0
+PRODUCT-008 Decision Report 2.0
 
 ---
 
