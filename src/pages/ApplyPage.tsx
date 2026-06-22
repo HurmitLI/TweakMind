@@ -1,16 +1,16 @@
 import { Check, Clock, Home, History, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { getApplyModeLabel } from "../components/apply/ApplyModeBadge";
+import { getApplyModeLabelForMode } from "../components/apply/ApplyModeBadge";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
 import { readPendingApplyResult } from "../core/windows/WindowsOptimizationService";
 import type { OptimizationApplyResult } from "../core/windows/WindowsOptimizationService";
 import type { OptimizationId } from "../types/optimization";
 
 const applySteps = [
-  "Creating restore point...",
+  "Capturing current state...",
   "Applying optimization...",
-  "Verifying configuration...",
+  "Recording apply result...",
   "Finishing..."
 ];
 
@@ -80,7 +80,9 @@ export function ApplyPage() {
     const message =
       executionResult?.error ??
       (isSuccess
-        ? "This mock apply result completed without modifying Windows."
+        ? executionResult.applyMode === "real"
+          ? "The successful real apply result was recorded in History. Verification will be handled in PRODUCT-005."
+          : "This mock apply result completed without modifying Windows."
         : "TweakMind did not record a success History entry because Apply failed.");
 
     return (
@@ -91,7 +93,7 @@ export function ApplyPage() {
           </div>
           <h2 className="mt-5 text-4xl font-semibold tracking-tight text-slate-950">{title}</h2>
           <div className="mt-4 inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
-            {getApplyModeLabel(executionResult.optimizationId)}
+            {getApplyModeLabelForMode(executionResult.applyMode)}
           </div>
           <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600">
             {message}
@@ -125,7 +127,9 @@ export function ApplyPage() {
             <Loader2 className="animate-spin" size={23} aria-hidden="true" />
           </div>
           <div>
-            <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-700">Mock apply flow</p>
+            <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-700">
+              {getApplyModeLabelForMode(executionResult.applyMode)} flow
+            </p>
             <h2 className="text-4xl font-semibold tracking-tight text-slate-950">Applying Optimizations</h2>
             <p className="mt-4 text-lg leading-8 text-slate-600">Preparing your Windows configuration...</p>
           </div>
@@ -139,7 +143,7 @@ export function ApplyPage() {
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Apply mode</p>
-              <p className="mt-1 text-sm font-semibold text-slate-950">{getApplyModeLabel(executionResult.optimizationId)}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-950">{getApplyModeLabelForMode(executionResult.applyMode)}</p>
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current step</p>

@@ -60,6 +60,8 @@ None
 
 - ENGINE-007
 
+- ENGINE-008 Real Windows Apply
+
 ---
 
 # Completed PRODUCT
@@ -82,7 +84,7 @@ None
 
 # Next Development
 
-ENGINE-008 Real Windows Apply
+PRODUCT-005 Verification Center
 
 ---
 

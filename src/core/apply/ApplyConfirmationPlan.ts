@@ -40,6 +40,8 @@ export function getApplyConfirmationPlan(id: OptimizationId) {
         selectedByDefault: false
       };
   const currentStatus = recommendation.currentStatus ?? "Unknown";
+  const isWindowsSearch = optimization.id === "windows-search";
+  const isAlreadyOptimized = recommendation.recommendation === "Already Optimized";
 
   return {
     optimization,
@@ -48,10 +50,14 @@ export function getApplyConfirmationPlan(id: OptimizationId) {
     currentStatus,
     targetState: targetStateFor(optimization.id, recommendation.recommendation, currentStatus),
     whatWillChange:
-      recommendation.recommendation === "Already Optimized"
-        ? "This optimization is already in the recommended state. The current MVP will only record a mock apply result."
-        : "The current MVP will not modify Windows. It will only continue to the mock apply flow after confirmation.",
-    readinessMessage: "Apply is not connected to real Windows changes in this PRODUCT milestone."
+      isWindowsSearch && !isAlreadyOptimized
+        ? "TweakMind will capture the current Windows Search service state, then ask the native executor to disable Windows Search."
+        : isWindowsSearch
+          ? "Windows Search is already in the recommended state. The executor will still capture the current state before reporting the result."
+          : "This optimization is not connected to real Windows Apply yet. Confirmation will not modify Windows.",
+    readinessMessage: isWindowsSearch
+      ? "Real Apply is available for Windows Search only and runs through the Tauri executor, not UI code."
+      : "Real Apply is not available for this optimization yet. No Windows changes will be made."
   };
 }
 
@@ -61,6 +67,7 @@ export function createMockApplyResult(optimizationId: OptimizationId, previousSt
     applyMode: "mock",
     status: "success",
     previousState,
+    currentState: previousState,
     error: null,
     timestamp: Math.floor(Date.now() / 1000).toString()
   };

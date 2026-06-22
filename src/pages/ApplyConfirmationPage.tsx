@@ -1,10 +1,11 @@
 import { ArrowLeft, CheckCircle2, Info, ShieldCheck } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ApplyModeBadge, getApplyModeLabel } from "../components/apply/ApplyModeBadge";
 import { RecommendationBadge } from "../components/decision/RecommendationBadge";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
-import { createMockApplyResult, getApplyConfirmationPlan } from "../core/apply/ApplyConfirmationPlan";
+import { getApplyConfirmationPlan } from "../core/apply/ApplyConfirmationPlan";
+import { OptimizationExecutor } from "../core/windows/OptimizationExecutor";
 import { storePendingApplyResult } from "../core/windows/WindowsOptimizationService";
 import type { OptimizationId } from "../types/optimization";
 
@@ -49,10 +50,22 @@ export function ApplyConfirmationPage() {
   const { currentStatus, knowledge, optimization, recommendation, targetState } = plan;
   const source = searchParams.get("from") === "decision" ? "decision" : "report";
   const cancelTarget = source === "decision" ? `/decision?id=${optimization.id}` : "/report";
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
 
-  function confirmAndApply() {
-    storePendingApplyResult(createMockApplyResult(optimization.id, currentStatus));
-    navigate(`/apply?id=${optimization.id}`);
+  async function confirmAndApply() {
+    setApplyError(null);
+    setIsConfirming(true);
+
+    try {
+      const result = await OptimizationExecutor.apply(optimization.id);
+      storePendingApplyResult(result);
+      navigate(`/apply?id=${optimization.id}`);
+    } catch (error) {
+      setApplyError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsConfirming(false);
+    }
   }
 
   return (
@@ -136,6 +149,12 @@ export function ApplyConfirmationPage() {
         </section>
       </div>
 
+      {applyError ? (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
+          {applyError}
+        </div>
+      ) : null}
+
       <footer className="flex flex-col-reverse gap-3 rounded-lg border border-slate-200 bg-white/90 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <Link
           className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
@@ -145,11 +164,12 @@ export function ApplyConfirmationPage() {
           Cancel
         </Link>
         <button
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300"
+          disabled={isConfirming}
           onClick={confirmAndApply}
           type="button"
         >
-          Confirm and Continue
+          {isConfirming ? "Preparing Apply..." : "Confirm and Continue"}
         </button>
       </footer>
     </div>

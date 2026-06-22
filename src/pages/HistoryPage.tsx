@@ -1,21 +1,12 @@
-import { RotateCcw } from "lucide-react";
 import { useState } from "react";
-import { OptimizationExecutor } from "../core/windows/OptimizationExecutor";
+import { getApplyModeLabelForMode } from "../components/apply/ApplyModeBadge";
 import {
   type OptimizationHistoryEntry,
   WindowsOptimizationService
 } from "../core/windows/WindowsOptimizationService";
 
 export function HistoryPage() {
-  const [history, setHistory] = useState<OptimizationHistoryEntry[]>(() => WindowsOptimizationService.getHistory());
-  const [restoringId, setRestoringId] = useState<string | null>(null);
-
-  async function restore(entry: OptimizationHistoryEntry) {
-    setRestoringId(entry.id);
-    await OptimizationExecutor.restore(entry);
-    setHistory(WindowsOptimizationService.getHistory());
-    setRestoringId(null);
-  }
+  const [history] = useState<OptimizationHistoryEntry[]>(() => WindowsOptimizationService.getHistory());
 
   return (
     <div className="flex flex-1 flex-col">
@@ -44,7 +35,13 @@ export function HistoryPage() {
                     </span>
                   </div>
                   <p className="mt-2 text-sm leading-6 text-slate-600">{entry.message}</p>
-                  <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+                  <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-5">
+                    <div>
+                      <dt className="font-semibold text-slate-500">Apply mode</dt>
+                      <dd className="mt-1 text-slate-950">
+                        {entry.applyMode ? getApplyModeLabelForMode(entry.applyMode) : "Unknown"}
+                      </dd>
+                    </div>
                     <div>
                       <dt className="font-semibold text-slate-500">Previous state</dt>
                       <dd className="mt-1 text-slate-950">{entry.previousState}</dd>
@@ -62,12 +59,10 @@ export function HistoryPage() {
 
                 <button
                   className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                  disabled={entry.status !== "Success" || restoringId === entry.id}
-                  onClick={() => void restore(entry)}
+                  disabled
                   type="button"
                 >
-                  <RotateCcw size={16} aria-hidden="true" />
-                  {restoringId === entry.id ? "Restoring..." : "Restore"}
+                  Restore Coming Soon
                 </button>
               </div>
             </article>

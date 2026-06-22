@@ -1,29 +1,32 @@
 import type { OptimizationId } from "../../types/optimization";
+import type { OptimizationApplyMode } from "../../core/windows/WindowsOptimizationService";
 
-type ApplyMode = "mock" | "unsupported";
+type ApplyMode = OptimizationApplyMode;
 
 interface ApplyModeBadgeProps {
   optimizationId: OptimizationId;
 }
 
 const styles: Record<ApplyMode, string> = {
+  real: "border-emerald-200 bg-emerald-50 text-emerald-700",
   mock: "border-slate-200 bg-slate-100 text-slate-700",
   unsupported: "border-amber-200 bg-amber-50 text-amber-700"
 };
 
 export function getApplyMode(optimizationId: OptimizationId): ApplyMode {
-  void optimizationId;
-  return "mock";
+  return optimizationId === "windows-search" ? "real" : "unsupported";
+}
+
+export function getApplyModeLabelForMode(mode: ApplyMode) {
+  if (mode === "real") {
+    return "Real Apply";
+  }
+
+  return mode === "mock" ? "Mock Apply" : "Unsupported Apply";
 }
 
 export function getApplyModeLabel(optimizationId: OptimizationId) {
-  const mode = getApplyMode(optimizationId);
-
-  if (mode === "mock") {
-    return "Mock Apply";
-  }
-
-  return "Unsupported Apply";
+  return getApplyModeLabelForMode(getApplyMode(optimizationId));
 }
 
 export function ApplyModeBadge({ optimizationId }: ApplyModeBadgeProps) {

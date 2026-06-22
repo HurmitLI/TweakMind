@@ -1,6 +1,20 @@
 import type { OptimizationId, OptimizationStatus } from "../../types/optimization";
 
 export type OptimizationExecutionStatus = "Success" | "Failed";
+export type OptimizationApplyMode = "real" | "mock" | "unsupported";
+export type OptimizationApplyStatus = "success" | "failed";
+
+export interface OptimizationApplyResult {
+  optimizationId: OptimizationId;
+  applyMode: OptimizationApplyMode;
+  status: OptimizationApplyStatus;
+  previousState: OptimizationStatus;
+  currentState: OptimizationStatus;
+  previousStartupType?: string;
+  message?: string;
+  error: string | null;
+  timestamp: string;
+}
 
 export interface OptimizationHistoryEntry {
   id: string;
@@ -13,11 +27,13 @@ export interface OptimizationHistoryEntry {
   status: OptimizationExecutionStatus;
   message: string;
   isAdmin: boolean;
+  applyMode?: OptimizationApplyMode;
 }
 
 export type OptimizationExecutionResult = OptimizationHistoryEntry;
 
 export const optimizationHistoryStorageKey = "tweakmind:optimization-history";
+export const pendingApplyResultStorageKey = "tweakmind:pending-apply-result";
 
 function readHistory(): OptimizationHistoryEntry[] {
   try {
@@ -39,5 +55,24 @@ export class WindowsOptimizationService {
 
   static recordHistory(entry: OptimizationHistoryEntry) {
     writeHistory([entry, ...readHistory()]);
+  }
+}
+
+export function storePendingApplyResult(result: OptimizationApplyResult) {
+  window.sessionStorage.setItem(pendingApplyResultStorageKey, JSON.stringify(result));
+}
+
+export function readPendingApplyResult(optimizationId: OptimizationId): OptimizationApplyResult | null {
+  try {
+    const stored = window.sessionStorage.getItem(pendingApplyResultStorageKey);
+
+    if (!stored) {
+      return null;
+    }
+
+    const result = JSON.parse(stored) as OptimizationApplyResult;
+    return result.optimizationId === optimizationId ? result : null;
+  } catch {
+    return null;
   }
 }
