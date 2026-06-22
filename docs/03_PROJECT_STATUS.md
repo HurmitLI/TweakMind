@@ -60,8 +60,6 @@ None
 
 - ENGINE-007
 
-- ENGINE-008 Real Windows Apply
-
 ---
 
 # Completed PRODUCT
@@ -71,6 +69,8 @@ None
 - PRODUCT-002 Optimization Knowledge Base
 
 - PRODUCT-003 Knowledge Center
+
+- PRODUCT-004 Apply Confirmation
 
 ---
 
@@ -82,7 +82,7 @@ None
 
 # Next Development
 
-PRODUCT-005 Verification Center
+ENGINE-008 Real Windows Apply
 
 ---
 
