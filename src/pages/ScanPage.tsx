@@ -79,6 +79,8 @@ export function ScanPage() {
     [progress, scanItems.length]
   );
 
+  const activeItemIndex = Math.min(scanItems.length - 1, completedItems);
+
   return (
     <div className="tm-centered-shell">
       <section className="tm-card-hero tm-layout-section w-full max-w-3xl">
@@ -105,7 +107,12 @@ export function ScanPage() {
 
         <ul className="tm-mt-lg tm-layout-grid sm:grid-cols-2">
           {scanItems.map((item, index) => (
-            <ScanChecklistItem complete={index < completedItems} key={scanItemKeys[index]} label={item} />
+            <ScanChecklistItem
+              active={completedItems < scanItems.length && index === activeItemIndex}
+              complete={index < completedItems}
+              key={scanItemKeys[index]}
+              label={item}
+            />
           ))}
         </ul>
 

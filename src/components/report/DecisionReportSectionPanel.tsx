@@ -15,6 +15,10 @@ function sectionPanelClass(sectionId: DecisionReportSectionId) {
     return "tm-report-section-recommended";
   }
 
+  if (sectionId === "optional") {
+    return "tm-report-section-optional";
+  }
+
   if (sectionId === "keep-current") {
     return "tm-report-section-passive";
   }
@@ -23,12 +27,16 @@ function sectionPanelClass(sectionId: DecisionReportSectionId) {
     return "tm-report-section-quiet";
   }
 
-  return "rounded-xl bg-white/80 dark:bg-slate-900/80";
+  return "tm-report-section-optional";
 }
 
 function sectionTitleClass(sectionId: DecisionReportSectionId) {
   if (sectionId === "recommended") {
-    return "tm-typo-section-title";
+    return "tm-typo-section";
+  }
+
+  if (sectionId === "optional") {
+    return "tm-typo-body-emphasis";
   }
 
   if (sectionId === "keep-current") {
@@ -39,7 +47,7 @@ function sectionTitleClass(sectionId: DecisionReportSectionId) {
     return "tm-typo-caption";
   }
 
-  return "tm-typo-section-title";
+  return "tm-typo-section";
 }
 
 function cardEmphasis(sectionId: DecisionReportSectionId): "strong" | "default" | "passive" | "quiet" {
@@ -72,13 +80,13 @@ export function DecisionReportSectionPanel({
       className={sectionPanelClass(section.id)}
       open={section.id === "recommended"}
     >
-      <summary className="cursor-pointer list-none px-6 py-5">
-        <div className="flex items-center justify-between gap-4">
+      <summary className="cursor-pointer list-none px-6 py-6">
+        <div className="flex items-center justify-between tm-gap-md">
           <div>
             <h3 className={sectionTitleClass(section.id)}>{section.title}</h3>
             <p
               className={[
-                "mt-1.5",
+                "tm-mt-sm",
                 isQuiet ? "tm-typo-caption" : "tm-typo-body-secondary"
               ].join(" ")}
             >
@@ -87,8 +95,8 @@ export function DecisionReportSectionPanel({
           </div>
           <span
             className={[
-              "tm-typo-caption font-medium tabular-nums",
-              section.id === "recommended" ? "text-emerald-700 dark:text-emerald-300" : ""
+              "tm-typo-caption tabular-nums",
+              section.id === "recommended" ? "tm-status-badge tm-status-badge-success" : "tm-status-badge"
             ].join(" ")}
           >
             {section.items.length}
@@ -96,7 +104,7 @@ export function DecisionReportSectionPanel({
         </div>
       </summary>
 
-      <div className="divide-y divide-slate-100 px-6 pb-2 dark:divide-slate-800/80">
+      <div className="divide-y divide-[color:var(--tm-color-divider)] px-6 pb-3">
         {section.items.length === 0
           ? emptyState ?? (
               <p className="py-4 text-sm leading-6 text-slate-500 dark:text-slate-400">

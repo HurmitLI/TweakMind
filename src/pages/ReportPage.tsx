@@ -29,7 +29,7 @@ export function ReportPage() {
     }[sectionId] as "report.sectionEmpty.recommended";
 
     return (
-      <p className="py-4 text-sm leading-6 text-slate-500 dark:text-slate-400">
+      <p className="py-5 tm-typo-body-secondary">
         {t(messageKey)}
       </p>
     );
@@ -60,16 +60,17 @@ export function ReportPage() {
 
   if (!reportModel.hasScan) {
     return (
-      <div className="tm-page">
-        <section className="tm-hero">
+      <div className="tm-layout-page">
+        <section className="tm-card-hero">
           <p className="tm-eyebrow">{t("report.eyebrow")}</p>
-          <h2 className="tm-title">{t("report.title")}</h2>
+          <h2 className="tm-typo-page">{t("report.title")}</h2>
         </section>
         <EmptyState
           actionLabel={t("report.empty.noScan.action")}
           actionTo="/scan"
           description={t("report.empty.noScan.description")}
           title={t("report.empty.noScan.title")}
+          variant="comfortable"
         />
       </div>
     );
@@ -78,11 +79,11 @@ export function ReportPage() {
   const hasVisibleItems = filteredItems.length > 0;
 
   return (
-    <div className="tm-page">
-      <section className="tm-hero">
+    <div className="tm-layout-page">
+      <section className="tm-card-hero">
         <div className="max-w-3xl">
           <p className="tm-eyebrow">{t("report.eyebrow")}</p>
-          <h2 className="tm-title">{t("report.title")}</h2>
+          <h2 className="tm-typo-page">{t("report.title")}</h2>
           <p className="tm-subtitle">{t("report.subtitle")}</p>
         </div>
 
@@ -133,7 +134,7 @@ export function ReportPage() {
           title={t("report.empty.noMatch.title")}
         />
       ) : (
-        <section className="grid gap-5">
+        <section className="tm-layout-stack">
           {filteredSections.map((section) => (
             <DecisionReportSectionPanel
               emptyState={sectionEmptyState(section.id)}

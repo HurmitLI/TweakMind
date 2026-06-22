@@ -24,24 +24,19 @@ export function EmptyState({
   const isComfortable = variant === "comfortable";
 
   return (
-    <section
-      className={[
-        "tm-empty-state",
-        isComfortable ? "py-14" : "py-10"
-      ].join(" ")}
-    >
-      <div className={isComfortable ? "tm-empty-state-icon" : "tm-empty-state-icon"}>
-        <Icon size={isComfortable ? 28 : 22} aria-hidden="true" />
+    <section className={["tm-empty-state", isComfortable ? "tm-empty-state-comfortable" : ""].join(" ")}>
+      <div className={["tm-empty-state-icon", isComfortable ? "tm-empty-state-icon-large" : ""].join(" ")}>
+        <Icon size={isComfortable ? 30 : 24} aria-hidden="true" />
       </div>
       <h3 className={["tm-typo-section", isComfortable ? "tm-mt-lg" : "tm-mt-md"].join(" ")}>{title}</h3>
       <p className={["mx-auto max-w-xl tm-typo-body", isComfortable ? "tm-mt-md" : "tm-mt-sm"].join(" ")}>{description}</p>
       {actionLabel && actionTo ? (
-        <Link className={isComfortable ? "tm-mt-md tm-button-primary" : "tm-mt-lg tm-button-primary"} to={actionTo}>
+        <Link className={isComfortable ? "tm-mt-lg tm-button-primary" : "tm-mt-lg tm-button-primary"} to={actionTo}>
           {actionLabel}
         </Link>
       ) : null}
       {actionLabel && onAction ? (
-        <button className={isComfortable ? "tm-mt-md tm-button-primary" : "tm-mt-lg tm-button-primary"} onClick={onAction} type="button">
+        <button className={isComfortable ? "tm-mt-lg tm-button-primary" : "tm-mt-lg tm-button-primary"} onClick={onAction} type="button">
           {actionLabel}
         </button>
       ) : null}

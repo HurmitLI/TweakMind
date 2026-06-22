@@ -142,6 +142,8 @@ None
 
 - DESIGN-003 Design System Adoption
 
+- ALPHA-003 Product Polish Sprint
+
 ---
 
 # In Progress

@@ -12,11 +12,11 @@ import {
 import type { OptimizationRecommendation } from "../../types/optimization";
 
 const recommendationStyles: Record<OptimizationRecommendation, string> = {
-  Recommended: "text-emerald-700 dark:text-emerald-300",
-  "Keep Default": "text-slate-500 dark:text-slate-400",
-  "Keep Enabled": "text-blue-700 dark:text-blue-300",
-  "Already Optimized": "text-emerald-700 dark:text-emerald-300",
-  Optional: "text-amber-700 dark:text-amber-300"
+  Recommended: "tm-status-badge tm-status-badge-success",
+  "Keep Default": "tm-status-badge",
+  "Keep Enabled": "tm-status-badge",
+  "Already Optimized": "tm-status-badge tm-status-badge-success",
+  Optional: "tm-status-badge tm-status-badge-warning"
 };
 
 interface DecisionReportCardProps {
@@ -71,7 +71,7 @@ export function DecisionReportCard({ item, selected, onToggleSelected, emphasis 
                 >
                   {item.title}
                 </h3>
-                <span className={["tm-typo-caption font-medium", recommendationStyles[item.recommendation]].join(" ")}>
+                <span className={recommendationStyles[item.recommendation]}>
                   {translateRecommendation(item.recommendation)}
                 </span>
               </div>

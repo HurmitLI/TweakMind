@@ -177,31 +177,32 @@ export function KnowledgePage() {
             title={knowledgeItems.length === 0 ? t("knowledge.empty.noEntries.title") : t("knowledge.empty.noMatch.title")}
           />
         ) : (
-          visibleKnowledge.map((knowledge) => {
+          visibleKnowledge.map((knowledge, index) => {
             const CategoryIcon = categoryIcons[knowledge.identity.category];
             const displayState = statusById.get(knowledge.identity.id) ?? "Scan Required";
+            const isFeatured = index === 0 && !query.trim() && !selectedCategory;
 
             return (
             <Link
-              className="tm-knowledge-card"
+              className={["tm-knowledge-card", isFeatured ? "tm-knowledge-card-featured" : ""].join(" ")}
               key={knowledge.identity.id}
               to={`/knowledge/detail?id=${knowledge.identity.id}&from=knowledge`}
             >
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-                <div className="flex min-w-0 flex-1 gap-4">
+              <div className="flex flex-col tm-gap-md lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex min-w-0 flex-1 tm-gap-md">
                   <div className="tm-icon-tile-soft">
                     <CategoryIcon size={18} aria-hidden="true" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <h3 className="tm-typo-body-emphasis">
+                      <h3 className={isFeatured ? "tm-typo-section" : "tm-typo-body-emphasis"}>
                         {SettingsService.resolveKnowledgeTitle(knowledge)}
                       </h3>
                       <span className="tm-badge-small">
                         {translateCategory(knowledge.identity.category)}
                       </span>
                     </div>
-                    <p className="mt-2 line-clamp-2 tm-body-secondary">{knowledge.overview.summary}</p>
+                    <p className="tm-mt-sm line-clamp-2 tm-typo-body-secondary">{knowledge.overview.summary}</p>
                   </div>
                 </div>
 

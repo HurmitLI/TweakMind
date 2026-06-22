@@ -135,36 +135,36 @@ export function SettingsPage() {
         </PreferenceSection>
       </div>
 
-      <section className="tm-section-card">
+      <section className="tm-about-panel-quiet">
         <div className="flex flex-col tm-gap-lg lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="tm-eyebrow">{t("settings.application.title")}</p>
-            <h3 className="tm-typo-page">{AppInfo.name}</h3>
-            <p className="tm-mt-md max-w-2xl tm-typo-body-secondary">{t("settings.application.description")}</p>
+            <h3 className="tm-typo-section">{AppInfo.name}</h3>
+            <p className="tm-mt-sm max-w-2xl tm-typo-caption">{t("settings.application.description")}</p>
           </div>
           <div className="tm-about-icon">
-            <Sparkles size={24} aria-hidden="true" />
+            <Sparkles size={22} aria-hidden="true" />
           </div>
         </div>
 
         <dl className="tm-mt-lg tm-form-grid tm-form-grid-2">
           <div className="tm-field-plain">
             <dt className="tm-label">{t("settings.application.version")}</dt>
-            <dd className="tm-value">{t("app.versionLabel", { version: AppInfo.version })}</dd>
+            <dd className="tm-value tm-typo-caption">{t("app.versionLabel", { version: AppInfo.version })}</dd>
           </div>
           <div className="tm-field-plain">
             <dt className="tm-label">{t("settings.application.license")}</dt>
-            <dd className="tm-value">{AppInfo.licenseName}</dd>
+            <dd className="tm-value tm-typo-caption">{AppInfo.licenseName}</dd>
           </div>
           <div className="tm-field-plain">
             <dt className="tm-label">{t("settings.application.repository")}</dt>
-            <dd className="tm-mt-md">
+            <dd className="tm-mt-sm">
               <ApplicationLink href={AppInfo.repositoryUrl} label={AppInfo.repositoryUrl.replace("https://", "")} />
             </dd>
           </div>
           <div className="tm-field-plain">
             <dt className="tm-label">{t("settings.application.issueTracker")}</dt>
-            <dd className="tm-mt-md">
+            <dd className="tm-mt-sm">
               <ApplicationLink href={AppInfo.issueTrackerUrl} label={AppInfo.issueTrackerUrl.replace("https://", "")} />
             </dd>
           </div>

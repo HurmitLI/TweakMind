@@ -24,27 +24,27 @@ export function ReportSelectionPanel({ summary }: ReportSelectionPanelProps) {
   const canApply = summary.applyState === "ready" && summary.applyTargetId;
 
   return (
-    <section className="rounded-lg border border-blue-100 bg-white/95 p-5 shadow-md shadow-blue-100/40 dark:border-blue-500/30 dark:bg-slate-900/95 dark:shadow-blue-950/10">
-      <div className="grid gap-3 md:grid-cols-4">
-        <div className="tm-mini-card">
+    <section className="tm-report-selection-panel">
+      <div className="tm-form-grid md:grid-cols-4">
+        <div className="tm-card-metadata">
           <p className="tm-label">{t("report.selection.label.selected")}</p>
-          <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 dark:text-slate-100">{summary.selectedCount}</p>
+          <p className="tm-mt-sm tm-report-selection-summary">{summary.selectedCount}</p>
         </div>
-        <div className="tm-mini-card">
+        <div className="tm-card-metadata">
           <p className="tm-label">{t("report.selection.label.estimatedExecutionTime")}</p>
-          <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{summary.estimatedExecutionTime}</p>
+          <p className="tm-mt-sm tm-value">{summary.estimatedExecutionTime}</p>
         </div>
-        <div className="tm-mini-card">
+        <div className="tm-card-metadata">
           <p className="tm-label">{t("report.selection.label.highestSelectedRisk")}</p>
-          <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{formatHighestRisk(summary.highestSelectedRisk, t)}</p>
+          <p className="tm-mt-sm tm-value">{formatHighestRisk(summary.highestSelectedRisk, t)}</p>
         </div>
-        <div className="tm-mini-card">
+        <div className="tm-card-metadata">
           <p className="tm-label">{t("report.selection.label.applyStatus")}</p>
-          <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{summary.applyMessage}</p>
+          <p className="tm-mt-sm tm-value">{summary.applyMessage}</p>
         </div>
       </div>
 
-      <div className="mt-5 flex justify-end border-t border-slate-100 pt-5 dark:border-slate-800">
+      <div className="tm-mt-lg flex justify-end border-t border-[color:var(--tm-color-divider)] pt-5">
         {canApply ? (
           <Link
             className="tm-button-primary"

@@ -6,22 +6,13 @@ interface RecommendationBadgeProps {
 }
 
 const recommendationStyles: Record<OptimizationRecommendation, string> = {
-  Recommended: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  "Keep Default": "border-slate-200 bg-slate-100 text-slate-700",
-  "Keep Enabled": "border-blue-200 bg-blue-50 text-blue-700",
-  "Already Optimized": "border-emerald-200 bg-emerald-50 text-emerald-700",
-  Optional: "border-amber-200 bg-amber-50 text-amber-700"
+  Recommended: "tm-status-badge tm-status-badge-success",
+  "Keep Default": "tm-status-badge",
+  "Keep Enabled": "tm-status-badge",
+  "Already Optimized": "tm-status-badge tm-status-badge-success",
+  Optional: "tm-status-badge tm-status-badge-warning"
 };
 
 export function RecommendationBadge({ value }: RecommendationBadgeProps) {
-  return (
-    <span
-      className={[
-        "inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold",
-        recommendationStyles[value]
-      ].join(" ")}
-    >
-      {translateRecommendation(value)}
-    </span>
-  );
+  return <span className={recommendationStyles[value]}>{translateRecommendation(value)}</span>;
 }
