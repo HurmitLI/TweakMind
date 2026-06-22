@@ -1197,6 +1197,301 @@ mod windows_apply {
             },
         )
     }
+
+    const DO_POLICY_PATH: &str = "SOFTWARE\\Policies\\Microsoft\\Windows\\DeliveryOptimization";
+    const DO_CONFIG_PATH: &str = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DeliveryOptimization\\Config";
+    const DO_APPLY_TARGET: u32 = 0;
+
+    struct DeliveryOptimizationSnapshot {
+        state: String,
+        raw_value: String,
+        write_source: String,
+    }
+
+    enum DeliveryOptimizationRestoreAction {
+        Set(u32),
+        Delete,
+    }
+
+    fn state_from_delivery_optimization_value(value: Option<u32>) -> String {
+        match value {
+            Some(0) | Some(100) => "Disabled".to_string(),
+            Some(_) => "Enabled".to_string(),
+            None => "Unknown".to_string(),
+        }
+    }
+
+    fn encode_delivery_optimization_raw(source: &str, value: Option<u32>) -> String {
+        match value {
+            Some(value) => format!("{source}:DWORD:{value}"),
+            None => format!("{source}:Missing"),
+        }
+    }
+
+    fn open_delivery_optimization_key(source: &str, access: u32) -> Result<RegistryKey, String> {
+        let key_path = wide(match source {
+            "Policy" => DO_POLICY_PATH,
+            "Config" => DO_CONFIG_PATH,
+            _ => {
+                return Err("Unknown Delivery Optimization registry source.".to_string());
+            }
+        });
+        let mut key: HKEY = null_mut();
+
+        let status = if access == KEY_READ {
+            unsafe { RegOpenKeyExW(HKEY_LOCAL_MACHINE, key_path.as_ptr(), 0, KEY_READ, &mut key) }
+        } else {
+            unsafe { RegCreateKeyW(HKEY_LOCAL_MACHINE, key_path.as_ptr(), &mut key) }
+        };
+
+        if status == ERROR_ACCESS_DENIED {
+            return Err(
+                "Open Delivery Optimization registry key failed with Windows error 5. Administrator privileges may be required."
+                    .to_string(),
+            );
+        }
+
+        if status != ERROR_SUCCESS {
+            return Err(format!("Open Delivery Optimization registry key failed with Windows error {status}."));
+        }
+
+        Ok(RegistryKey(key))
+    }
+
+    fn read_delivery_optimization_dword(source: &str) -> Result<Option<u32>, String> {
+        let key = match open_delivery_optimization_key(source, KEY_READ) {
+            Ok(key) => key,
+            Err(message) if message.contains("Windows error 2.") => return Ok(None),
+            Err(message) => return Err(message),
+        };
+        let value_name = wide("DODownloadMode");
+        let mut data_type = 0u32;
+        let mut data = 0u32;
+        let mut data_size = std::mem::size_of::<u32>() as u32;
+        let status = unsafe {
+            RegQueryValueExW(
+                key.0,
+                value_name.as_ptr(),
+                null_mut(),
+                &mut data_type,
+                &mut data as *mut _ as *mut u8,
+                &mut data_size,
+            )
+        };
+
+        if status == ERROR_FILE_NOT_FOUND {
+            return Ok(None);
+        }
+
+        if status != ERROR_SUCCESS {
+            return Err(format!("Read Delivery Optimization registry value failed with Windows error {status}."));
+        }
+
+        if data_type != REG_DWORD {
+            return Ok(None);
+        }
+
+        Ok(Some(data))
+    }
+
+    fn query_delivery_optimization_snapshot() -> Result<DeliveryOptimizationSnapshot, String> {
+        match read_delivery_optimization_dword("Policy") {
+            Ok(Some(value)) => Ok(DeliveryOptimizationSnapshot {
+                state: state_from_delivery_optimization_value(Some(value)),
+                raw_value: encode_delivery_optimization_raw("Policy", Some(value)),
+                write_source: "Policy".to_string(),
+            }),
+            Ok(None) => match read_delivery_optimization_dword("Config") {
+                Ok(Some(value)) => Ok(DeliveryOptimizationSnapshot {
+                    state: state_from_delivery_optimization_value(Some(value)),
+                    raw_value: encode_delivery_optimization_raw("Config", Some(value)),
+                    write_source: "Config".to_string(),
+                }),
+                Ok(None) => Ok(DeliveryOptimizationSnapshot {
+                    state: "Unknown".to_string(),
+                    raw_value: encode_delivery_optimization_raw("Config", None),
+                    write_source: "Config".to_string(),
+                }),
+                Err(message) => Err(message),
+            },
+            Err(message) => Err(message),
+        }
+    }
+
+    fn set_delivery_optimization_value(source: &str, value: u32) -> Result<(), String> {
+        let key = open_delivery_optimization_key(source, KEY_SET_VALUE)?;
+        let value_name = wide("DODownloadMode");
+        let status = unsafe {
+            RegSetValueExW(
+                key.0,
+                value_name.as_ptr(),
+                0,
+                REG_DWORD,
+                &value as *const _ as *const u8,
+                std::mem::size_of::<u32>() as u32,
+            )
+        };
+
+        if status == ERROR_ACCESS_DENIED {
+            return Err(
+                "Write Delivery Optimization registry value failed with Windows error 5. Administrator privileges may be required."
+                    .to_string(),
+            );
+        }
+
+        if status != ERROR_SUCCESS {
+            return Err(format!("Write Delivery Optimization registry value failed with Windows error {status}."));
+        }
+
+        Ok(())
+    }
+
+    fn delete_delivery_optimization_value(source: &str) -> Result<(), String> {
+        let key = open_delivery_optimization_key(source, KEY_SET_VALUE)?;
+        let value_name = wide("DODownloadMode");
+        let status = unsafe { RegDeleteValueW(key.0, value_name.as_ptr()) };
+
+        if status == ERROR_ACCESS_DENIED {
+            return Err(
+                "Delete Delivery Optimization registry value failed with Windows error 5. Administrator privileges may be required."
+                    .to_string(),
+            );
+        }
+
+        if status == ERROR_FILE_NOT_FOUND || status == ERROR_SUCCESS {
+            return Ok(());
+        }
+
+        Err(format!("Delete Delivery Optimization registry value failed with Windows error {status}."))
+    }
+
+    fn parse_delivery_optimization_raw(raw: &str) -> Result<(String, DeliveryOptimizationRestoreAction), String> {
+        if raw.ends_with(":Missing") {
+            let source = raw.trim_end_matches(":Missing").to_string();
+            return Ok((source, DeliveryOptimizationRestoreAction::Delete));
+        }
+
+        if let Some((source, value_str)) = raw.split_once(":DWORD:") {
+            let value = value_str
+                .parse::<u32>()
+                .map_err(|_| "Saved Delivery Optimization registry value is not restorable.".to_string())?;
+            return Ok((source.to_string(), DeliveryOptimizationRestoreAction::Set(value)));
+        }
+
+        Err("Saved Delivery Optimization registry value is not restorable.".to_string())
+    }
+
+    pub fn delivery_optimization() -> ApplyResult {
+        let before = match query_delivery_optimization_snapshot() {
+            Ok(snapshot) => snapshot,
+            Err(message) => {
+                return apply_result(
+                    "delivery-optimization",
+                    "failed",
+                    "Unknown",
+                    "Unknown",
+                    "Unknown",
+                    message.clone(),
+                    Some(message),
+                );
+            }
+        };
+
+        if let Err(message) = set_delivery_optimization_value(&before.write_source, DO_APPLY_TARGET) {
+            return apply_result(
+                "delivery-optimization",
+                "failed",
+                &before.state,
+                &before.state,
+                &before.raw_value,
+                "Delivery Optimization was not changed.".to_string(),
+                Some(message),
+            );
+        }
+
+        let after = query_delivery_optimization_snapshot().unwrap_or(DeliveryOptimizationSnapshot {
+            state: "Disabled".to_string(),
+            raw_value: encode_delivery_optimization_raw(&before.write_source, Some(DO_APPLY_TARGET)),
+            write_source: before.write_source.clone(),
+        });
+
+        apply_result(
+            "delivery-optimization",
+            if after.state == "Disabled" { "success" } else { "failed" },
+            &before.state,
+            &after.state,
+            &before.raw_value,
+            if after.state == "Disabled" {
+                "Delivery Optimization was limited to HTTP-only mode (no peer sharing) through the native Tauri executor.".to_string()
+            } else {
+                format!(
+                    "Delivery Optimization apply expected Disabled, but detected {}.",
+                    after.state
+                )
+            },
+            if after.state == "Disabled" {
+                None
+            } else {
+                Some("Applied registry value did not produce the expected detected state.".to_string())
+            },
+        )
+    }
+
+    pub fn restore_delivery_optimization(previous_state: String, previous_registry_value: String) -> RecoveryResult {
+        let recovery = match parse_delivery_optimization_raw(&previous_registry_value) {
+            Ok((source, DeliveryOptimizationRestoreAction::Delete)) => delete_delivery_optimization_value(&source),
+            Ok((source, DeliveryOptimizationRestoreAction::Set(value))) => {
+                set_delivery_optimization_value(&source, value)
+            }
+            Err(message) => Err(message),
+        };
+
+        if let Err(message) = recovery {
+            let actual = query_delivery_optimization_snapshot()
+                .map(|snapshot| snapshot.state)
+                .unwrap_or_else(|_| "Unknown".to_string());
+
+            return recovery_result(
+                "delivery-optimization",
+                "failed",
+                &previous_state,
+                &previous_state,
+                &actual,
+                &previous_registry_value,
+                "Delivery Optimization recovery was not applied.".to_string(),
+                Some(message),
+            );
+        }
+
+        let after = query_delivery_optimization_snapshot().unwrap_or(DeliveryOptimizationSnapshot {
+            state: "Unknown".to_string(),
+            raw_value: previous_registry_value.clone(),
+            write_source: "Config".to_string(),
+        });
+        let success = after.state == previous_state;
+
+        recovery_result(
+            "delivery-optimization",
+            if success { "success" } else { "failed" },
+            &previous_state,
+            &previous_state,
+            &after.state,
+            &previous_registry_value,
+            if success {
+                "Delivery Optimization was restored to the saved previous state.".to_string()
+            } else {
+                format!(
+                    "Delivery Optimization recovery expected {previous_state}, but detected {}.",
+                    after.state
+                )
+            },
+            if success {
+                None
+            } else {
+                Some("Recovered state did not match the saved previous state.".to_string())
+            },
+        )
+    }
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -1277,6 +1572,31 @@ mod windows_apply {
             Some("Unsupported operating system.".to_string()),
         )
     }
+
+    pub fn delivery_optimization() -> ApplyResult {
+        apply_result(
+            "delivery-optimization",
+            "failed",
+            "Unknown",
+            "Unknown",
+            "Unknown",
+            "Delivery Optimization Apply is only available on Windows.".to_string(),
+            Some("Unsupported operating system.".to_string()),
+        )
+    }
+
+    pub fn restore_delivery_optimization(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+        recovery_result(
+            "delivery-optimization",
+            "failed",
+            &previous_state,
+            &previous_state,
+            "Unknown",
+            &previous_startup_type,
+            "Delivery Optimization Recovery is only available on Windows.".to_string(),
+            Some("Unsupported operating system.".to_string()),
+        )
+    }
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -1354,6 +1674,16 @@ fn restore_core_isolation(previous_state: String, previous_startup_type: String)
     windows_apply::restore_core_isolation(previous_state, previous_startup_type)
 }
 
+#[tauri::command]
+fn apply_delivery_optimization() -> ApplyResult {
+    windows_apply::delivery_optimization()
+}
+
+#[tauri::command]
+fn restore_delivery_optimization(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+    windows_apply::restore_delivery_optimization(previous_state, previous_startup_type)
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -1366,7 +1696,9 @@ fn main() {
             apply_game_mode,
             restore_game_mode,
             apply_core_isolation,
-            restore_core_isolation
+            restore_core_isolation,
+            apply_delivery_optimization,
+            restore_delivery_optimization
         ])
         .run(tauri::generate_context!())
         .expect("failed to run TweakMind");

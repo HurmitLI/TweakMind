@@ -18,7 +18,7 @@ export function getTargetStateForOptimization(
     "windows-search": "Disabled",
     "game-mode": "Enabled",
     "core-isolation": "Enabled",
-    "delivery-optimization": "Default"
+    "delivery-optimization": "Disabled"
   };
 
   return targetStates[id] ?? "Unknown";

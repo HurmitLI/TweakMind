@@ -1,6 +1,7 @@
 import type { OptimizationId } from "../../types/optimization";
 import type { OptimizationPlugin } from "./OptimizationPluginTypes";
 import { CoreIsolationPlugin } from "./core-isolation/CoreIsolationPlugin";
+import { DeliveryOptimizationPlugin } from "./delivery-optimization/DeliveryOptimizationPlugin";
 import { GameModePlugin } from "./game-mode/GameModePlugin";
 import { UnsupportedPlugin } from "./UnsupportedPlugin";
 import { WindowsSearchPlugin } from "./windows-search/WindowsSearchPlugin";
@@ -8,7 +9,8 @@ import { WindowsSearchPlugin } from "./windows-search/WindowsSearchPlugin";
 const plugins = new Map<OptimizationId, OptimizationPlugin>([
   ["windows-search", WindowsSearchPlugin],
   ["game-mode", GameModePlugin],
-  ["core-isolation", CoreIsolationPlugin]
+  ["core-isolation", CoreIsolationPlugin],
+  ["delivery-optimization", DeliveryOptimizationPlugin]
 ]);
 
 export class OptimizationPluginRegistry {

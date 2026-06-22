@@ -72,6 +72,8 @@ None
 
 - ENGINE-012 Core Isolation Real Apply
 
+- ENGINE-013 Delivery Optimization Real Apply
+
 ---
 
 # Completed PRODUCT
@@ -98,7 +100,7 @@ None
 
 # Next Development
 
-ENGINE-013 Delivery Optimization Real Apply
+DATA-003 Knowledge Quality Upgrade
 
 ---
 
