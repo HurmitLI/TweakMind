@@ -108,6 +108,8 @@ None
 
 - PRODUCT-008 Decision Report 2.0
 
+- PRODUCT-009 First Run Experience
+
 ---
 
 # In Progress
@@ -118,7 +120,7 @@ None
 
 # Next Development
 
-PRODUCT-009 First-run Experience
+PRODUCT-010 Settings & Preferences
 
 ---
 
