@@ -19,7 +19,8 @@ export function getTargetStateForOptimization(
     "game-mode": "Enabled",
     "core-isolation": "Enabled",
     "delivery-optimization": "Disabled",
-    sysmain: "Disabled"
+    sysmain: "Disabled",
+    hags: "Enabled"
   };
 
   return targetStates[id] ?? "Unknown";
@@ -50,7 +51,9 @@ export function getApplyConfirmationPlan(id: OptimizationId) {
   const isAlreadyOptimized = recommendation.recommendation === "Already Optimized";
   const safetyNotices: Partial<Record<OptimizationId, string>> = {
     sysmain:
-      "Disabling SysMain may reduce app launch prefetching and change memory behavior. TweakMind does not guarantee FPS or performance gains. Review the trade-offs before applying rather than disabling blindly."
+      "Disabling SysMain may reduce app launch prefetching and change memory behavior. TweakMind does not guarantee FPS or performance gains. Review the trade-offs before applying rather than disabling blindly.",
+    hags:
+      "HAGS behavior depends on your GPU driver, Windows version, and individual games. TweakMind does not guarantee FPS improvements. Review the trade-offs before enabling or disabling rather than changing the setting blindly."
   };
 
   return {

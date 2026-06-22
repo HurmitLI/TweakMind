@@ -106,6 +106,13 @@ export function RecoveryConfirmationPage() {
               guarantee performance improvements from disabling or re-enabling SysMain.
             </p>
           ) : null}
+          {entry.optimizationId === "hags" ? (
+            <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+              Restoring HAGS returns the saved graphics scheduling registry value. GPU driver, Windows version, and
+              individual games may behave differently. TweakMind does not guarantee FPS improvements, and a restart may
+              be required.
+            </p>
+          ) : null}
         </section>
       </div>
 

@@ -583,6 +583,11 @@ mod windows_apply {
         raw_value: String,
     }
 
+    struct HagsSnapshot {
+        state: String,
+        raw_value: String,
+    }
+
     fn wide(value: &str) -> Vec<u16> {
         OsStr::new(value).encode_wide().chain(once(0)).collect()
     }
@@ -870,6 +875,141 @@ mod windows_apply {
         }
 
         Err(format!("Delete Core Isolation registry value failed with Windows error {status}."))
+    }
+
+    fn open_hags_key(access: u32) -> Result<RegistryKey, String> {
+        let key_path = wide("SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers");
+        let mut key: HKEY = null_mut();
+
+        let status = if access == KEY_READ {
+            unsafe { RegOpenKeyExW(HKEY_LOCAL_MACHINE, key_path.as_ptr(), 0, KEY_READ, &mut key) }
+        } else {
+            unsafe { RegOpenKeyExW(HKEY_LOCAL_MACHINE, key_path.as_ptr(), 0, KEY_SET_VALUE, &mut key) }
+        };
+
+        if status == ERROR_ACCESS_DENIED {
+            return Err(
+                "Open HAGS registry key failed with Windows error 5. Administrator privileges are required."
+                    .to_string(),
+            );
+        }
+
+        if status != ERROR_SUCCESS {
+            return Err(format!("Open HAGS registry key failed with Windows error {status}."));
+        }
+
+        Ok(RegistryKey(key))
+    }
+
+    fn state_from_hags_value(value: Option<u32>) -> String {
+        match value {
+            Some(1) => "Enabled".to_string(),
+            Some(2) => "Disabled".to_string(),
+            _ => "Unknown".to_string(),
+        }
+    }
+
+    fn raw_hags_value(value: Option<u32>) -> String {
+        match value {
+            Some(value) => format!("DWORD:{value}"),
+            None => "Missing".to_string(),
+        }
+    }
+
+    fn parse_hags_raw_value(value: &str) -> Option<u32> {
+        value.strip_prefix("DWORD:").and_then(|raw| raw.parse::<u32>().ok())
+    }
+
+    fn query_hags_snapshot() -> Result<HagsSnapshot, String> {
+        let key = open_hags_key(KEY_READ)?;
+        let value_name = wide("HwSchMode");
+        let mut data_type = 0u32;
+        let mut data = 0u32;
+        let mut data_size = std::mem::size_of::<u32>() as u32;
+        let status = unsafe {
+            RegQueryValueExW(
+                key.0,
+                value_name.as_ptr(),
+                null_mut(),
+                &mut data_type,
+                &mut data as *mut _ as *mut u8,
+                &mut data_size,
+            )
+        };
+
+        if status == ERROR_FILE_NOT_FOUND {
+            return Ok(HagsSnapshot {
+                state: "Unknown".to_string(),
+                raw_value: "Missing".to_string(),
+            });
+        }
+
+        if status != ERROR_SUCCESS {
+            return Err(format!("Read HAGS registry value failed with Windows error {status}."));
+        }
+
+        if data_type != REG_DWORD {
+            return Ok(HagsSnapshot {
+                state: "Unknown".to_string(),
+                raw_value: "UnsupportedType".to_string(),
+            });
+        }
+
+        Ok(HagsSnapshot {
+            state: state_from_hags_value(Some(data)),
+            raw_value: raw_hags_value(Some(data)),
+        })
+    }
+
+    fn set_hags_value(value: u32) -> Result<(), String> {
+        if value != 1 && value != 2 {
+            return Err("HAGS registry value must be 1 (Enabled) or 2 (Disabled).".to_string());
+        }
+
+        let key = open_hags_key(KEY_SET_VALUE)?;
+        let value_name = wide("HwSchMode");
+        let status = unsafe {
+            RegSetValueExW(
+                key.0,
+                value_name.as_ptr(),
+                0,
+                REG_DWORD,
+                &value as *const _ as *const u8,
+                std::mem::size_of::<u32>() as u32,
+            )
+        };
+
+        if status == ERROR_ACCESS_DENIED {
+            return Err(
+                "Write HAGS registry value failed with Windows error 5. Administrator privileges are required."
+                    .to_string(),
+            );
+        }
+
+        if status != ERROR_SUCCESS {
+            return Err(format!("Write HAGS registry value failed with Windows error {status}."));
+        }
+
+        Ok(())
+    }
+
+    fn delete_hags_value() -> Result<(), String> {
+        let key = open_hags_key(KEY_SET_VALUE)?;
+        let value_name = wide("HwSchMode");
+        let status = unsafe { RegDeleteValueW(key.0, value_name.as_ptr()) };
+
+        if status == ERROR_ACCESS_DENIED {
+            return Err(
+                "Delete HAGS registry value failed with Windows error 5. Administrator privileges are required."
+                    .to_string(),
+            );
+        }
+
+        if status == ERROR_FILE_NOT_FOUND || status == ERROR_SUCCESS {
+            return Ok(());
+        }
+
+        Err(format!("Delete HAGS registry value failed with Windows error {status}."))
     }
 
     fn query_snapshot(service: SC_HANDLE, service_label: &str) -> Result<ServiceSnapshot, String> {
@@ -1199,6 +1339,110 @@ mod windows_apply {
 
     pub fn restore_sysmain(previous_state: String, previous_startup_type: String) -> RecoveryResult {
         restore_service("SysMain", "sysmain", "SysMain", previous_state, previous_startup_type)
+    }
+
+    pub fn hags() -> ApplyResult {
+        let before = match query_hags_snapshot() {
+            Ok(snapshot) => snapshot,
+            Err(message) => {
+                return apply_result(
+                    "hags",
+                    "failed",
+                    "Unknown",
+                    "Unknown",
+                    "Unknown",
+                    message.clone(),
+                    Some(message),
+                );
+            }
+        };
+
+        if let Err(message) = set_hags_value(1) {
+            return apply_result(
+                "hags",
+                "failed",
+                &before.state,
+                &before.state,
+                &before.raw_value,
+                "HAGS was not changed.".to_string(),
+                Some(message),
+            );
+        }
+
+        let after = query_hags_snapshot().unwrap_or(HagsSnapshot {
+            state: "Enabled".to_string(),
+            raw_value: "DWORD:1".to_string(),
+        });
+
+        apply_result(
+            "hags",
+            if after.state == "Enabled" { "success" } else { "failed" },
+            &before.state,
+            &after.state,
+            &before.raw_value,
+            if after.state == "Enabled" {
+                "HAGS was enabled through the native Tauri executor. A restart may be required for full effect.".to_string()
+            } else {
+                format!("HAGS apply expected Enabled, but detected {}.", after.state)
+            },
+            if after.state == "Enabled" {
+                None
+            } else {
+                Some("Applied registry value did not produce the expected detected state.".to_string())
+            },
+        )
+    }
+
+    pub fn restore_hags(previous_state: String, previous_registry_value: String) -> RecoveryResult {
+        let recovery = if previous_registry_value == "Missing" {
+            delete_hags_value()
+        } else if let Some(value) = parse_hags_raw_value(&previous_registry_value) {
+            set_hags_value(value)
+        } else {
+            Err("Saved HAGS registry value is not restorable.".to_string())
+        };
+
+        if let Err(message) = recovery {
+            let actual = query_hags_snapshot()
+                .map(|snapshot| snapshot.state)
+                .unwrap_or_else(|_| "Unknown".to_string());
+
+            return recovery_result(
+                "hags",
+                "failed",
+                &previous_state,
+                &previous_state,
+                &actual,
+                &previous_registry_value,
+                "HAGS recovery was not applied.".to_string(),
+                Some(message),
+            );
+        }
+
+        let after = query_hags_snapshot().unwrap_or(HagsSnapshot {
+            state: "Unknown".to_string(),
+            raw_value: previous_registry_value.clone(),
+        });
+        let success = after.state == previous_state;
+
+        recovery_result(
+            "hags",
+            if success { "success" } else { "failed" },
+            &previous_state,
+            &previous_state,
+            &after.state,
+            &previous_registry_value,
+            if success {
+                "HAGS was restored to the saved previous state. A restart may be required for full effect.".to_string()
+            } else {
+                format!("HAGS recovery expected {previous_state}, but detected {}.", after.state)
+            },
+            if success {
+                None
+            } else {
+                Some("Recovered state did not match the saved previous state.".to_string())
+            },
+        )
     }
 
     pub fn game_mode() -> ApplyResult {
@@ -1839,6 +2083,31 @@ mod windows_apply {
             Some("Unsupported operating system.".to_string()),
         )
     }
+
+    pub fn hags() -> ApplyResult {
+        apply_result(
+            "hags",
+            "failed",
+            "Unknown",
+            "Unknown",
+            "Unknown",
+            "HAGS Apply is only available on Windows.".to_string(),
+            Some("Unsupported operating system.".to_string()),
+        )
+    }
+
+    pub fn restore_hags(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+        recovery_result(
+            "hags",
+            "failed",
+            &previous_state,
+            &previous_state,
+            "Unknown",
+            &previous_startup_type,
+            "HAGS Recovery is only available on Windows.".to_string(),
+            Some("Unsupported operating system.".to_string()),
+        )
+    }
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -1990,6 +2259,16 @@ fn restore_sysmain(previous_state: String, previous_startup_type: String) -> Rec
     windows_apply::restore_sysmain(previous_state, previous_startup_type)
 }
 
+#[tauri::command]
+fn apply_hags() -> ApplyResult {
+    windows_apply::hags()
+}
+
+#[tauri::command]
+fn restore_hags(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+    windows_apply::restore_hags(previous_state, previous_startup_type)
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -2012,7 +2291,9 @@ fn main() {
             apply_delivery_optimization,
             restore_delivery_optimization,
             apply_sysmain,
-            restore_sysmain
+            restore_sysmain,
+            apply_hags,
+            restore_hags
         ])
         .run(tauri::generate_context!())
         .expect("failed to run TweakMind");
