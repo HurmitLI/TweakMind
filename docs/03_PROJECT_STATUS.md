@@ -116,6 +116,8 @@ None
 
 - PRODUCT-012 Localization Foundation
 
+- PRODUCT-013 Runtime Message Localization
+
 ---
 
 # Completed RELEASE
@@ -132,7 +134,7 @@ None
 
 # Next Development
 
-ALPHA-001 Internal Testing
+ALPHA-002 Visual Consistency Pass
 
 ---
 

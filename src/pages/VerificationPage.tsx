@@ -14,6 +14,7 @@ import {
   translateScanDisplayState,
   translateVerificationStatus
 } from "../core/localization/localizationHelpers";
+import { translateRuntimeMessage } from "../core/localization/RuntimeMessageLocalizationService";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
 import { RuntimeScanService } from "../core/scan/RuntimeScanService";
 import { VerificationService } from "../core/verification/VerificationService";
@@ -143,13 +144,13 @@ export function VerificationPage() {
         <EmptyState
           actionLabel={t("common.action.openHistory")}
           actionTo="/history"
-          description={result?.message ?? t("verify.empty.description")}
+          description={result?.message ? translateRuntimeMessage(result.message) : t("verify.empty.description")}
           title={t("verify.empty.title")}
         />
       ) : (
         <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
           <h3 className="text-lg font-semibold tracking-tight text-slate-950">{t("verify.result.title")}</h3>
-          <p className="mt-4 text-sm leading-6 text-slate-600">{result?.message}</p>
+          <p className="mt-4 text-sm leading-6 text-slate-600">{translateRuntimeMessage(result?.message)}</p>
           <p className="mt-4 text-sm leading-6 text-slate-500">{t("verify.result.readOnlyNote")}</p>
         </section>
       )}

@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { OptimizationCapabilityRegistry } from "../core/execution/OptimizationCapabilityRegistry";
 import { useTranslation } from "../core/localization/LanguageProvider";
 import { translateOptimizationStatus, translateRiskLevel } from "../core/localization/localizationHelpers";
+import { translateRuntimeMessage } from "../core/localization/RuntimeMessageLocalizationService";
 import { WindowsOptimizationService } from "../core/windows/WindowsOptimizationService";
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -84,7 +85,7 @@ export function RecoveryConfirmationPage() {
         <Field label={t("recoveryConfirm.label.expectedRestoredState")} value={translateOptimizationStatus(entry.previousState)} />
         <Field label={t("recoveryConfirm.label.recoveryTime")} value={t("recoveryConfirm.value.recoveryTime")} />
         <Field label={t("recoveryConfirm.label.risk")} value={translateRiskLevel("Low")} />
-        <Field label={t("recoveryConfirm.label.startupConfiguration")} value={entry.previousStartupType} />
+        <Field label={t("recoveryConfirm.label.startupConfiguration")} value={translateRuntimeMessage(entry.previousStartupType)} />
       </dl>
 
       <div className="grid gap-6 xl:grid-cols-2">

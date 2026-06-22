@@ -14,6 +14,7 @@ import {
   translateScanDisplayState,
   translateVerificationStatus
 } from "../core/localization/localizationHelpers";
+import { translateRuntimeMessage } from "../core/localization/RuntimeMessageLocalizationService";
 import { RuntimeScanService } from "../core/scan/RuntimeScanService";
 import {
   type OptimizationHistoryEntry,
@@ -115,7 +116,7 @@ export function HistoryPage() {
                     </span>
                   </div>
                   <p className="mt-2 text-sm leading-6 text-slate-600">
-                    {historyError ? t("history.entry.needsReview") : entry.recoveryMessage ?? entry.message}
+                    {historyError ? t("history.entry.needsReview") : translateRuntimeMessage(entry.recoveryMessage ?? entry.message)}
                   </p>
                   {historyError ? (
                     <div className="mt-4">

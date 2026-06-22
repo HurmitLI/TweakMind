@@ -4,6 +4,8 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ErrorPresentation } from "../components/error/ErrorPresentation";
 import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
 import { useTranslation } from "../core/localization/LanguageProvider";
+import { translateOptimizationStatus } from "../core/localization/localizationHelpers";
+import { translateRuntimeMessage } from "../core/localization/RuntimeMessageLocalizationService";
 import { OptimizationExecutor } from "../core/windows/OptimizationExecutor";
 import {
   readPendingRecoveryResult,
@@ -119,7 +121,7 @@ export function RecoveryPage() {
           </div>
           <h2 className="mt-5 text-4xl font-semibold tracking-tight text-slate-950">{t("recovery.success.title")}</h2>
           <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600">
-            {result.message ?? t("recovery.success.defaultMessage")}
+            {result.message ? translateRuntimeMessage(result.message) : t("recovery.success.defaultMessage")}
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Link className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950" to="/history">
@@ -161,7 +163,7 @@ export function RecoveryPage() {
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("recovery.progress.label.expectedRestoredState")}</p>
-              <p className="mt-1 text-sm font-semibold text-slate-950">{entry.previousState}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-950">{translateOptimizationStatus(entry.previousState)}</p>
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("recovery.progress.label.currentStep")}</p>
