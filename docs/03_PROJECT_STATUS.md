@@ -70,6 +70,8 @@ None
 
 - ENGINE-011 Game Mode Real Apply
 
+- ENGINE-012 Core Isolation Real Apply
+
 ---
 
 # Completed PRODUCT
@@ -96,7 +98,7 @@ None
 
 # Next Development
 
-ENGINE-012 Core Isolation Real Apply
+ENGINE-013 Delivery Optimization Real Apply
 
 ---
 

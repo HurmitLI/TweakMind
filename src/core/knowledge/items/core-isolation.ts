@@ -10,7 +10,7 @@ export const coreIsolationKnowledge: OptimizationKnowledge = {
   whyItMatters:
     "This can improve protection against low-level attacks, but may affect older drivers or specific workloads.",
   why:
-    "Core Isolation uses virtualization-based security features to help protect important Windows processes. TweakMind currently keeps this as a knowledge-backed recommendation until a real implementation exists.",
+    "Core Isolation uses virtualization-based security features to help protect important Windows processes. TweakMind can apply Memory Integrity through the native executor after you review the trade-offs.",
   benefits: ["Stronger protection for sensitive system processes", "Better defense against some driver-level attacks", "Keeps Windows security posture intact"],
   risks: ["Turning it off can reduce system protection", "Turning it on may reveal incompatible drivers", "A restart may be required"],
   tradeOffs: ["May have a small performance cost", "Can conflict with some older drivers", "Requires compatible hardware and firmware"],

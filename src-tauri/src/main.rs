@@ -342,7 +342,7 @@ mod windows_apply {
     };
     use windows_sys::Win32::System::Registry::{
         RegCloseKey, RegCreateKeyW, RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW,
-        RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_DWORD,
+        RegSetValueExW, HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_SET_VALUE, REG_DWORD,
     };
     use windows_sys::Win32::System::Services::{
         ChangeServiceConfigW, CloseServiceHandle, ControlService, OpenSCManagerW, OpenServiceW,
@@ -379,6 +379,11 @@ mod windows_apply {
     }
 
     struct GameModeSnapshot {
+        state: String,
+        raw_value: String,
+    }
+
+    struct CoreIsolationSnapshot {
         state: String,
         raw_value: String,
     }
@@ -536,6 +541,140 @@ mod windows_apply {
         }
 
         Err(format!("Delete Game Mode registry value failed with Windows error {status}."))
+    }
+
+    fn open_core_isolation_key(access: u32) -> Result<RegistryKey, String> {
+        let key_path = wide(
+            "SYSTEM\\CurrentControlSet\\Control\\DeviceGuard\\Scenarios\\HypervisorEnforcedCodeIntegrity",
+        );
+        let mut key: HKEY = null_mut();
+
+        let status = if access == KEY_READ {
+            unsafe { RegOpenKeyExW(HKEY_LOCAL_MACHINE, key_path.as_ptr(), 0, KEY_READ, &mut key) }
+        } else {
+            unsafe { RegCreateKeyW(HKEY_LOCAL_MACHINE, key_path.as_ptr(), &mut key) }
+        };
+
+        if status == ERROR_ACCESS_DENIED {
+            return Err(
+                "Open Core Isolation registry key failed with Windows error 5. Administrator privileges are required."
+                    .to_string(),
+            );
+        }
+
+        if status != ERROR_SUCCESS {
+            return Err(format!("Open Core Isolation registry key failed with Windows error {status}."));
+        }
+
+        Ok(RegistryKey(key))
+    }
+
+    fn state_from_core_isolation_value(value: Option<u32>) -> String {
+        match value {
+            Some(1) => "Enabled".to_string(),
+            Some(0) => "Disabled".to_string(),
+            _ => "Unknown".to_string(),
+        }
+    }
+
+    fn raw_core_isolation_value(value: Option<u32>) -> String {
+        match value {
+            Some(value) => format!("DWORD:{value}"),
+            None => "Missing".to_string(),
+        }
+    }
+
+    fn parse_core_isolation_raw_value(value: &str) -> Option<u32> {
+        value.strip_prefix("DWORD:")
+            .and_then(|raw| raw.parse::<u32>().ok())
+    }
+
+    fn query_core_isolation_snapshot() -> Result<CoreIsolationSnapshot, String> {
+        let key = open_core_isolation_key(KEY_READ)?;
+        let value_name = wide("Enabled");
+        let mut data_type = 0u32;
+        let mut data = 0u32;
+        let mut data_size = std::mem::size_of::<u32>() as u32;
+        let status = unsafe {
+            RegQueryValueExW(
+                key.0,
+                value_name.as_ptr(),
+                null_mut(),
+                &mut data_type,
+                &mut data as *mut _ as *mut u8,
+                &mut data_size,
+            )
+        };
+
+        if status == ERROR_FILE_NOT_FOUND {
+            return Ok(CoreIsolationSnapshot {
+                state: "Unknown".to_string(),
+                raw_value: "Missing".to_string(),
+            });
+        }
+
+        if status != ERROR_SUCCESS {
+            return Err(format!("Read Core Isolation registry value failed with Windows error {status}."));
+        }
+
+        if data_type != REG_DWORD {
+            return Ok(CoreIsolationSnapshot {
+                state: "Unknown".to_string(),
+                raw_value: "UnsupportedType".to_string(),
+            });
+        }
+
+        Ok(CoreIsolationSnapshot {
+            state: state_from_core_isolation_value(Some(data)),
+            raw_value: raw_core_isolation_value(Some(data)),
+        })
+    }
+
+    fn set_core_isolation_value(value: u32) -> Result<(), String> {
+        let key = open_core_isolation_key(KEY_SET_VALUE)?;
+        let value_name = wide("Enabled");
+        let status = unsafe {
+            RegSetValueExW(
+                key.0,
+                value_name.as_ptr(),
+                0,
+                REG_DWORD,
+                &value as *const _ as *const u8,
+                std::mem::size_of::<u32>() as u32,
+            )
+        };
+
+        if status == ERROR_ACCESS_DENIED {
+            return Err(
+                "Write Core Isolation registry value failed with Windows error 5. Administrator privileges are required."
+                    .to_string(),
+            );
+        }
+
+        if status != ERROR_SUCCESS {
+            return Err(format!("Write Core Isolation registry value failed with Windows error {status}."));
+        }
+
+        Ok(())
+    }
+
+    fn delete_core_isolation_value() -> Result<(), String> {
+        let key = open_core_isolation_key(KEY_SET_VALUE)?;
+        let value_name = wide("Enabled");
+        let status = unsafe { RegDeleteValueW(key.0, value_name.as_ptr()) };
+
+        if status == ERROR_ACCESS_DENIED {
+            return Err(
+                "Delete Core Isolation registry value failed with Windows error 5. Administrator privileges are required."
+                    .to_string(),
+            );
+        }
+
+        if status == ERROR_FILE_NOT_FOUND || status == ERROR_SUCCESS {
+            return Ok(());
+        }
+
+        Err(format!("Delete Core Isolation registry value failed with Windows error {status}."))
     }
 
     fn query_snapshot(service: SC_HANDLE) -> Result<ServiceSnapshot, String> {
@@ -948,6 +1087,116 @@ mod windows_apply {
             },
         )
     }
+
+    pub fn core_isolation() -> ApplyResult {
+        let before = match query_core_isolation_snapshot() {
+            Ok(snapshot) => snapshot,
+            Err(message) => {
+                return apply_result(
+                    "core-isolation",
+                    "failed",
+                    "Unknown",
+                    "Unknown",
+                    "Unknown",
+                    message.clone(),
+                    Some(message),
+                );
+            }
+        };
+
+        if let Err(message) = set_core_isolation_value(1) {
+            return apply_result(
+                "core-isolation",
+                "failed",
+                &before.state,
+                &before.state,
+                &before.raw_value,
+                "Core Isolation (Memory Integrity) was not changed.".to_string(),
+                Some(message),
+            );
+        }
+
+        let after = query_core_isolation_snapshot().unwrap_or(CoreIsolationSnapshot {
+            state: "Enabled".to_string(),
+            raw_value: "DWORD:1".to_string(),
+        });
+
+        apply_result(
+            "core-isolation",
+            if after.state == "Enabled" { "success" } else { "failed" },
+            &before.state,
+            &after.state,
+            &before.raw_value,
+            if after.state == "Enabled" {
+                "Core Isolation (Memory Integrity) was enabled through the native Tauri executor. A restart may be required for full effect.".to_string()
+            } else {
+                format!(
+                    "Core Isolation apply expected Enabled, but detected {}.",
+                    after.state
+                )
+            },
+            if after.state == "Enabled" {
+                None
+            } else {
+                Some("Applied registry value did not produce the expected detected state.".to_string())
+            },
+        )
+    }
+
+    pub fn restore_core_isolation(previous_state: String, previous_registry_value: String) -> RecoveryResult {
+        let recovery = if previous_registry_value == "Missing" {
+            delete_core_isolation_value()
+        } else if let Some(value) = parse_core_isolation_raw_value(&previous_registry_value) {
+            set_core_isolation_value(value)
+        } else {
+            Err("Saved Core Isolation registry value is not restorable.".to_string())
+        };
+
+        if let Err(message) = recovery {
+            let actual = query_core_isolation_snapshot()
+                .map(|snapshot| snapshot.state)
+                .unwrap_or_else(|_| "Unknown".to_string());
+
+            return recovery_result(
+                "core-isolation",
+                "failed",
+                &previous_state,
+                &previous_state,
+                &actual,
+                &previous_registry_value,
+                "Core Isolation recovery was not applied.".to_string(),
+                Some(message),
+            );
+        }
+
+        let after = query_core_isolation_snapshot().unwrap_or(CoreIsolationSnapshot {
+            state: "Unknown".to_string(),
+            raw_value: previous_registry_value.clone(),
+        });
+        let success = after.state == previous_state;
+
+        recovery_result(
+            "core-isolation",
+            if success { "success" } else { "failed" },
+            &previous_state,
+            &previous_state,
+            &after.state,
+            &previous_registry_value,
+            if success {
+                "Core Isolation was restored to the saved previous state. A restart may be required for full effect.".to_string()
+            } else {
+                format!(
+                    "Core Isolation recovery expected {previous_state}, but detected {}.",
+                    after.state
+                )
+            },
+            if success {
+                None
+            } else {
+                Some("Recovered state did not match the saved previous state.".to_string())
+            },
+        )
+    }
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -1000,6 +1249,31 @@ mod windows_apply {
             "Unknown",
             &previous_startup_type,
             "Game Mode Recovery is only available on Windows.".to_string(),
+            Some("Unsupported operating system.".to_string()),
+        )
+    }
+
+    pub fn core_isolation() -> ApplyResult {
+        apply_result(
+            "core-isolation",
+            "failed",
+            "Unknown",
+            "Unknown",
+            "Unknown",
+            "Core Isolation Apply is only available on Windows.".to_string(),
+            Some("Unsupported operating system.".to_string()),
+        )
+    }
+
+    pub fn restore_core_isolation(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+        recovery_result(
+            "core-isolation",
+            "failed",
+            &previous_state,
+            &previous_state,
+            "Unknown",
+            &previous_startup_type,
+            "Core Isolation Recovery is only available on Windows.".to_string(),
             Some("Unsupported operating system.".to_string()),
         )
     }
@@ -1070,6 +1344,16 @@ fn restore_game_mode(previous_state: String, previous_startup_type: String) -> R
     windows_apply::restore_game_mode(previous_state, previous_startup_type)
 }
 
+#[tauri::command]
+fn apply_core_isolation() -> ApplyResult {
+    windows_apply::core_isolation()
+}
+
+#[tauri::command]
+fn restore_core_isolation(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+    windows_apply::restore_core_isolation(previous_state, previous_startup_type)
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -1080,7 +1364,9 @@ fn main() {
             apply_windows_search,
             restore_windows_search,
             apply_game_mode,
-            restore_game_mode
+            restore_game_mode,
+            apply_core_isolation,
+            restore_core_isolation
         ])
         .run(tauri::generate_context!())
         .expect("failed to run TweakMind");
