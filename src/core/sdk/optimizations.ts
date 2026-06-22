@@ -36,18 +36,15 @@ function createNativeDetector(command: string, label: string) {
   };
 }
 
-function createMockExecutor(definition: OptimizationDefinition, previousState: OptimizationStatus, currentState: OptimizationStatus) {
+function createUnsupportedExecutor(definition: OptimizationDefinition) {
   return {
     apply(): Promise<OptimizationEngineResult> {
       return Promise.resolve(
         createEngineResult({
-          status: "Success",
-          previousState,
-          currentState,
-          message:
-            definition.id === "windows-search"
-              ? `${definition.title} is already optimized. No Windows changes were made.`
-              : `${definition.title} mock apply recorded. No Windows changes were made.`
+          status: "Failed",
+          previousState: "Unknown",
+          currentState: "Unknown",
+          message: `${definition.title} does not have a frontend mock apply path. No Windows changes were made.`
         })
       );
     }
@@ -95,7 +92,7 @@ export const optimizationSdkModules: OptimizationSdkModule[] = [
         return createEvaluation(context, "Optional", "Unknown");
       }
     },
-    executor: createMockExecutor(definitions["windows-search"], "Disabled", "Disabled"),
+    executor: createUnsupportedExecutor(definitions["windows-search"]),
     recovery: createMockRecovery(definitions["windows-search"], "Disabled")
   },
   {
@@ -116,7 +113,7 @@ export const optimizationSdkModules: OptimizationSdkModule[] = [
         return createEvaluation(context, "Optional", "Unknown");
       }
     },
-    executor: createMockExecutor(definitions["game-mode"], "Unknown", "Unknown"),
+    executor: createUnsupportedExecutor(definitions["game-mode"]),
     recovery: createMockRecovery(definitions["game-mode"], "Unknown")
   },
   {
@@ -137,7 +134,7 @@ export const optimizationSdkModules: OptimizationSdkModule[] = [
         return createEvaluation(context, "Optional", "Unknown");
       }
     },
-    executor: createMockExecutor(definitions["core-isolation"], "Enabled", "Enabled"),
+    executor: createUnsupportedExecutor(definitions["core-isolation"]),
     recovery: createMockRecovery(definitions["core-isolation"], "Enabled")
   },
   {
@@ -148,7 +145,7 @@ export const optimizationSdkModules: OptimizationSdkModule[] = [
         return createEvaluation(context, "Optional", normalizeOptimizationStatus(context.detectedStatus));
       }
     },
-    executor: createMockExecutor(definitions["delivery-optimization"], "Unknown", "Unknown"),
+    executor: createUnsupportedExecutor(definitions["delivery-optimization"]),
     recovery: createMockRecovery(definitions["delivery-optimization"], "Unknown")
   }
 ];

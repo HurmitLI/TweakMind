@@ -1,10 +1,13 @@
 import { ArrowLeft, CheckCircle2, Info, ShieldCheck } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { ApplyModeBadge, getApplyModeLabel } from "../components/apply/ApplyModeBadge";
 import { RecommendationBadge } from "../components/decision/RecommendationBadge";
 import { KnowledgeRepository, knowledgeToOptimizationDefinition } from "../core/knowledge/KnowledgeRepository";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
 import { readStoredScanResult, toRecommendationResult } from "../core/scan/ScanResult";
+import { OptimizationExecutor } from "../core/windows/OptimizationExecutor";
+import { storePendingApplyResult } from "../core/windows/WindowsOptimizationService";
 import type { OptimizationId, OptimizationRecommendation, OptimizationStatus } from "../types/optimization";
 
 const riskStyles = {
@@ -55,6 +58,8 @@ function ListSection({ title, items }: { title: string; items: string[] }) {
 
 export function ApplyConfirmationPage() {
   const navigate = useNavigate();
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [isApplying, setIsApplying] = useState(false);
   const { optimizationId } = useParams();
   const [searchParams] = useSearchParams();
   const scanResult = useMemo(() => readStoredScanResult(), []);
@@ -81,6 +86,21 @@ export function ApplyConfirmationPage() {
   const targetState = targetStateFor(optimization.id, recommendation.recommendation, currentStatus);
   const source = searchParams.get("from") === "decision" ? "decision" : "report";
   const cancelTarget = source === "decision" ? `/decision?id=${optimization.id}` : "/report";
+
+  async function confirmAndApply() {
+    setApplyError(null);
+    setIsApplying(true);
+
+    try {
+      const result = await OptimizationExecutor.apply(optimization.id);
+      storePendingApplyResult(result);
+      navigate(`/apply?id=${optimization.id}`);
+    } catch (error) {
+      setApplyError(error instanceof Error ? error.message : "Apply could not be started.");
+    } finally {
+      setIsApplying(false);
+    }
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -109,6 +129,7 @@ export function ApplyConfirmationPage() {
           </div>
           <div className="flex flex-wrap gap-3 lg:justify-end">
             <RecommendationBadge value={recommendation.recommendation} />
+            <ApplyModeBadge optimizationId={optimization.id} />
             <span className={["inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold", riskStyles[optimization.risk.level]].join(" ")}>
               Risk: {optimization.risk.level}
             </span>
@@ -120,7 +141,7 @@ export function ApplyConfirmationPage() {
         <Field label="Current detected status" value={currentStatus} />
         <Field label="Target state" value={targetState} />
         <Field label="Recovery time" value={knowledge?.recovery.estimatedTime ?? optimization.estimatedTime} />
-        <Field label="Action type" value="Mock only" />
+        <Field label="Action type" value={getApplyModeLabel(optimization.id)} />
       </dl>
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -130,7 +151,11 @@ export function ApplyConfirmationPage() {
           <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
             <div className="flex items-start gap-3">
               <Info className="mt-0.5 shrink-0" size={18} aria-hidden="true" />
-              <p>This confirmation records a mock apply result. It does not write to Windows settings or the Registry.</p>
+              <p>
+                {optimization.id === "windows-search"
+                  ? "This action uses the native Windows executor and requires Administrator permission."
+                  : "This optimization does not have a real apply executor yet. No Windows changes will be made."}
+              </p>
             </div>
           </div>
         </section>
@@ -162,6 +187,12 @@ export function ApplyConfirmationPage() {
         </section>
       </div>
 
+      {applyError ? (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-medium text-rose-700">
+          {applyError}
+        </div>
+      ) : null}
+
       <footer className="flex flex-col-reverse gap-3 rounded-lg border border-slate-200 bg-white/90 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <Link
           className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
@@ -170,12 +201,14 @@ export function ApplyConfirmationPage() {
           <ArrowLeft size={17} aria-hidden="true" />
           Cancel
         </Link>
-        <Link
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          to={`/apply?id=${optimization.id}`}
+        <button
+          className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          disabled={isApplying}
+          onClick={() => void confirmAndApply()}
+          type="button"
         >
-          Confirm and Apply
-        </Link>
+          {isApplying ? "Preparing Apply..." : "Confirm and Apply"}
+        </button>
       </footer>
     </div>
   );

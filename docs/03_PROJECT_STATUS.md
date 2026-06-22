@@ -36,9 +36,9 @@
 
 ---
 
-# Current Milestone
+# Current Development
 
-**PRODUCT-004 Apply Confirmation**
+None
 
 ---
 
@@ -60,6 +60,8 @@
 
 - ENGINE-007
 
+- ENGINE-008 Real Windows Apply
+
 ---
 
 # Completed PRODUCT
@@ -74,21 +76,19 @@
 
 # In Progress
 
-- PRODUCT-004 Apply Confirmation
+None
 
 ---
 
-# Next Milestone
+# Next Development
 
-- PRODUCT-005
+PRODUCT-005 Verification Center
 
 ---
 
 # Future Roadmap
 
 - PRODUCT-006
-
-- ENGINE-008
 
 - ENGINE-009
 
