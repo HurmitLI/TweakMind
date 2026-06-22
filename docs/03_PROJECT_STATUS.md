@@ -76,6 +76,12 @@ None
 
 ---
 
+# Completed DATA
+
+- DATA-003 Knowledge Schema 2.0
+
+---
+
 # Completed PRODUCT
 
 - PRODUCT-001 Real Scan Pipeline
@@ -100,7 +106,7 @@ None
 
 # Next Development
 
-DATA-003 Knowledge Quality Upgrade
+PRODUCT-007 Knowledge Detail 2.0
 
 ---
 

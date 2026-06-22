@@ -89,7 +89,7 @@ function createMockRecovery(definition: OptimizationDefinition, previousState: O
 }
 
 const definitions = Object.fromEntries(
-  KnowledgeRepository.getAll().map((knowledge) => [knowledge.id, knowledgeToOptimizationDefinition(knowledge)])
+  KnowledgeRepository.getAll().map((knowledge) => [knowledge.identity.id, knowledgeToOptimizationDefinition(knowledge)])
 ) as Record<OptimizationId, OptimizationDefinition>;
 
 export const optimizationSdkModules: OptimizationSdkModule[] = [

@@ -1,6 +1,7 @@
 import type { OptimizationDefinition, OptimizationId } from "../../types/optimization";
 import type { OptimizationBenefitLevel } from "../../types/optimization";
 import type { OptimizationKnowledge } from "./KnowledgeDefinition";
+import { impactLevelToScore } from "./KnowledgeDefinition";
 import { backgroundAppsKnowledge } from "./items/background-apps";
 import { coreIsolationKnowledge } from "./items/core-isolation";
 import { deliveryOptimizationKnowledge } from "./items/delivery-optimization";
@@ -27,6 +28,34 @@ const knowledgeItems: OptimizationKnowledge[] = [
   visualEffectsKnowledge
 ];
 
+function normalizeRiskLevel(level: OptimizationKnowledge["risks"]["riskLevel"]) {
+  if (level === "Unknown") {
+    return "Low" as const;
+  }
+
+  return level;
+}
+
+function normalizeExpectedBenefit(
+  benefit: OptimizationKnowledge["decisionSupport"]["expectedBenefit"]
+): OptimizationBenefitLevel {
+  if (benefit === "Unknown") {
+    return "Low";
+  }
+
+  return benefit;
+}
+
+function normalizeRecoveryDifficulty(
+  difficulty: OptimizationKnowledge["recovery"]["recoveryDifficulty"]
+): string {
+  if (difficulty === "Unknown") {
+    return "Unknown";
+  }
+
+  return difficulty;
+}
+
 export function estimateBenefitFromImpact(performanceImpact: number): OptimizationBenefitLevel {
   if (performanceImpact >= 60) {
     return "High";
@@ -40,30 +69,40 @@ export function estimateBenefitFromImpact(performanceImpact: number): Optimizati
 }
 
 export function knowledgeToOptimizationDefinition(knowledge: OptimizationKnowledge): OptimizationDefinition {
+  const performanceScore = impactLevelToScore(knowledge.benefits.performanceImpact);
+
   return {
-    id: knowledge.id,
-    title: knowledge.title,
-    category: knowledge.category,
+    id: knowledge.identity.id,
+    title: knowledge.identity.title,
+    category: knowledge.identity.category,
     risk: {
-      level: knowledge.risk.level,
-      reason: knowledge.riskAnalysis
+      level: normalizeRiskLevel(knowledge.risks.riskLevel),
+      reason:
+        knowledge.risks.riskLevel === "Unknown"
+          ? `${knowledge.risks.riskExplanation} Risk level: Unknown.`
+          : knowledge.risks.riskExplanation
     },
     recommendation: "Optional",
     status: "Unknown",
-    description: knowledge.why,
-    benefits: knowledge.benefits,
-    tradeOffs: knowledge.tradeOffs,
-    recommendedFor: knowledge.recommendedFor,
-    notRecommendedFor: knowledge.notRecommendedFor,
-    recovery: knowledge.recovery.method,
-    estimatedTime: knowledge.recovery.estimatedTime,
-    difficulty: knowledge.recovery.difficulty,
-    expectedResult: knowledge.recovery.expectedResult,
+    description: knowledge.overview.purpose,
+    benefits: knowledge.tradeOffs.pros,
+    tradeOffs: [...knowledge.tradeOffs.cons, ...knowledge.tradeOffs.possibleSideEffects],
+    recommendedFor: knowledge.recommendation.recommendedFor,
+    notRecommendedFor: knowledge.recommendation.notRecommendedFor,
+    recovery: knowledge.recovery.recoveryMethod,
+    estimatedTime:
+      knowledge.recovery.estimatedTime === "Unknown" ? "Unknown" : knowledge.recovery.estimatedTime,
+    difficulty: normalizeRecoveryDifficulty(knowledge.recovery.recoveryDifficulty),
+    expectedResult:
+      knowledge.recovery.expectedResult === "Unknown" ? "Unknown" : knowledge.recovery.expectedResult,
     impact: {
-      ...knowledge.impact,
-      estimatedBenefit: knowledge.expectedBenefit
+      performance: performanceScore,
+      privacy: impactLevelToScore(knowledge.benefits.privacyImpact),
+      gaming: impactLevelToScore(knowledge.benefits.latencyImpact),
+      battery: impactLevelToScore(knowledge.benefits.batteryImpact),
+      estimatedBenefit: normalizeExpectedBenefit(knowledge.decisionSupport.expectedBenefit)
     },
-    icon: knowledge.icon
+    icon: knowledge.identity.icon
   };
 }
 
@@ -73,6 +112,6 @@ export class KnowledgeRepository {
   }
 
   static getById(id: OptimizationId): OptimizationKnowledge | undefined {
-    return knowledgeItems.find((knowledge) => knowledge.id === id);
+    return knowledgeItems.find((knowledge) => knowledge.identity.id === id);
   }
 }

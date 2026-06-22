@@ -1,46 +1,86 @@
 import type { OptimizationKnowledge } from "../KnowledgeDefinition";
+import { scanAvailabilityFor } from "../knowledgeSchemaHelpers";
 
 export const deliveryOptimizationKnowledge: OptimizationKnowledge = {
-  id: "delivery-optimization",
-  title: "Delivery Optimization",
-  category: "Network",
-  summary: "Explains how Windows shares update downloads across PCs and networks.",
-  whatItDoes:
-    "Delivery Optimization manages how Windows downloads update files and whether it can share them with other PCs.",
-  whyItMatters:
-    "It can save repeated downloads on multi-PC networks, but may use upload bandwidth or feel unnecessary on one PC.",
-  why:
-    "Delivery Optimization can download and share Windows update files with other PCs. TweakMind treats it as optional until the network context is known.",
-  benefits: ["Can reduce repeated update downloads", "Useful for multiple Windows PCs on one network", "May make updates more efficient"],
-  risks: ["May use upload bandwidth", "Can be undesirable on metered networks", "Benefits depend heavily on network context"],
-  tradeOffs: ["May use upload bandwidth", "Can be confusing on metered networks", "Less useful for single-PC households"],
-  recommendedFor: ["Homes with multiple Windows PCs", "Fast unmetered networks", "Users who understand peer-assisted updates"],
-  notRecommendedFor: ["Metered connections", "Slow upload connections", "Single-PC setups"],
-  risk: {
-    level: "Medium"
+  identity: {
+    id: "delivery-optimization",
+    title: "Delivery Optimization",
+    category: "Network",
+    priority: "Medium",
+    tags: ["network", "updates", "bandwidth", "peer sharing"],
+    difficulty: "Easy",
+    icon: "network"
   },
-  riskAnalysis:
-    "The setting is reversible, but it can affect how Windows Update uses network bandwidth and may change behavior over time.",
-  recoveryMethod: "Restore the previous Delivery Optimization sharing option in Windows Update settings.",
-  expectedBenefit: "Low",
-  userDecisionNotes:
-    "This is mainly worth reviewing if bandwidth, metered connections, or multiple Windows PCs matter to you.",
+  overview: {
+    summary: "Explains how Windows shares update downloads across PCs and networks.",
+    purpose:
+      "Help you decide whether Delivery Optimization peer sharing fits your network, bandwidth, and privacy expectations.",
+    howWindowsWorks:
+      "Delivery Optimization manages how Windows downloads update files and whether it can share them with other PCs.",
+    whyItExists:
+      "Microsoft added Delivery Optimization so Windows Update can reuse downloaded content across devices on a network."
+  },
+  currentStatus: {
+    supportedWindows: "Windows 10, Windows 11",
+    defaultValue: "Unknown",
+    currentState: "Unknown",
+    scanAvailability: scanAvailabilityFor("delivery-optimization")
+  },
+  recommendation: {
+    recommendedFor: ["Homes with multiple Windows PCs", "Fast unmetered networks", "Users who understand peer-assisted updates"],
+    notRecommendedFor: ["Metered connections", "Slow upload connections", "Single-PC setups"],
+    typicalScenarios: [
+      "You have several Windows PCs on one network and want to reduce repeated update downloads.",
+      "You use a metered or slow-upload connection and want to limit sharing.",
+      "You use a single PC and do not benefit from peer-assisted update delivery."
+    ]
+  },
+  benefits: {
+    performanceImpact: "Low",
+    memoryImpact: "None",
+    batteryImpact: "Low",
+    latencyImpact: "Low",
+    networkImpact: "Medium",
+    privacyImpact: "Medium"
+  },
+  tradeOffs: {
+    pros: ["Can reduce repeated update downloads", "Useful for multiple Windows PCs on one network", "May make updates more efficient"],
+    cons: ["May use upload bandwidth", "Can be confusing on metered networks", "Less useful for single-PC households"],
+    possibleSideEffects: [
+      "May use upload bandwidth",
+      "Can be undesirable on metered networks",
+      "Benefits depend heavily on network context"
+    ]
+  },
+  risks: {
+    riskLevel: "Medium",
+    riskExplanation:
+      "The setting is reversible, but it can affect how Windows Update uses network bandwidth and may change behavior over time.",
+    whenNotToUse: ["Metered connections", "Slow upload connections", "Single-PC setups"]
+  },
+  recovery: {
+    recoveryMethod: "Restore the previous Delivery Optimization sharing option in Windows Update settings.",
+    recoveryDifficulty: "Easy",
+    estimatedTime: "About 1 minute",
+    expectedResult: "Windows Update returns to the previous download and sharing behavior."
+  },
+  decisionSupport: {
+    expectedBenefit: "Low",
+    confidence: "Medium",
+    decisionNotes:
+      "This is mainly worth reviewing if bandwidth, metered connections, or multiple Windows PCs matter to you."
+  },
   terminology: {
     original: "Delivery Optimization",
     localized: "Delivery Optimization（传递优化）",
     tweakmind: "Delivery Optimization\n📦 Windows 更新搬运员"
   },
-  recovery: {
-    method: "Open Windows Update Delivery Optimization settings and restore the previous sharing option.",
-    estimatedTime: "About 1 minute",
-    difficulty: "Easy",
-    expectedResult: "Windows Update returns to the previous download and sharing behavior."
-  },
-  impact: {
-    performance: 20,
-    privacy: 35,
-    gaming: 10,
-    battery: 25
-  },
-  icon: "network"
+  learning: {
+    relatedOptimizations: ["windows-update-active-hours"],
+    commonMisconceptions: [
+      "Delivery Optimization disables Windows Update.",
+      "Delivery Optimization always saves bandwidth on every PC."
+    ],
+    references: []
+  }
 };

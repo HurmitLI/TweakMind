@@ -106,7 +106,14 @@ export function ApplyConfirmationPage() {
       <dl className="grid gap-4 md:grid-cols-4">
         <Field label="Current detected status" value={currentStatus} />
         <Field label="Target state" value={targetState} />
-        <Field label="Recovery time" value={knowledge?.recovery.estimatedTime ?? optimization.estimatedTime} />
+        <Field
+          label="Recovery time"
+          value={
+            knowledge?.recovery.estimatedTime === "Unknown" || !knowledge?.recovery.estimatedTime
+              ? optimization.estimatedTime
+              : knowledge.recovery.estimatedTime
+          }
+        />
         <Field label="Action type" value={getApplyModeLabel(optimization.id)} />
       </dl>
 
@@ -127,23 +134,38 @@ export function ApplyConfirmationPage() {
           <p className="mt-4 text-sm leading-6 text-slate-600">{recommendation.reason}</p>
           <div className="mt-5 flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
             <ShieldCheck className="mt-0.5 shrink-0 text-slate-700" size={18} aria-hidden="true" />
-            <p>{knowledge?.riskAnalysis ?? optimization.risk.reason}</p>
+            <p>{knowledge?.risks.riskExplanation ?? optimization.risk.reason}</p>
           </div>
         </section>
 
-        <ListSection title="Trade-offs" items={knowledge?.tradeOffs ?? optimization.tradeOffs} />
+        <ListSection
+          title="Trade-offs"
+          items={
+            knowledge
+              ? [...knowledge.tradeOffs.cons, ...knowledge.tradeOffs.possibleSideEffects]
+              : optimization.tradeOffs
+          }
+        />
 
         <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
           <h3 className="text-lg font-semibold tracking-tight text-slate-950">Recovery method</h3>
-          <p className="mt-4 text-sm leading-6 text-slate-600">{knowledge?.recovery.method ?? optimization.recovery}</p>
+          <p className="mt-4 text-sm leading-6 text-slate-600">{knowledge?.recovery.recoveryMethod ?? optimization.recovery}</p>
           <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
             <div>
               <dt className="font-semibold text-slate-500">Estimated recovery time</dt>
-              <dd className="mt-1 text-slate-950">{knowledge?.recovery.estimatedTime ?? optimization.estimatedTime}</dd>
+              <dd className="mt-1 text-slate-950">
+                {knowledge?.recovery.estimatedTime === "Unknown" || !knowledge?.recovery.estimatedTime
+                  ? optimization.estimatedTime
+                  : knowledge.recovery.estimatedTime}
+              </dd>
             </div>
             <div>
               <dt className="font-semibold text-slate-500">Expected result</dt>
-              <dd className="mt-1 text-slate-950">{knowledge?.recovery.expectedResult ?? optimization.expectedResult}</dd>
+              <dd className="mt-1 text-slate-950">
+                {knowledge?.recovery.expectedResult === "Unknown" || !knowledge?.recovery.expectedResult
+                  ? optimization.expectedResult
+                  : knowledge.recovery.expectedResult}
+              </dd>
             </div>
           </dl>
         </section>

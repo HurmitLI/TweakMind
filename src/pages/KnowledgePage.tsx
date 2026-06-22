@@ -1,7 +1,8 @@
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { KnowledgeRepository, estimateBenefitFromImpact } from "../core/knowledge/KnowledgeRepository";
+import { KnowledgeRepository } from "../core/knowledge/KnowledgeRepository";
+import { hasPrivacyRelevance } from "../core/knowledge/knowledgeSchemaHelpers";
 import { readStoredScanResult } from "../core/scan/ScanResult";
 import type { OptimizationCategory } from "../types/optimization";
 
@@ -10,14 +11,14 @@ type CategoryFilter = (typeof categoryFilters)[number];
 
 function matchesCategory(category: CategoryFilter, knowledge: ReturnType<typeof KnowledgeRepository.getAll>[number]) {
   if (category === "Privacy") {
-    return knowledge.impact.privacy > 0;
+    return hasPrivacyRelevance(knowledge.benefits);
   }
 
   if (category === "Windows") {
     return true;
   }
 
-  return knowledge.category === (category as OptimizationCategory);
+  return knowledge.identity.category === (category as OptimizationCategory);
 }
 
 function matchesSearch(query: string, knowledge: ReturnType<typeof KnowledgeRepository.getAll>[number]) {
@@ -28,21 +29,27 @@ function matchesSearch(query: string, knowledge: ReturnType<typeof KnowledgeRepo
   }
 
   const searchableText = [
-    knowledge.title,
-    knowledge.category,
-    knowledge.summary,
-    knowledge.whatItDoes,
-    knowledge.whyItMatters,
-    knowledge.userDecisionNotes,
+    knowledge.identity.title,
+    knowledge.identity.category,
+    knowledge.identity.priority,
+    knowledge.identity.difficulty,
+    ...knowledge.identity.tags,
+    knowledge.overview.summary,
+    knowledge.overview.purpose,
+    knowledge.overview.howWindowsWorks,
+    knowledge.overview.whyItExists,
+    knowledge.decisionSupport.decisionNotes,
     knowledge.terminology.original,
     knowledge.terminology.localized,
     knowledge.terminology.tweakmind,
-    knowledge.why,
-    ...knowledge.benefits,
-    ...knowledge.risks,
-    ...knowledge.tradeOffs,
-    ...knowledge.recommendedFor,
-    ...knowledge.notRecommendedFor
+    knowledge.currentStatus.scanAvailability,
+    ...knowledge.tradeOffs.pros,
+    ...knowledge.tradeOffs.cons,
+    ...knowledge.tradeOffs.possibleSideEffects,
+    ...knowledge.recommendation.recommendedFor,
+    ...knowledge.recommendation.notRecommendedFor,
+    ...knowledge.recommendation.typicalScenarios,
+    ...knowledge.learning.commonMisconceptions
   ]
     .join(" ")
     .toLowerCase();
@@ -118,31 +125,49 @@ export function KnowledgePage() {
         {visibleKnowledge.map((knowledge) => (
           <Link
             className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            key={knowledge.id}
-            to={`/decision?id=${knowledge.id}`}
+            key={knowledge.identity.id}
+            to={`/decision?id=${knowledge.identity.id}`}
           >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-3">
-                  <h3 className="text-xl font-semibold tracking-tight text-slate-950">{knowledge.title}</h3>
+                  <h3 className="text-xl font-semibold tracking-tight text-slate-950">{knowledge.identity.title}</h3>
                   <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                    {knowledge.category}
+                    {knowledge.identity.category}
                   </span>
                   <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                    Status: {statusById.get(knowledge.id) ?? "Not Available"}
+                    Status: {statusById.get(knowledge.identity.id) ?? "Not Available"}
                   </span>
                 </div>
-                <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{knowledge.summary}</p>
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{knowledge.overview.summary}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {knowledge.identity.tags.slice(0, 4).map((tag) => (
+                    <span
+                      className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600"
+                      key={tag}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
 
-              <div className="grid shrink-0 gap-2 sm:grid-cols-2 lg:w-56 lg:grid-cols-1">
+              <div className="grid shrink-0 gap-2 sm:grid-cols-2 lg:w-72 lg:grid-cols-2">
                 <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Risk</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-950">{knowledge.risk.level}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950">{knowledge.risks.riskLevel}</p>
                 </div>
                 <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Estimated Benefit</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-950">{estimateBenefitFromImpact(knowledge.impact.performance)}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Expected Benefit</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950">{knowledge.decisionSupport.expectedBenefit}</p>
+                </div>
+                <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Priority</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950">{knowledge.identity.priority}</p>
+                </div>
+                <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Scan</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950">{knowledge.currentStatus.scanAvailability}</p>
                 </div>
               </div>
             </div>
