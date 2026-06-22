@@ -5,7 +5,11 @@ import { OptimizationCapabilityRegistry } from "../execution/OptimizationCapabil
 import type { OptimizationApplyResult } from "../windows/WindowsOptimizationService";
 import type { OptimizationId, OptimizationRecommendation, OptimizationStatus } from "../../types/optimization";
 
-function targetStateFor(id: OptimizationId, recommendation: OptimizationRecommendation, currentStatus: OptimizationStatus) {
+export function getTargetStateForOptimization(
+  id: OptimizationId,
+  recommendation: OptimizationRecommendation,
+  currentStatus: OptimizationStatus
+) {
   if (recommendation === "Already Optimized" || recommendation === "Keep Default" || recommendation === "Keep Enabled") {
     return currentStatus;
   }
@@ -49,15 +53,15 @@ export function getApplyConfirmationPlan(id: OptimizationId) {
     knowledge,
     recommendation,
     currentStatus,
-    targetState: targetStateFor(optimization.id, recommendation.recommendation, currentStatus),
+    targetState: getTargetStateForOptimization(optimization.id, recommendation.recommendation, currentStatus),
     whatWillChange:
       capabilities.canRealApply && !isAlreadyOptimized
-        ? "TweakMind will capture the current Windows Search service state, then ask the native executor to disable Windows Search."
+        ? `TweakMind will capture the current ${optimization.title} state, then ask the native executor to move it to the target state.`
         : capabilities.canRealApply
-          ? "Windows Search is already in the recommended state. The executor will still capture the current state before reporting the result."
+          ? `${optimization.title} is already in the recommended state. The executor will still capture the current state before reporting the result.`
           : "This optimization is not connected to real Windows Apply yet. Confirmation will not modify Windows.",
     readinessMessage: capabilities.canRealApply
-      ? "Real Apply is available for Windows Search only and runs through the Tauri executor, not UI code."
+      ? `Real Apply is available for ${optimization.title} and runs through the Tauri executor, not UI code.`
       : "Real Apply is not available for this optimization yet. No Windows changes will be made."
   };
 }

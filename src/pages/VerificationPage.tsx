@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Clock, History, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { getTargetStateForOptimization } from "../core/apply/ApplyConfirmationPlan";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
 import { VerificationService } from "../core/verification/VerificationService";
 import type { VerificationResult, VerificationStatus } from "../core/verification/VerificationResult";
@@ -34,6 +35,7 @@ export function VerificationPage() {
   const mode = searchParams.get("mode") === "recovery" ? "recovery" : "apply";
   const historyEntryId = searchParams.get("historyId") ?? undefined;
   const optimization = OptimizationRepository.getById(requestedOptimizationId) ?? defaultOptimization;
+  const expectedApplyState = getTargetStateForOptimization(optimization.id, optimization.recommendation, "Unknown");
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [isVerifying, setIsVerifying] = useState(true);
 
@@ -78,14 +80,14 @@ export function VerificationPage() {
 
       <dl className="grid gap-4 md:grid-cols-3">
         <Field label="Previous state" value={result?.previousState ?? "Unknown"} />
-        <Field label="Expected state" value={result?.expectedState ?? (mode === "recovery" ? "Unknown" : "Disabled")} />
+        <Field label="Expected state" value={result?.expectedState ?? (mode === "recovery" ? "Unknown" : expectedApplyState)} />
         <Field label="Actual detected state" value={isVerifying ? "Checking..." : result?.actualState ?? "Unknown"} />
       </dl>
 
       <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
         <h3 className="text-lg font-semibold tracking-tight text-slate-950">Verification Result</h3>
         <p className="mt-4 text-sm leading-6 text-slate-600">
-          {isVerifying ? "Reading the current Windows Search state..." : result?.message}
+          {isVerifying ? `Reading the current ${optimization.title} state...` : result?.message}
         </p>
         <p className="mt-4 text-sm leading-6 text-slate-500">
           Verification is read-only. It does not modify Windows settings.

@@ -132,7 +132,7 @@ export function RecoveryPage() {
           <div>
             <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-700">Real Recovery flow</p>
             <h2 className="text-4xl font-semibold tracking-tight text-slate-950">Recovering Optimization</h2>
-            <p className="mt-4 text-lg leading-8 text-slate-600">Restoring the saved Windows Search configuration...</p>
+            <p className="mt-4 text-lg leading-8 text-slate-600">Restoring the saved optimization configuration...</p>
           </div>
         </div>
 

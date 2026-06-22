@@ -68,6 +68,8 @@ None
 
 - ENGINE-010 Optimization Plugin SDK
 
+- ENGINE-011 Game Mode Real Apply
+
 ---
 
 # Completed PRODUCT
@@ -94,7 +96,7 @@ None
 
 # Next Development
 
-ENGINE-011 Game Mode Real Apply
+ENGINE-012 Core Isolation Real Apply
 
 ---
 

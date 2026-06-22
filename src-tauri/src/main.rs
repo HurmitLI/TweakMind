@@ -57,6 +57,7 @@ fn detection_result(success: bool, current_state: &str, message: String) -> Dete
 }
 
 fn apply_result(
+    optimization_id: &str,
     status: &str,
     previous_state: &str,
     current_state: &str,
@@ -65,7 +66,7 @@ fn apply_result(
     error: Option<String>,
 ) -> ApplyResult {
     ApplyResult {
-        optimization_id: "windows-search".to_string(),
+        optimization_id: optimization_id.to_string(),
         apply_mode: "real".to_string(),
         status: status.to_string(),
         previous_state: previous_state.to_string(),
@@ -78,6 +79,7 @@ fn apply_result(
 }
 
 fn recovery_result(
+    optimization_id: &str,
     status: &str,
     previous_state: &str,
     expected_state: &str,
@@ -87,7 +89,7 @@ fn recovery_result(
     error: Option<String>,
 ) -> RecoveryResult {
     RecoveryResult {
-        optimization_id: "windows-search".to_string(),
+        optimization_id: optimization_id.to_string(),
         status: status.to_string(),
         previous_state: previous_state.to_string(),
         expected_state: expected_state.to_string(),
@@ -335,7 +337,13 @@ mod windows_apply {
     use std::ptr::{null, null_mut};
     use std::thread::sleep;
     use std::time::Duration;
-    use windows_sys::Win32::Foundation::{ERROR_ACCESS_DENIED, ERROR_INSUFFICIENT_BUFFER};
+    use windows_sys::Win32::Foundation::{
+        ERROR_ACCESS_DENIED, ERROR_FILE_NOT_FOUND, ERROR_INSUFFICIENT_BUFFER, ERROR_SUCCESS,
+    };
+    use windows_sys::Win32::System::Registry::{
+        RegCloseKey, RegCreateKeyW, RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW,
+        RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_DWORD,
+    };
     use windows_sys::Win32::System::Services::{
         ChangeServiceConfigW, CloseServiceHandle, ControlService, OpenSCManagerW, OpenServiceW,
         QueryServiceConfigW, QueryServiceStatusEx, SC_HANDLE, SC_MANAGER_CONNECT,
@@ -358,6 +366,21 @@ mod windows_apply {
     struct ServiceSnapshot {
         state: String,
         startup_type: String,
+    }
+
+    struct RegistryKey(HKEY);
+
+    impl Drop for RegistryKey {
+        fn drop(&mut self) {
+            unsafe {
+                RegCloseKey(self.0);
+            }
+        }
+    }
+
+    struct GameModeSnapshot {
+        state: String,
+        raw_value: String,
     }
 
     fn wide(value: &str) -> Vec<u16> {
@@ -402,6 +425,117 @@ mod windows_apply {
         std::io::Error::last_os_error()
             .raw_os_error()
             .unwrap_or_default() as u32
+    }
+
+    fn open_game_mode_key(access: u32) -> Result<RegistryKey, String> {
+        let key_path = wide("Software\\Microsoft\\GameBar");
+        let mut key: HKEY = null_mut();
+
+        let status = if access == KEY_READ {
+            unsafe { RegOpenKeyExW(HKEY_CURRENT_USER, key_path.as_ptr(), 0, KEY_READ, &mut key) }
+        } else {
+            unsafe { RegCreateKeyW(HKEY_CURRENT_USER, key_path.as_ptr(), &mut key) }
+        };
+
+        if status != ERROR_SUCCESS {
+            return Err(format!("Open Game Mode registry key failed with Windows error {status}."));
+        }
+
+        Ok(RegistryKey(key))
+    }
+
+    fn state_from_game_mode_value(value: Option<u32>) -> String {
+        match value {
+            Some(1) => "Enabled".to_string(),
+            Some(0) => "Disabled".to_string(),
+            _ => "Unknown".to_string(),
+        }
+    }
+
+    fn raw_game_mode_value(value: Option<u32>) -> String {
+        match value {
+            Some(value) => format!("DWORD:{value}"),
+            None => "Missing".to_string(),
+        }
+    }
+
+    fn parse_game_mode_raw_value(value: &str) -> Option<u32> {
+        value.strip_prefix("DWORD:")
+            .and_then(|raw| raw.parse::<u32>().ok())
+    }
+
+    fn query_game_mode_snapshot() -> Result<GameModeSnapshot, String> {
+        let key = open_game_mode_key(KEY_READ)?;
+        let value_name = wide("AutoGameModeEnabled");
+        let mut data_type = 0u32;
+        let mut data = 0u32;
+        let mut data_size = std::mem::size_of::<u32>() as u32;
+        let status = unsafe {
+            RegQueryValueExW(
+                key.0,
+                value_name.as_ptr(),
+                null_mut(),
+                &mut data_type,
+                &mut data as *mut _ as *mut u8,
+                &mut data_size,
+            )
+        };
+
+        if status == ERROR_FILE_NOT_FOUND {
+            return Ok(GameModeSnapshot {
+                state: "Unknown".to_string(),
+                raw_value: "Missing".to_string(),
+            });
+        }
+
+        if status != ERROR_SUCCESS {
+            return Err(format!("Read Game Mode registry value failed with Windows error {status}."));
+        }
+
+        if data_type != REG_DWORD {
+            return Ok(GameModeSnapshot {
+                state: "Unknown".to_string(),
+                raw_value: "UnsupportedType".to_string(),
+            });
+        }
+
+        Ok(GameModeSnapshot {
+            state: state_from_game_mode_value(Some(data)),
+            raw_value: raw_game_mode_value(Some(data)),
+        })
+    }
+
+    fn set_game_mode_value(value: u32) -> Result<(), String> {
+        let key = open_game_mode_key(KEY_SET_VALUE)?;
+        let value_name = wide("AutoGameModeEnabled");
+        let status = unsafe {
+            RegSetValueExW(
+                key.0,
+                value_name.as_ptr(),
+                0,
+                REG_DWORD,
+                &value as *const _ as *const u8,
+                std::mem::size_of::<u32>() as u32,
+            )
+        };
+
+        if status != ERROR_SUCCESS {
+            return Err(format!("Write Game Mode registry value failed with Windows error {status}."));
+        }
+
+        Ok(())
+    }
+
+    fn delete_game_mode_value() -> Result<(), String> {
+        let key = open_game_mode_key(KEY_SET_VALUE)?;
+        let value_name = wide("AutoGameModeEnabled");
+        let status = unsafe { RegDeleteValueW(key.0, value_name.as_ptr()) };
+
+        if status == ERROR_FILE_NOT_FOUND || status == ERROR_SUCCESS {
+            return Ok(());
+        }
+
+        Err(format!("Delete Game Mode registry value failed with Windows error {status}."))
     }
 
     fn query_snapshot(service: SC_HANDLE) -> Result<ServiceSnapshot, String> {
@@ -478,6 +612,7 @@ mod windows_apply {
         if manager.is_null() {
             let code = last_error();
             return apply_result(
+                "windows-search",
                 "failed",
                 "Unknown",
                 "Unknown",
@@ -505,6 +640,7 @@ mod windows_apply {
             };
 
             return apply_result(
+                "windows-search",
                 "failed",
                 "Unknown",
                 "Unknown",
@@ -519,6 +655,7 @@ mod windows_apply {
             Ok(snapshot) => snapshot,
             Err(message) => {
                 return apply_result(
+                    "windows-search",
                     "failed",
                     "Unknown",
                     "Unknown",
@@ -548,6 +685,7 @@ mod windows_apply {
         if ok == 0 {
             let code = last_error();
             return apply_result(
+                "windows-search",
                 "failed",
                 &before.state,
                 &before.state,
@@ -570,6 +708,7 @@ mod windows_apply {
         });
 
         apply_result(
+            "windows-search",
             "success",
             &before.state,
             &after.state,
@@ -586,6 +725,7 @@ mod windows_apply {
         if manager.is_null() {
             let code = last_error();
             return recovery_result(
+                "windows-search",
                 "failed",
                 &previous_state,
                 &previous_state,
@@ -618,6 +758,7 @@ mod windows_apply {
             };
 
             return recovery_result(
+                "windows-search",
                 "failed",
                 &previous_state,
                 &previous_state,
@@ -652,6 +793,7 @@ mod windows_apply {
                 .unwrap_or_else(|_| "Unknown".to_string());
             let code = last_error();
             return recovery_result(
+                "windows-search",
                 "failed",
                 &previous_state,
                 &previous_state,
@@ -684,6 +826,7 @@ mod windows_apply {
             || (previous_state == "Stopped" && after.state != "Running" && after.startup_type != "Disabled");
 
         recovery_result(
+            "windows-search",
             if success { "success" } else { "failed" },
             &previous_state,
             &previous_state,
@@ -701,6 +844,110 @@ mod windows_apply {
             },
         )
     }
+
+    pub fn game_mode() -> ApplyResult {
+        let before = match query_game_mode_snapshot() {
+            Ok(snapshot) => snapshot,
+            Err(message) => {
+                return apply_result(
+                    "game-mode",
+                    "failed",
+                    "Unknown",
+                    "Unknown",
+                    "Unknown",
+                    message.clone(),
+                    Some(message),
+                );
+            }
+        };
+
+        if let Err(message) = set_game_mode_value(1) {
+            return apply_result(
+                "game-mode",
+                "failed",
+                &before.state,
+                &before.state,
+                &before.raw_value,
+                "Game Mode was not changed.".to_string(),
+                Some(message),
+            );
+        }
+
+        let after = query_game_mode_snapshot().unwrap_or(GameModeSnapshot {
+            state: "Enabled".to_string(),
+            raw_value: "DWORD:1".to_string(),
+        });
+
+        apply_result(
+            "game-mode",
+            if after.state == "Enabled" { "success" } else { "failed" },
+            &before.state,
+            &after.state,
+            &before.raw_value,
+            if after.state == "Enabled" {
+                "Game Mode was enabled through the native Tauri executor.".to_string()
+            } else {
+                format!("Game Mode apply expected Enabled, but detected {}.", after.state)
+            },
+            if after.state == "Enabled" {
+                None
+            } else {
+                Some("Applied registry value did not produce the expected detected state.".to_string())
+            },
+        )
+    }
+
+    pub fn restore_game_mode(previous_state: String, previous_registry_value: String) -> RecoveryResult {
+        let recovery = if previous_registry_value == "Missing" {
+            delete_game_mode_value()
+        } else if let Some(value) = parse_game_mode_raw_value(&previous_registry_value) {
+            set_game_mode_value(value)
+        } else {
+            Err("Saved Game Mode registry value is not restorable.".to_string())
+        };
+
+        if let Err(message) = recovery {
+            let actual = query_game_mode_snapshot()
+                .map(|snapshot| snapshot.state)
+                .unwrap_or_else(|_| "Unknown".to_string());
+
+            return recovery_result(
+                "game-mode",
+                "failed",
+                &previous_state,
+                &previous_state,
+                &actual,
+                &previous_registry_value,
+                "Game Mode recovery was not applied.".to_string(),
+                Some(message),
+            );
+        }
+
+        let after = query_game_mode_snapshot().unwrap_or(GameModeSnapshot {
+            state: "Unknown".to_string(),
+            raw_value: previous_registry_value.clone(),
+        });
+        let success = after.state == previous_state;
+
+        recovery_result(
+            "game-mode",
+            if success { "success" } else { "failed" },
+            &previous_state,
+            &previous_state,
+            &after.state,
+            &previous_registry_value,
+            if success {
+                "Game Mode was restored to the saved previous state.".to_string()
+            } else {
+                format!("Game Mode recovery expected {previous_state}, but detected {}.", after.state)
+            },
+            if success {
+                None
+            } else {
+                Some("Recovered state did not match the saved previous state.".to_string())
+            },
+        )
+    }
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -709,6 +956,7 @@ mod windows_apply {
 
     pub fn windows_search() -> ApplyResult {
         apply_result(
+            "windows-search",
             "failed",
             "Unknown",
             "Unknown",
@@ -720,12 +968,38 @@ mod windows_apply {
 
     pub fn restore_windows_search(previous_state: String, previous_startup_type: String) -> RecoveryResult {
         recovery_result(
+            "windows-search",
             "failed",
             &previous_state,
             &previous_state,
             "Unknown",
             &previous_startup_type,
             "Windows Search Recovery is only available on Windows.".to_string(),
+            Some("Unsupported operating system.".to_string()),
+        )
+    }
+
+    pub fn game_mode() -> ApplyResult {
+        apply_result(
+            "game-mode",
+            "failed",
+            "Unknown",
+            "Unknown",
+            "Unknown",
+            "Game Mode Apply is only available on Windows.".to_string(),
+            Some("Unsupported operating system.".to_string()),
+        )
+    }
+
+    pub fn restore_game_mode(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+        recovery_result(
+            "game-mode",
+            "failed",
+            &previous_state,
+            &previous_state,
+            "Unknown",
+            &previous_startup_type,
+            "Game Mode Recovery is only available on Windows.".to_string(),
             Some("Unsupported operating system.".to_string()),
         )
     }
@@ -786,6 +1060,16 @@ fn restore_windows_search(previous_state: String, previous_startup_type: String)
     windows_apply::restore_windows_search(previous_state, previous_startup_type)
 }
 
+#[tauri::command]
+fn apply_game_mode() -> ApplyResult {
+    windows_apply::game_mode()
+}
+
+#[tauri::command]
+fn restore_game_mode(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+    windows_apply::restore_game_mode(previous_state, previous_startup_type)
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -794,7 +1078,9 @@ fn main() {
             detect_core_isolation,
             detect_delivery_optimization,
             apply_windows_search,
-            restore_windows_search
+            restore_windows_search,
+            apply_game_mode,
+            restore_game_mode
         ])
         .run(tauri::generate_context!())
         .expect("failed to run TweakMind");

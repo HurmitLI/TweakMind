@@ -41,7 +41,7 @@ export function RecoveryConfirmationPage() {
         <section className="w-full max-w-3xl rounded-lg border border-amber-100 bg-white/90 p-8 text-center shadow-sm backdrop-blur">
           <h2 className="text-4xl font-semibold tracking-tight text-slate-950">Recovery Not Available</h2>
           <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600">
-            Recovery is available only for successful Windows Search Real Apply records.
+            Recovery is available only for successful Real Apply records with recovery support.
           </p>
           <Link
             className="mt-8 inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
@@ -67,7 +67,7 @@ export function RecoveryConfirmationPage() {
             <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">Recovery Confirmation</p>
             <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{entry.optimizationName}</h2>
             <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">
-              Review the saved previous state before restoring Windows Search.
+              Review the saved previous state before restoring {entry.optimizationName}.
             </p>
           </div>
           <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
@@ -90,7 +90,7 @@ export function RecoveryConfirmationPage() {
         <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
           <h3 className="text-lg font-semibold tracking-tight text-slate-950">What will change</h3>
           <p className="mt-4 text-sm leading-6 text-slate-600">
-            TweakMind will ask the native recovery executor to restore Windows Search to the saved previous state:
+            TweakMind will ask the native recovery executor to restore {entry.optimizationName} to the saved previous state:
             {` ${entry.previousState}`}.
           </p>
         </section>
