@@ -1,31 +1,19 @@
-import { OptimizationRepository } from "../../optimization/OptimizationRepository";
 import type { OptimizationEngine } from "../OptimizationEngine";
-import { createEngineResult } from "../OptimizationEngine";
 import type { OptimizationStatus } from "../../../types/optimization";
-import { detectWithNativeCommand } from "../NativeDetection";
+import { OptimizationSdkRegistry } from "../../sdk/OptimizationSdkRegistry";
 
 export class CoreIsolationEngine implements OptimizationEngine {
   id = "core-isolation" as const;
 
   async detect() {
-    return detectWithNativeCommand("detect_core_isolation", OptimizationRepository.getById(this.id)?.title ?? "Core Isolation");
+    return OptimizationSdkRegistry.get(this.id).detector.detect();
   }
 
   async apply() {
-    return createEngineResult({
-      status: "Success",
-      previousState: "Enabled",
-      currentState: "Enabled",
-      message: `${OptimizationRepository.getById(this.id)?.title ?? "Core Isolation"} mock apply recorded. No Windows changes were made.`
-    });
+    return OptimizationSdkRegistry.get(this.id).executor.apply();
   }
 
   async restore(previousState: OptimizationStatus = "Enabled") {
-    return createEngineResult({
-      status: "Success",
-      previousState: "Enabled",
-      currentState: previousState,
-      message: `${OptimizationRepository.getById(this.id)?.title ?? "Core Isolation"} mock restore recorded. No Windows changes were made.`
-    });
+    return OptimizationSdkRegistry.get(this.id).recovery.restore(previousState);
   }
 }

@@ -1,6 +1,6 @@
-import { OptimizationRepository } from "../optimization/OptimizationRepository";
 import type { MockScanResult, RecommendationResult } from "./RecommendationResult";
 import type { OptimizationId, OptimizationRecommendation, OptimizationStatus } from "../../types/optimization";
+import { OptimizationSdkRegistry } from "../sdk/OptimizationSdkRegistry";
 
 export const mockScanResult: MockScanResult = {
   windowsSearchStatus: "Unknown",
@@ -30,18 +30,16 @@ export class RecommendationEngine {
     const windowsSearchRecommendation = this.recommendWindowsSearch(scanResult);
     const gameModeRecommendation = this.recommendGameMode(scanResult);
     const coreIsolationRecommendation = this.recommendCoreIsolation(scanResult);
-    const deliveryOptimizationStatus = normalizeStatus(scanResult.deliveryOptimizationStatus);
-    const deliveryOptimizationRecommendation: RecommendationResult = {
-      id: "delivery-optimization",
-      recommendation: scanResult.deviceType === "Desktop" ? "Optional" : "Optional",
-      reason: this.descriptionFor("delivery-optimization"),
-      currentStatus: deliveryOptimizationStatus
-    };
+    const deliveryOptimizationRecommendation = this.toRecommendationResult(
+      "delivery-optimization",
+      scanResult.deliveryOptimizationStatus,
+      scanResult.deviceType
+    );
 
     logRecommendationMapping(
       "delivery-optimization",
       scanResult.deliveryOptimizationStatus,
-      deliveryOptimizationStatus,
+      deliveryOptimizationRecommendation.currentStatus ?? "Unknown",
       deliveryOptimizationRecommendation.recommendation
     );
 
@@ -54,32 +52,7 @@ export class RecommendationEngine {
   }
 
   private static recommendWindowsSearch(scanResult: MockScanResult): RecommendationResult {
-    const reason = this.descriptionFor("windows-search");
-    const normalizedStatus = normalizeStatus(scanResult.windowsSearchStatus);
-    let result: RecommendationResult;
-
-    if (normalizedStatus === "Disabled") {
-      result = {
-        id: "windows-search",
-        recommendation: "Already Optimized",
-        reason,
-        currentStatus: normalizedStatus
-      };
-    } else if (normalizedStatus === "Enabled" || normalizedStatus === "Running" || normalizedStatus === "Stopped") {
-      result = {
-        id: "windows-search",
-        recommendation: "Recommended",
-        reason,
-        currentStatus: normalizedStatus
-      };
-    } else {
-      result = {
-        id: "windows-search",
-        recommendation: "Optional",
-        reason,
-        currentStatus: "Unknown"
-      };
-    }
+    const result = this.toRecommendationResult("windows-search", scanResult.windowsSearchStatus, scanResult.deviceType);
 
     logRecommendationMapping("windows-search", scanResult.windowsSearchStatus, result.currentStatus ?? "Unknown", result.recommendation);
 
@@ -87,32 +60,7 @@ export class RecommendationEngine {
   }
 
   private static recommendGameMode(scanResult: MockScanResult): RecommendationResult {
-    const reason = this.descriptionFor("game-mode");
-    const normalizedStatus = normalizeStatus(scanResult.gameModeStatus);
-    let result: RecommendationResult;
-
-    if (normalizedStatus === "Enabled") {
-      result = {
-        id: "game-mode",
-        recommendation: "Keep Enabled",
-        reason,
-        currentStatus: normalizedStatus
-      };
-    } else if (normalizedStatus === "Disabled") {
-      result = {
-        id: "game-mode",
-        recommendation: "Recommended",
-        reason,
-        currentStatus: normalizedStatus
-      };
-    } else {
-      result = {
-        id: "game-mode",
-        recommendation: "Optional",
-        reason,
-        currentStatus: "Unknown"
-      };
-    }
+    const result = this.toRecommendationResult("game-mode", scanResult.gameModeStatus, scanResult.deviceType);
 
     logRecommendationMapping("game-mode", scanResult.gameModeStatus, result.currentStatus ?? "Unknown", result.recommendation);
 
@@ -120,39 +68,23 @@ export class RecommendationEngine {
   }
 
   private static recommendCoreIsolation(scanResult: MockScanResult): RecommendationResult {
-    const reason = this.descriptionFor("core-isolation");
-    const normalizedStatus = normalizeStatus(scanResult.coreIsolationStatus);
-    let result: RecommendationResult;
-
-    if (normalizedStatus === "Enabled") {
-      result = {
-        id: "core-isolation",
-        recommendation: "Keep Default",
-        reason,
-        currentStatus: normalizedStatus
-      };
-    } else if (normalizedStatus === "Disabled") {
-      result = {
-        id: "core-isolation",
-        recommendation: "Optional",
-        reason,
-        currentStatus: normalizedStatus
-      };
-    } else {
-      result = {
-        id: "core-isolation",
-        recommendation: "Optional",
-        reason,
-        currentStatus: "Unknown"
-      };
-    }
+    const result = this.toRecommendationResult("core-isolation", scanResult.coreIsolationStatus, scanResult.deviceType);
 
     logRecommendationMapping("core-isolation", scanResult.coreIsolationStatus, result.currentStatus ?? "Unknown", result.recommendation);
 
     return result;
   }
 
-  private static descriptionFor(id: OptimizationId): string {
-    return OptimizationRepository.getById(id)?.description ?? "";
+  private static toRecommendationResult(id: OptimizationId, status: OptimizationStatus, deviceType: MockScanResult["deviceType"]): RecommendationResult {
+    const evaluation = OptimizationSdkRegistry.evaluate(id, normalizeStatus(status), deviceType);
+
+    return {
+      id,
+      recommendation: evaluation.recommendation,
+      reason: evaluation.reason,
+      currentStatus: evaluation.currentStatus,
+      selectable: evaluation.selectable,
+      selectedByDefault: evaluation.selectedByDefault
+    };
   }
 }

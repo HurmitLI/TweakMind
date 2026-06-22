@@ -1,7 +1,7 @@
 import type { OptimizationId } from "../../types/optimization";
 import { OptimizationRepository } from "../optimization/OptimizationRepository";
-import { OptimizationEngineRegistry } from "../engine/OptimizationEngineRegistry";
 import type { OptimizationEngineResult } from "../engine/OptimizationEngine";
+import { OptimizationSdkRegistry } from "../sdk/OptimizationSdkRegistry";
 import {
   type OptimizationExecutionResult,
   type OptimizationHistoryEntry,
@@ -29,14 +29,14 @@ function toHistoryEntry(
 
 export class OptimizationExecutor {
   static async apply(optimizationId: OptimizationId): Promise<OptimizationExecutionResult> {
-    const result = await OptimizationEngineRegistry.get(optimizationId).apply();
+    const result = await OptimizationSdkRegistry.get(optimizationId).executor.apply();
     const entry = toHistoryEntry(optimizationId, result);
     WindowsOptimizationService.recordHistory(entry);
     return entry;
   }
 
   static async restore(entry: OptimizationHistoryEntry): Promise<OptimizationExecutionResult> {
-    const result = await OptimizationEngineRegistry.get(entry.optimizationId).restore(entry.previousState);
+    const result = await OptimizationSdkRegistry.get(entry.optimizationId).recovery.restore(entry.previousState);
     const restoreEntry = toHistoryEntry(entry.optimizationId, result, entry.previousStartupType);
     WindowsOptimizationService.recordHistory(restoreEntry);
     return restoreEntry;

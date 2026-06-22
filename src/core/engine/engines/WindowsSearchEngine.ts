@@ -1,31 +1,19 @@
-import { OptimizationRepository } from "../../optimization/OptimizationRepository";
 import type { OptimizationEngine } from "../OptimizationEngine";
-import { createEngineResult } from "../OptimizationEngine";
 import type { OptimizationStatus } from "../../../types/optimization";
-import { detectWithNativeCommand } from "../NativeDetection";
+import { OptimizationSdkRegistry } from "../../sdk/OptimizationSdkRegistry";
 
 export class WindowsSearchEngine implements OptimizationEngine {
   id = "windows-search" as const;
 
   async detect() {
-    return detectWithNativeCommand("detect_windows_search", OptimizationRepository.getById(this.id)?.title ?? "Windows Search");
+    return OptimizationSdkRegistry.get(this.id).detector.detect();
   }
 
   async apply() {
-    return createEngineResult({
-      status: "Success",
-      previousState: "Disabled",
-      currentState: "Disabled",
-      message: `${OptimizationRepository.getById(this.id)?.title ?? "Windows Search"} is already optimized. No Windows changes were made.`
-    });
+    return OptimizationSdkRegistry.get(this.id).executor.apply();
   }
 
   async restore(previousState: OptimizationStatus = "Disabled") {
-    return createEngineResult({
-      status: "Success",
-      previousState: "Disabled",
-      currentState: previousState,
-      message: `${OptimizationRepository.getById(this.id)?.title ?? "Windows Search"} restore recorded. No Windows changes were made.`
-    });
+    return OptimizationSdkRegistry.get(this.id).recovery.restore(previousState);
   }
 }

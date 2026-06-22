@@ -2,11 +2,7 @@ import { ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ScanChecklistItem } from "../components/scan/ScanChecklistItem";
-import {
-  RecommendationEngine,
-  recommendationResultsStorageKey
-} from "../core/recommendation/RecommendationEngine";
-import { createRealScanResult } from "../core/recommendation/RealScanResult";
+import { ScanManager } from "../core/scan/ScanManager";
 
 const scanItems = ["Windows configuration", "Services", "Gaming settings", "Privacy", "Power", "Security"];
 const scanDurationMs = 5400;
@@ -18,24 +14,51 @@ export function ScanPage() {
 
   useEffect(() => {
     const startedAt = Date.now();
+    let scanCompleted = false;
+    let scanProgress = 0;
+    let isMounted = true;
+
+    const scanPromise = ScanManager.run({
+      onProgress(progress) {
+        scanProgress = progress.progress;
+      }
+    });
 
     const intervalId = window.setInterval(() => {
       const elapsed = Date.now() - startedAt;
-      const nextProgress = Math.min(100, Math.round((elapsed / scanDurationMs) * 100));
+      const animatedProgress = Math.min(100, Math.round((elapsed / scanDurationMs) * 100));
+      const nextProgress = Math.min(100, Math.max(animatedProgress, scanProgress));
       setProgress(nextProgress);
 
       if (nextProgress >= 100) {
         window.clearInterval(intervalId);
-        window.setTimeout(async () => {
-          const scanResult = await createRealScanResult();
-          const recommendationResults = RecommendationEngine.generate(scanResult);
-          window.sessionStorage.setItem(recommendationResultsStorageKey, JSON.stringify(recommendationResults));
-          navigate("/report", { state: { recommendationResults } });
+        window.setTimeout(() => {
+          if (scanCompleted && isMounted) {
+            navigate("/report");
+          }
         }, 650);
       }
     }, scanTickMs);
 
+    void scanPromise.then(() => {
+      scanCompleted = true;
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (Date.now() - startedAt >= scanDurationMs) {
+        setProgress(100);
+        window.setTimeout(() => {
+          if (isMounted) {
+            navigate("/report");
+          }
+        }, 650);
+      }
+    });
+
     return () => {
+      isMounted = false;
       window.clearInterval(intervalId);
     };
   }, [navigate]);
@@ -53,7 +76,7 @@ export function ScanPage() {
             <ShieldCheck size={23} aria-hidden="true" />
           </div>
           <div>
-            <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-700">Mock scan</p>
+            <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-700">System scan</p>
             <h2 className="text-4xl font-semibold tracking-tight text-slate-950">Analyzing your PC</h2>
             <p className="mt-4 text-lg leading-8 text-slate-600">Looking for optimization opportunities...</p>
           </div>

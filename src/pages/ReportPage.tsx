@@ -1,76 +1,13 @@
 import { Activity, AlertTriangle, Clock3, ListChecks } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useMemo } from "react";
 import { OptimizationCard } from "../components/report/OptimizationCard";
 import { ReportActionPanel } from "../components/report/ReportActionPanel";
 import { ReportMetric } from "../components/report/ReportMetric";
-import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
-import {
-  mockScanResult,
-  RecommendationEngine,
-  recommendationResultsStorageKey
-} from "../core/recommendation/RecommendationEngine";
-import { createRealScanResult } from "../core/recommendation/RealScanResult";
-import type { RecommendationResult } from "../core/recommendation/RecommendationResult";
-import type { OptimizationId } from "../types/optimization";
-
-interface RecommendationLocationState {
-  recommendationResults?: RecommendationResult[];
-}
-
-function readStoredRecommendationResults(): RecommendationResult[] | null {
-  try {
-    const stored = window.sessionStorage.getItem(recommendationResultsStorageKey);
-    return stored ? (JSON.parse(stored) as RecommendationResult[]) : null;
-  } catch {
-    return null;
-  }
-}
-
-function isSelectableRecommendation(recommendation: RecommendationResult) {
-  return recommendation.recommendation === "Recommended";
-}
+import { readStoredScanResult, toRecommendationResult } from "../core/scan/ScanResult";
 
 export function ReportPage() {
-  const location = useLocation();
-  const optimizations = useMemo(() => OptimizationRepository.getAll(), []);
-  const initialRecommendationResults = useMemo(() => {
-    const state = location.state as RecommendationLocationState | null;
-    return state?.recommendationResults ?? readStoredRecommendationResults() ?? RecommendationEngine.generate(mockScanResult);
-  }, [location.state]);
-  const [recommendationResults, setRecommendationResults] = useState(initialRecommendationResults);
-
-  useEffect(() => {
-    setRecommendationResults(initialRecommendationResults);
-  }, [initialRecommendationResults]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function refreshRecommendationResults() {
-      const scanResult = await createRealScanResult();
-      const nextResults = RecommendationEngine.generate(scanResult);
-
-      if (!isMounted) {
-        return;
-      }
-
-      setRecommendationResults(nextResults);
-      window.sessionStorage.setItem(recommendationResultsStorageKey, JSON.stringify(nextResults));
-    }
-
-    void refreshRecommendationResults();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const recommendationsById = useMemo(
-    () => new Map<OptimizationId, RecommendationResult>(recommendationResults.map((recommendation) => [recommendation.id, recommendation])),
-    [recommendationResults]
-  );
-  const selectedOptimizations = recommendationResults.filter(isSelectableRecommendation);
+  const scanResult = useMemo(() => readStoredScanResult(), []);
+  const optimizationResults = scanResult?.optimizationResults ?? [];
 
   return (
     <div className="flex flex-1 flex-col">
@@ -84,33 +21,25 @@ export function ReportPage() {
         </div>
 
         <div className="mt-7 grid gap-4 md:grid-cols-4">
-          <ReportMetric icon={ListChecks} label="Total recommendations" value={String(recommendationResults.length)} />
-          <ReportMetric icon={Activity} label="Estimated total impact" value="Medium" />
-          <ReportMetric icon={AlertTriangle} label="Estimated total risk" value="Low" />
-          <ReportMetric icon={Clock3} label="Estimated execution time" value="3 min" />
+          <ReportMetric icon={ListChecks} label="Total recommendations" value={String(scanResult?.recommendationSummary.total ?? 0)} />
+          <ReportMetric icon={Activity} label="Estimated total impact" value={scanResult?.estimatedImpact ?? "Medium"} />
+          <ReportMetric icon={AlertTriangle} label="Estimated total risk" value={scanResult?.estimatedRisk ?? "Low"} />
+          <ReportMetric icon={Clock3} label="Estimated execution time" value={scanResult?.executionEstimate ?? "3 min"} />
         </div>
       </section>
 
       <section className="mt-6 grid gap-4">
-        {optimizations.map((optimization, index) => {
-          const recommendation = recommendationsById.get(optimization.id);
-
-          if (!recommendation) {
-            return null;
-          }
-
-          return (
-            <OptimizationCard
-              defaultOpen={index === 0}
-              key={optimization.id}
-              optimization={optimization}
-              recommendation={recommendation}
-            />
-          );
-        })}
+        {optimizationResults.map((result, index) => (
+          <OptimizationCard
+            defaultOpen={index === 0}
+            key={result.id}
+            optimization={result.definition}
+            recommendation={toRecommendationResult(result)}
+          />
+        ))}
       </section>
 
-      <ReportActionPanel selectedCount={selectedOptimizations.length} />
+      <ReportActionPanel selectedCount={scanResult?.recommendationSummary.selectedByDefault ?? 0} />
     </div>
   );
 }

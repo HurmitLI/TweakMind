@@ -1,13 +1,13 @@
 import { mockScanResult } from "./RecommendationEngine";
 import type { MockScanResult } from "./RecommendationResult";
-import { OptimizationEngineRegistry } from "../engine/OptimizationEngineRegistry";
+import { OptimizationSdkRegistry } from "../sdk/OptimizationSdkRegistry";
 
 export async function createRealScanResult(): Promise<MockScanResult> {
   const [windowsSearchState, gameModeState, coreIsolationState, deliveryOptimizationState] = await Promise.all([
-    OptimizationEngineRegistry.get("windows-search").detect(),
-    OptimizationEngineRegistry.get("game-mode").detect(),
-    OptimizationEngineRegistry.get("core-isolation").detect(),
-    OptimizationEngineRegistry.get("delivery-optimization").detect()
+    OptimizationSdkRegistry.detect("windows-search"),
+    OptimizationSdkRegistry.detect("game-mode"),
+    OptimizationSdkRegistry.detect("core-isolation"),
+    OptimizationSdkRegistry.detect("delivery-optimization")
   ]);
 
   return {

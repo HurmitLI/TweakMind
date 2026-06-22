@@ -1,18 +1,12 @@
 import { ArrowLeft, Check, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { useMemo } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { BulletListSection } from "../components/decision/BulletListSection";
 import { DecisionSection } from "../components/decision/DecisionSection";
 import { RecommendationBadge } from "../components/decision/RecommendationBadge";
 import { RecoveryPanel } from "../components/decision/RecoveryPanel";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
-import {
-  mockScanResult,
-  RecommendationEngine,
-  recommendationResultsStorageKey
-} from "../core/recommendation/RecommendationEngine";
-import { createRealScanResult } from "../core/recommendation/RealScanResult";
-import type { RecommendationResult } from "../core/recommendation/RecommendationResult";
+import { readStoredScanResult, toRecommendationResult } from "../core/scan/ScanResult";
 import type { OptimizationId } from "../types/optimization";
 
 const riskStyles = {
@@ -20,19 +14,6 @@ const riskStyles = {
   Medium: "border-amber-200 bg-amber-50 text-amber-700",
   High: "border-rose-200 bg-rose-50 text-rose-700"
 };
-
-interface RecommendationLocationState {
-  recommendationResults?: RecommendationResult[];
-}
-
-function readStoredRecommendationResults(): RecommendationResult[] | null {
-  try {
-    const stored = window.sessionStorage.getItem(recommendationResultsStorageKey);
-    return stored ? (JSON.parse(stored) as RecommendationResult[]) : null;
-  } catch {
-    return null;
-  }
-}
 
 function ChecklistSection({ title, items, variant }: { title: string; items: string[]; variant: "positive" | "negative" }) {
   const isPositive = variant === "positive";
@@ -60,51 +41,13 @@ function ChecklistSection({ title, items, variant }: { title: string; items: str
 }
 
 export function DecisionPage() {
-  const location = useLocation();
   const [searchParams] = useSearchParams();
+  const scanResult = useMemo(() => readStoredScanResult(), []);
   const defaultOptimization = OptimizationRepository.getDefault();
   const requestedOptimizationId = (searchParams.get("id") as OptimizationId | null) ?? defaultOptimization.id;
-  const optimization =
-    OptimizationRepository.getById(requestedOptimizationId) ?? defaultOptimization;
-  const initialRecommendationResults = useMemo(() => {
-    const state = location.state as RecommendationLocationState | null;
-    return state?.recommendationResults ?? readStoredRecommendationResults() ?? RecommendationEngine.generate(mockScanResult);
-  }, [location.state]);
-  const [recommendationResults, setRecommendationResults] = useState(initialRecommendationResults);
-
-  useEffect(() => {
-    setRecommendationResults(initialRecommendationResults);
-  }, [initialRecommendationResults]);
-
-  useEffect(() => {
-    if (optimization.id !== "windows-search" && optimization.id !== "game-mode" && optimization.id !== "core-isolation") {
-      return;
-    }
-
-    let isMounted = true;
-
-    async function refreshRecommendationResults() {
-      const scanResult = await createRealScanResult();
-      const nextResults = RecommendationEngine.generate(scanResult);
-
-      if (!isMounted) {
-        return;
-      }
-
-      setRecommendationResults(nextResults);
-      window.sessionStorage.setItem(recommendationResultsStorageKey, JSON.stringify(nextResults));
-    }
-
-    void refreshRecommendationResults();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [optimization.id]);
-
-  const recommendation =
-    recommendationResults.find((candidate) => candidate.id === optimization.id) ??
-    RecommendationEngine.generate(mockScanResult).find((candidate) => candidate.id === optimization.id);
+  const optimizationResult = scanResult?.optimizationResults.find((result) => result.id === requestedOptimizationId);
+  const optimization = optimizationResult?.definition ?? OptimizationRepository.getById(requestedOptimizationId) ?? defaultOptimization;
+  const recommendation = optimizationResult ? toRecommendationResult(optimizationResult) : null;
   const currentStatus = recommendation?.currentStatus ?? "Unknown";
 
   if (!recommendation) {

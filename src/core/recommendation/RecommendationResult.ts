@@ -15,4 +15,6 @@ export interface RecommendationResult {
   recommendation: OptimizationRecommendation;
   reason: string;
   currentStatus?: OptimizationStatus;
+  selectable: boolean;
+  selectedByDefault: boolean;
 }
