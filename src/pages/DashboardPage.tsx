@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpen, CheckCircle2, History, MonitorCheck, RotateCcw, ScanLine, ShieldCheck } from "lucide-react";
+import { ArrowRight, BookOpen, CheckCircle2, CloudOff, History, MonitorCheck, RotateCcw, ScanLine, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const trustCards = [
@@ -44,42 +44,51 @@ const philosophyCards = [
   "每一次修改，\n都可以恢复。"
 ];
 
+const heroTrustIndicators = [
+  { label: "本地扫描", icon: ShieldCheck },
+  { label: "不上传数据", icon: CloudOff },
+  { label: "不自动修改", icon: CheckCircle2 },
+  { label: "支持恢复", icon: RotateCcw }
+];
+
 export function DashboardPage() {
   return (
-    <div className="tm-page gap-5">
-      <section className="relative overflow-hidden rounded-lg border border-blue-100 bg-white/95 px-8 py-14 shadow-xl shadow-blue-100/60 dark:border-blue-500/30 dark:bg-slate-900/95 dark:shadow-blue-950/20">
-        <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-600 via-cyan-400 to-emerald-400" />
-        <div className="flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
+    <div className="tm-page">
+      <section className="tm-home-hero">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-700" />
+        <div className="flex flex-col gap-12 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-4xl">
-            <h2 className="text-6xl font-semibold leading-tight tracking-tight text-slate-950 dark:text-slate-100">
+            <h2 className="text-6xl font-semibold leading-[1.08] tracking-tight text-slate-950 dark:text-slate-100">
               让每一次 Windows 优化，
               <br />
               都心里有数。
             </h2>
-            <div className="mt-6 space-y-2 text-xl font-medium leading-8 text-slate-700 dark:text-slate-200">
+            <div className="mt-10 space-y-3 text-xl font-normal leading-9 text-slate-600 dark:text-slate-300">
               <p>扫描你的 Windows 配置。</p>
               <p>了解每项优化意味着什么。</p>
               <p>确认以后，再决定是否应用。</p>
             </div>
           </div>
 
-          <div className="flex shrink-0 flex-col gap-4 xl:w-80">
+          <div className="flex shrink-0 flex-col gap-6 xl:w-80">
             <Link
-              className="inline-flex h-16 items-center justify-center gap-2.5 rounded-lg bg-blue-600 px-8 text-lg font-semibold text-white shadow-xl shadow-blue-600/35 ring-1 ring-blue-500/20 transition hover:bg-blue-700 hover:shadow-blue-600/40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+              className="inline-flex h-14 items-center justify-center gap-2.5 rounded-xl bg-blue-600 px-8 text-base font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
               to="/scan"
             >
               立即扫描 Windows
-              <ArrowRight size={20} aria-hidden="true" />
+              <ArrowRight size={18} aria-hidden="true" />
             </Link>
-            <div className="flex flex-wrap gap-2">
-              {["本地扫描", "不上传数据", "不自动修改", "支持恢复"].map((tag) => (
-                <span
-                  className="rounded-full border border-blue-200 bg-blue-50 px-3.5 py-1.5 text-xs font-semibold tracking-wide text-blue-800 dark:border-blue-400/50 dark:bg-blue-950/50 dark:text-blue-100"
-                  key={tag}
-                >
-                  {tag}
-                </span>
-              ))}
+            <div className="grid gap-2.5">
+              {heroTrustIndicators.map((indicator) => {
+                const Icon = indicator.icon;
+
+                return (
+                  <span className="tm-trust-indicator" key={indicator.label}>
+                    <Icon className="tm-trust-indicator-icon" size={14} aria-hidden="true" />
+                    {indicator.label}
+                  </span>
+                );
+              })}
             </div>
           </div>
         </div>

@@ -15,23 +15,47 @@ function sectionPanelClass(sectionId: DecisionReportSectionId) {
     return "tm-report-section-recommended";
   }
 
-  if (sectionId === "keep-current" || sectionId === "unavailable") {
+  if (sectionId === "keep-current") {
+    return "tm-report-section-passive";
+  }
+
+  if (sectionId === "unavailable") {
     return "tm-report-section-quiet";
   }
 
-  return "border-slate-200 bg-white/90 dark:border-slate-700 dark:bg-slate-900/95";
+  return "rounded-xl bg-white/80 dark:bg-slate-900/80";
 }
 
 function sectionTitleClass(sectionId: DecisionReportSectionId) {
   if (sectionId === "recommended") {
-    return "text-lg font-semibold tracking-tight text-emerald-900 dark:text-emerald-100";
+    return "text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-100";
   }
 
-  if (sectionId === "keep-current" || sectionId === "unavailable") {
-    return "text-base font-semibold tracking-tight text-slate-600 dark:text-slate-400";
+  if (sectionId === "keep-current") {
+    return "text-base font-medium tracking-tight text-slate-600 dark:text-slate-400";
+  }
+
+  if (sectionId === "unavailable") {
+    return "text-sm font-medium tracking-tight text-slate-500 dark:text-slate-500";
   }
 
   return "tm-section-title";
+}
+
+function cardEmphasis(sectionId: DecisionReportSectionId): "strong" | "default" | "passive" | "quiet" {
+  if (sectionId === "recommended") {
+    return "strong";
+  }
+
+  if (sectionId === "keep-current") {
+    return "passive";
+  }
+
+  if (sectionId === "unavailable") {
+    return "quiet";
+  }
+
+  return "default";
 }
 
 export function DecisionReportSectionPanel({
@@ -41,30 +65,31 @@ export function DecisionReportSectionPanel({
   emptyState
 }: DecisionReportSectionPanelProps) {
   const { t } = useTranslation();
-  const isQuiet = section.id === "keep-current" || section.id === "unavailable";
+  const isQuiet = section.id === "unavailable";
+  const isPassive = section.id === "keep-current";
 
   return (
     <details
-      className={[
-        "group rounded-lg border shadow-sm",
-        sectionPanelClass(section.id)
-      ].join(" ")}
+      className={sectionPanelClass(section.id)}
       open={section.id === "recommended"}
     >
-      <summary className="cursor-pointer list-none px-5 py-4">
+      <summary className="cursor-pointer list-none px-6 py-5">
         <div className="flex items-center justify-between gap-4">
           <div>
             <h3 className={sectionTitleClass(section.id)}>{section.title}</h3>
-            <p className={["mt-1", isQuiet ? "tm-body-compact text-slate-500 dark:text-slate-500" : "tm-body"].join(" ")}>
+            <p
+              className={[
+                "mt-1.5",
+                isQuiet ? "text-sm leading-6 text-slate-400" : isPassive ? "tm-body-secondary" : "tm-body-secondary"
+              ].join(" ")}
+            >
               {section.description}
             </p>
           </div>
           <span
             className={[
-              "rounded-full border px-3 py-1 text-xs font-semibold",
-              section.id === "recommended"
-                ? "border-emerald-200 bg-white text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-950/40 dark:text-emerald-200"
-                : "border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+              "text-xs font-medium tabular-nums",
+              section.id === "recommended" ? "text-emerald-700 dark:text-emerald-300" : "text-slate-400 dark:text-slate-500"
             ].join(" ")}
           >
             {section.items.length}
@@ -72,16 +97,16 @@ export function DecisionReportSectionPanel({
         </div>
       </summary>
 
-      <div className="space-y-4 border-t border-slate-100 px-5 pb-5 pt-4 dark:border-slate-800">
+      <div className="divide-y divide-slate-100 px-6 pb-2 dark:divide-slate-800/80">
         {section.items.length === 0
           ? emptyState ?? (
-              <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              <p className="py-4 text-sm leading-6 text-slate-500 dark:text-slate-400">
                 {t("report.sectionPanel.emptyDefault")}
               </p>
             )
           : section.items.map((item) => (
               <DecisionReportCard
-                emphasis={section.id === "recommended" ? "strong" : isQuiet ? "quiet" : "default"}
+                emphasis={cardEmphasis(section.id)}
                 item={item}
                 key={item.id}
                 onToggleSelected={onToggleSelected}

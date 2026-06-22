@@ -29,7 +29,7 @@ export function ReportPage() {
     }[sectionId] as "report.sectionEmpty.recommended";
 
     return (
-      <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 tm-body dark:border-slate-700 dark:bg-slate-800">
+      <p className="py-4 text-sm leading-6 text-slate-500 dark:text-slate-400">
         {t(messageKey)}
       </p>
     );
@@ -133,7 +133,7 @@ export function ReportPage() {
           title={t("report.empty.noMatch.title")}
         />
       ) : (
-        <section className="grid gap-4">
+        <section className="grid gap-5">
           {filteredSections.map((section) => (
             <DecisionReportSectionPanel
               emptyState={sectionEmptyState(section.id)}

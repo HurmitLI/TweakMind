@@ -155,7 +155,7 @@ export function KnowledgePage() {
         </div>
       </section>
 
-      <section className="grid gap-4">
+      <section className="tm-knowledge-list">
         {visibleKnowledge.length === 0 ? (
           <EmptyState
             actionLabel={knowledgeItems.length === 0 ? t("knowledge.empty.noEntries.action") : t("knowledge.empty.noMatch.action")}
@@ -187,39 +187,37 @@ export function KnowledgePage() {
               key={knowledge.identity.id}
               to={`/knowledge/detail?id=${knowledge.identity.id}&from=knowledge`}
             >
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex min-w-0 flex-1 gap-4">
-                  <div className="tm-icon-tile h-11 w-11">
-                    <CategoryIcon size={20} aria-hidden="true" />
+                  <div className="tm-icon-tile-soft">
+                    <CategoryIcon size={18} aria-hidden="true" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-100">
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <h3 className="text-[1.0625rem] font-semibold tracking-tight text-slate-950 dark:text-slate-100">
                         {SettingsService.resolveKnowledgeTitle(knowledge)}
                       </h3>
-                      <span className="tm-badge-small border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/40 dark:bg-blue-950/40 dark:text-blue-300">
+                      <span className="tm-badge-small">
                         {translateCategory(knowledge.identity.category)}
                       </span>
                     </div>
-                    <p className="mt-2 line-clamp-2 tm-body">{knowledge.overview.summary}</p>
+                    <p className="mt-2 line-clamp-2 tm-body-secondary">{knowledge.overview.summary}</p>
                   </div>
                 </div>
 
                 <div className="tm-knowledge-meta">
-                  <div className="tm-knowledge-meta-item">
-                    <p className="tm-label">{t("knowledge.card.label.scan")}</p>
-                    <p className="text-sm font-semibold text-slate-950 dark:text-slate-100">
-                      {translateScanDisplayState(displayState)}
-                    </p>
-                  </div>
-                  <div className="tm-knowledge-meta-item">
-                    <p className="tm-label">{t("knowledge.card.label.risk")}</p>
-                    <p className="text-sm font-semibold text-slate-950 dark:text-slate-100">{translateRiskLevel(knowledge.risks.riskLevel)}</p>
-                  </div>
-                  <div className="tm-knowledge-meta-item">
-                    <p className="tm-label">{t("knowledge.card.label.expectedBenefit")}</p>
-                    <p className="text-sm font-semibold text-slate-950 dark:text-slate-100">{translateBenefitLevel(knowledge.decisionSupport.expectedBenefit)}</p>
-                  </div>
+                  <p className="tm-knowledge-meta-item">
+                    <span className="tm-knowledge-meta-label">{t("knowledge.card.label.scan")}</span>
+                    <span className="tm-knowledge-meta-value">{translateScanDisplayState(displayState)}</span>
+                  </p>
+                  <p className="tm-knowledge-meta-item">
+                    <span className="tm-knowledge-meta-label">{t("knowledge.card.label.risk")}</span>
+                    <span className="tm-knowledge-meta-value">{translateRiskLevel(knowledge.risks.riskLevel)}</span>
+                  </p>
+                  <p className="tm-knowledge-meta-item">
+                    <span className="tm-knowledge-meta-label">{t("knowledge.card.label.expectedBenefit")}</span>
+                    <span className="tm-knowledge-meta-value">{translateBenefitLevel(knowledge.decisionSupport.expectedBenefit)}</span>
+                  </p>
                 </div>
               </div>
             </Link>

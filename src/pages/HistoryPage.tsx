@@ -82,6 +82,7 @@ export function HistoryPage() {
             actionTo="/scan"
             description={t("history.empty.description")}
             title={t("history.empty.title")}
+            variant="comfortable"
           />
         ) : (
           history.map((entry) => {

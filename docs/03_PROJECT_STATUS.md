@@ -136,6 +136,8 @@ None
 
 - DESIGN-001 Alpha Design Polish Pass
 
+- DESIGN-001 Review Pass 1
+
 ---
 
 # In Progress
@@ -146,7 +148,7 @@ None
 
 # Next Development
 
-DESIGN-002 Knowledge Card Content Polish
+DESIGN-001 Review Pass 2
 
 ---
 
