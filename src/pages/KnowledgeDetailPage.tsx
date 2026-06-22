@@ -11,6 +11,8 @@ import { KnowledgeRepository } from "../core/knowledge/KnowledgeRepository";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
 import { RuntimeScanService } from "../core/scan/RuntimeScanService";
 import { readStoredScanResult, toRecommendationResult } from "../core/scan/ScanResult";
+import { useSettings } from "../core/settings/SettingsProvider";
+import { SettingsService } from "../core/settings/SettingsService";
 import { WindowsOptimizationService } from "../core/windows/WindowsOptimizationService";
 import type { OptimizationId } from "../types/optimization";
 
@@ -51,6 +53,7 @@ function resolveCurrentScanState(optimizationId: OptimizationId) {
 }
 
 export function KnowledgeDetailPage() {
+  const { settings } = useSettings();
   const [searchParams] = useSearchParams();
   const scanResult = useMemo(() => readStoredScanResult(), []);
   const defaultOptimization = OptimizationRepository.getDefault();
@@ -103,6 +106,7 @@ export function KnowledgeDetailPage() {
   const tradeOffItems = [...new Set([...knowledge.tradeOffs.cons, ...knowledge.tradeOffs.possibleSideEffects])];
   const recoveryTime =
     knowledge.recovery.estimatedTime === "Unknown" ? "Unknown" : knowledge.recovery.estimatedTime;
+  const displayTitle = SettingsService.resolveKnowledgeTitle(knowledge, settings.terminologyMode);
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -118,7 +122,7 @@ export function KnowledgeDetailPage() {
 
       <section className="rounded-lg border border-white/70 bg-white/85 px-8 py-8 shadow-sm backdrop-blur">
         <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">Decision support</p>
-        <h2 className="text-4xl font-semibold tracking-tight text-slate-950">Should I apply {knowledge.identity.title}?</h2>
+        <h2 className="text-4xl font-semibold tracking-tight text-slate-950">Should I apply {displayTitle}?</h2>
         <div className="mt-5 flex flex-wrap gap-3">
           <RecommendationBadge value={recommendation.recommendation} />
           <span
@@ -255,7 +259,7 @@ export function KnowledgeDetailPage() {
                   key={relatedId}
                   to={`/knowledge/detail?id=${relatedId}&from=${from}`}
                 >
-                  {related.identity.title}
+                  {SettingsService.resolveKnowledgeTitle(related)}
                 </Link>
               );
             })}

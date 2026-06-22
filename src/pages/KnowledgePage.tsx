@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 import { KnowledgeRepository } from "../core/knowledge/KnowledgeRepository";
 import { hasPrivacyRelevance } from "../core/knowledge/knowledgeSchemaHelpers";
 import { RuntimeScanService } from "../core/scan/RuntimeScanService";
+import { useSettings } from "../core/settings/SettingsProvider";
+import { SettingsService } from "../core/settings/SettingsService";
 import type { OptimizationCategory } from "../types/optimization";
 
 const categoryFilters = ["Performance", "Gaming", "Privacy", "Security", "Windows"] as const;
@@ -21,14 +23,21 @@ function matchesCategory(category: CategoryFilter, knowledge: ReturnType<typeof 
   return knowledge.identity.category === (category as OptimizationCategory);
 }
 
-function matchesSearch(query: string, knowledge: ReturnType<typeof KnowledgeRepository.getAll>[number]) {
+function matchesSearch(
+  query: string,
+  knowledge: ReturnType<typeof KnowledgeRepository.getAll>[number],
+  terminologyMode: ReturnType<typeof SettingsService.getSettings>["terminologyMode"]
+) {
   const normalizedQuery = query.trim().toLowerCase();
 
   if (!normalizedQuery) {
     return true;
   }
 
+  const displayTitle = SettingsService.resolveKnowledgeTitle(knowledge, terminologyMode);
+
   const searchableText = [
+    displayTitle,
     knowledge.identity.title,
     knowledge.identity.category,
     knowledge.identity.priority,
@@ -58,6 +67,7 @@ function matchesSearch(query: string, knowledge: ReturnType<typeof KnowledgeRepo
 }
 
 export function KnowledgePage() {
+  const { settings } = useSettings();
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter | null>(null);
   const knowledgeItems = useMemo(() => KnowledgeRepository.getAll(), []);
@@ -72,9 +82,9 @@ export function KnowledgePage() {
     () =>
       knowledgeItems.filter((knowledge) => {
         const categoryMatch = selectedCategory ? matchesCategory(selectedCategory, knowledge) : true;
-        return categoryMatch && matchesSearch(query, knowledge);
+        return categoryMatch && matchesSearch(query, knowledge, settings.terminologyMode);
       }),
-    [knowledgeItems, query, selectedCategory]
+    [knowledgeItems, query, selectedCategory, settings.terminologyMode]
   );
 
   return (
@@ -133,7 +143,9 @@ export function KnowledgePage() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-3">
-                  <h3 className="text-xl font-semibold tracking-tight text-slate-950">{knowledge.identity.title}</h3>
+                  <h3 className="text-xl font-semibold tracking-tight text-slate-950">
+                    {SettingsService.resolveKnowledgeTitle(knowledge)}
+                  </h3>
                   <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
                     {knowledge.identity.category}
                   </span>

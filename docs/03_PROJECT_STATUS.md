@@ -110,6 +110,8 @@ None
 
 - PRODUCT-009 First Run Experience
 
+- PRODUCT-010 Settings & Preferences
+
 ---
 
 # In Progress
@@ -120,7 +122,7 @@ None
 
 # Next Development
 
-PRODUCT-010 Settings & Preferences
+PRODUCT-011 Error Experience
 
 ---
 
