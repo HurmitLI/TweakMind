@@ -1,25 +1,29 @@
 import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AppInfo } from "../core/app/AppInfo";
+import { useTranslation } from "../core/localization/LanguageProvider";
 import { OnboardingService } from "../core/onboarding/OnboardingService";
 import { useSettings } from "../core/settings/SettingsProvider";
 import type { AppLanguage, AppTheme, TerminologyMode } from "../core/settings/SettingsService";
 
-const languageOptions: { value: AppLanguage; label: string }[] = [
-  { value: "en", label: "English" },
-  { value: "zh-CN", label: "Chinese (Simplified)" }
+const languageOptions: { value: AppLanguage; labelKey: "settings.language.en" | "settings.language.zhCN" }[] = [
+  { value: "en", labelKey: "settings.language.en" },
+  { value: "zh-CN", labelKey: "settings.language.zhCN" }
 ];
 
-const themeOptions: { value: AppTheme; label: string }[] = [
-  { value: "system", label: "System" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" }
+const themeOptions: { value: AppTheme; labelKey: "settings.theme.system" | "settings.theme.light" | "settings.theme.dark" }[] = [
+  { value: "system", labelKey: "settings.theme.system" },
+  { value: "light", labelKey: "settings.theme.light" },
+  { value: "dark", labelKey: "settings.theme.dark" }
 ];
 
-const terminologyOptions: { value: TerminologyMode; label: string }[] = [
-  { value: "original", label: "Original" },
-  { value: "localized", label: "Localized" },
-  { value: "tweakmind", label: "TweakMind" }
+const terminologyOptions: {
+  value: TerminologyMode;
+  labelKey: "settings.terminology.original" | "settings.terminology.localized" | "settings.terminology.tweakmind";
+}[] = [
+  { value: "original", labelKey: "settings.terminology.original" },
+  { value: "localized", labelKey: "settings.terminology.localized" },
+  { value: "tweakmind", labelKey: "settings.terminology.tweakmind" }
 ];
 
 function PreferenceSection({
@@ -75,52 +79,43 @@ function OptionButtons<T extends string>({
 }
 
 export function SettingsPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { settings, updateSettings } = useSettings();
 
   return (
     <div className="flex flex-1 flex-col gap-6">
       <section className="rounded-lg border border-white/70 bg-white/85 px-8 py-8 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/85">
-        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">Settings</p>
-        <h2 className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-slate-100">Preferences</h2>
-        <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300">
-          Manage basic TweakMind preferences for this device.
-        </p>
+        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">{t("settings.eyebrow")}</p>
+        <h2 className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-slate-100">{t("settings.title")}</h2>
+        <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300">{t("settings.subtitle")}</p>
       </section>
 
-      <PreferenceSection
-        description="Choose the language used across the application interface."
-        title="Language"
-      >
+      <PreferenceSection description={t("settings.language.description")} title={t("settings.language.title")}>
         <OptionButtons
           onChange={(language) => updateSettings({ language })}
-          options={languageOptions}
+          options={languageOptions.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
           value={settings.language}
         />
       </PreferenceSection>
 
-      <PreferenceSection
-        description="Choose how TweakMind appears. System follows your Windows appearance setting."
-        title="Theme"
-      >
-        <OptionButtons onChange={(theme) => updateSettings({ theme })} options={themeOptions} value={settings.theme} />
+      <PreferenceSection description={t("settings.theme.description")} title={t("settings.theme.title")}>
+        <OptionButtons
+          onChange={(theme) => updateSettings({ theme })}
+          options={themeOptions.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
+          value={settings.theme}
+        />
       </PreferenceSection>
 
-      <PreferenceSection
-        description="Choose how optimization names appear in the knowledge center and related views."
-        title="Terminology Mode"
-      >
+      <PreferenceSection description={t("settings.terminology.description")} title={t("settings.terminology.title")}>
         <OptionButtons
           onChange={(terminologyMode) => updateSettings({ terminologyMode })}
-          options={terminologyOptions}
+          options={terminologyOptions.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
           value={settings.terminologyMode}
         />
       </PreferenceSection>
 
-      <PreferenceSection
-        description="Show the first-run welcome flow again if you want a quick refresher on the TweakMind workflow."
-        title="Onboarding"
-      >
+      <PreferenceSection description={t("settings.onboarding.description")} title={t("settings.onboarding.title")}>
         <button
           className="inline-flex h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-400 dark:hover:text-blue-300"
           onClick={() => {
@@ -129,22 +124,19 @@ export function SettingsPage() {
           }}
           type="button"
         >
-          Show onboarding again
+          {t("settings.onboarding.action")}
         </button>
       </PreferenceSection>
 
-      <PreferenceSection
-        description="View release information, licensing, and project links for this Alpha build."
-        title="Application"
-      >
+      <PreferenceSection description={t("settings.application.description")} title={t("settings.application.title")}>
         <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-          {AppInfo.name} {AppInfo.versionLabel}
+          {AppInfo.name} {t("app.versionLabel", { version: AppInfo.version })}
         </p>
         <Link
           className="mt-4 inline-flex h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-400 dark:hover:text-blue-300"
           to="/about"
         >
-          View About
+          {t("settings.application.action")}
         </Link>
       </PreferenceSection>
     </div>

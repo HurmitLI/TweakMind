@@ -4,6 +4,7 @@ import type {
   VerificationExecutionResult
 } from "../execution/OptimizationExecutionTypes";
 import { isTauriRuntime } from "../execution/targets/ExecutionRuntime";
+import { LocalizationService } from "../localization/LocalizationService";
 import type { OptimizationHistoryEntry } from "../windows/WindowsOptimizationService";
 
 export type ErrorType =
@@ -83,94 +84,103 @@ function baseDescriptor(
   context: ErrorPresentationContext,
   overrides: Partial<ErrorDescriptor> = {}
 ): ErrorDescriptor {
+  const t = LocalizationService.translate.bind(LocalizationService);
+
+  const unsupportedOptimizationTitle =
+    context === "recovery"
+      ? t("error.unsupportedOptimization.recoveryTitle")
+      : t("error.unsupportedOptimization.applyTitle");
+
+  const unsupportedRuntimeTitle =
+    context === "recovery"
+      ? t("error.unsupportedRuntime.recoveryTitle")
+      : context === "verify"
+        ? t("error.unsupportedRuntime.verifyTitle")
+        : t("error.unsupportedRuntime.applyTitle");
+
   const defaults: Record<ErrorType, Omit<ErrorDescriptor, "type">> = {
     "administrator-required": {
-      title: "Administrator Permission Required",
-      explanation: "TweakMind needs administrator permission to modify this Windows setting.",
-      recommendedAction: "Restart TweakMind as Administrator.",
+      title: t("error.administratorRequired.title"),
+      explanation: t("error.administratorRequired.explanation"),
+      recommendedAction: t("error.administratorRequired.action"),
       retryAvailable: false,
       showGoBack: true,
       showOpenHistory: false,
       showDismiss: context === "apply"
     },
     "windows-api-failed": {
-      title: "Windows Setting Could Not Be Changed",
-      explanation: "TweakMind could not complete the requested Windows change.",
+      title: t("error.windowsApiFailed.title"),
+      explanation: t("error.windowsApiFailed.explanation"),
       possibleReasons: [
-        "Another application changed the setting",
-        "Windows policy restricted the change",
-        "A restart may be required"
+        t("error.windowsApiFailed.reason.otherApp"),
+        t("error.windowsApiFailed.reason.policy"),
+        t("error.windowsApiFailed.reason.restart")
       ],
-      recommendedAction: "Review the setting in History, then try again if the change is still needed.",
+      recommendedAction: t("error.windowsApiFailed.action"),
       retryAvailable: true,
       showGoBack: true,
       showOpenHistory: true,
       showDismiss: context === "apply"
     },
     "verification-failed": {
-      title: "Verification Failed",
-      explanation: "Windows did not reach the expected state.",
+      title: t("error.verificationFailed.title"),
+      explanation: t("error.verificationFailed.explanation"),
       possibleReasons: [
-        "Restart required",
-        "Another application changed the setting",
-        "Policy restriction"
+        t("error.verificationFailed.reason.restart"),
+        t("error.verificationFailed.reason.otherApp"),
+        t("error.verificationFailed.reason.policy")
       ],
-      recommendedAction: "Retry Verification.",
+      recommendedAction: t("error.verificationFailed.action"),
       retryAvailable: true,
       showGoBack: true,
       showOpenHistory: true,
       showDismiss: false
     },
     "recovery-failed": {
-      title: "Recovery Failed",
-      explanation: "TweakMind could not restore the saved previous state.",
+      title: t("error.recoveryFailed.title"),
+      explanation: t("error.recoveryFailed.explanation"),
       possibleReasons: [
-        "The saved History record is incomplete",
-        "Another application changed the setting",
-        "Administrator permission may be required"
+        t("error.recoveryFailed.reason.incompleteRecord"),
+        t("error.recoveryFailed.reason.otherApp"),
+        t("error.recoveryFailed.reason.adminRequired")
       ],
-      recommendedAction: "Open History to review the record, then retry Recovery if needed.",
+      recommendedAction: t("error.recoveryFailed.action"),
       retryAvailable: true,
       showGoBack: true,
       showOpenHistory: true,
       showDismiss: false
     },
     "unsupported-optimization": {
-      title: context === "recovery" ? "Recovery Not Available" : "Apply Not Available",
-      explanation: "This optimization is not supported for the requested action in the current MVP step.",
-      recommendedAction: "Choose a supported optimization or review the Knowledge Center for available actions.",
+      title: unsupportedOptimizationTitle,
+      explanation: t("error.unsupportedOptimization.explanation"),
+      recommendedAction: t("error.unsupportedOptimization.action"),
       retryAvailable: false,
       showGoBack: true,
       showOpenHistory: context === "history" || context === "recovery",
       showDismiss: context === "apply" || context === "knowledge"
     },
     "unsupported-runtime": {
-      title:
-        context === "recovery"
-          ? "Real Recovery Not Available"
-          : context === "verify"
-            ? "Real Verification Not Available"
-            : "Real Apply Not Available",
-      explanation: "Real optimization is available only in the Tauri desktop application.",
-      recommendedAction: "Open the desktop version.",
+      title: unsupportedRuntimeTitle,
+      explanation: t("error.unsupportedRuntime.explanation"),
+      recommendedAction: t("error.unsupportedRuntime.action"),
       retryAvailable: false,
       showGoBack: true,
       showOpenHistory: false,
       showDismiss: context === "apply" || context === "knowledge"
     },
     "scan-failed": {
-      title: "Scan Required",
-      explanation: "TweakMind needs a current scan before this optimization can be evaluated or applied safely.",
-      recommendedAction: "Run a scan, then return to this optimization.",
+      title: t("error.scanRequired.title"),
+      explanation: t("error.scanRequired.explanation"),
+      recommendedAction: t("error.scanRequired.action"),
       retryAvailable: true,
       showGoBack: true,
       showOpenHistory: false,
       showDismiss: false
     },
     "unknown-error": {
-      title: "Something Went Wrong",
-      explanation: "TweakMind could not complete the requested action.",
-      recommendedAction: "Try again. If the problem continues, review History or return to the previous step.",
+      title: t("error.unknown.title"),
+      explanation: t("error.unknown.explanation"),
+      recommendedAction: t("error.unknown.action"),
       retryAvailable: true,
       showGoBack: true,
       showOpenHistory: true,
@@ -216,8 +226,8 @@ export class ErrorPresentationService {
         "apply",
         {
           explanation: isTauriRuntime()
-            ? "Real Apply is not available for this optimization yet."
-            : "Real optimization is available only in the Tauri desktop application."
+            ? LocalizationService.translate("error.applyResult.unsupportedInTauri")
+            : LocalizationService.translate("error.applyResult.unsupportedRuntime")
         }
       );
     }
@@ -270,16 +280,16 @@ export class ErrorPresentationService {
     }
 
     return this.fromTechnicalError(normalized, "knowledge", {
-      title: "Scan Not Available",
-      recommendedAction: "Run a scan when detection becomes available, or review another optimization."
+      title: LocalizationService.translate("error.scanNotAvailable.title"),
+      recommendedAction: LocalizationService.translate("error.scanNotAvailable.action")
     });
   }
 
   static forRecoveryUnavailable(): ErrorDescriptor {
     return baseDescriptor("unsupported-optimization", "recovery", {
-      title: "Recovery Not Available",
-      explanation: "Recovery is available only for successful Real Apply records with recovery support.",
-      recommendedAction: "Open History to review available records.",
+      title: LocalizationService.translate("error.recoveryUnavailable.title"),
+      explanation: LocalizationService.translate("error.recoveryUnavailable.explanation"),
+      recommendedAction: LocalizationService.translate("error.recoveryUnavailable.action"),
       showOpenHistory: true
     });
   }

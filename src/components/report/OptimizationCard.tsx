@@ -1,6 +1,8 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { RecommendationResult } from "../../core/recommendation/RecommendationResult";
+import { useTranslation } from "../../core/localization/LanguageProvider";
+import { translateBenefitLevel, translateRecommendation, translateRiskLevel, translateScanDisplayState } from "../../core/localization/localizationHelpers";
 import type { OptimizationBenefitLevel, OptimizationDefinition, OptimizationRecommendation, OptimizationRiskLevel } from "../../types/optimization";
 
 interface OptimizationCardProps {
@@ -23,14 +25,17 @@ const levelStyles: Record<OptimizationRiskLevel | OptimizationBenefitLevel, stri
   High: "bg-rose-50 text-rose-700 border-rose-200"
 };
 
-const impactLabels = [
-  ["Performance", "performance"],
-  ["Privacy", "privacy"],
-  ["Gaming", "gaming"],
-  ["Battery", "battery"]
+const impactLabelKeys = [
+  ["report.optimizationCard.impact.performance", "performance"],
+  ["report.optimizationCard.impact.privacy", "privacy"],
+  ["report.optimizationCard.impact.gaming", "gaming"],
+  ["report.optimizationCard.impact.battery", "battery"]
 ] as const;
 
 export function OptimizationCard({ optimization, recommendation, defaultOpen = false }: OptimizationCardProps) {
+  const { t } = useTranslation();
+  const estimatedBenefit = optimization.impact.estimatedBenefit ?? "Low";
+
   return (
     <details
       className="group rounded-lg border border-slate-200 bg-white/95 shadow-sm transition open:border-blue-200 open:shadow-md"
@@ -46,10 +51,11 @@ export function OptimizationCard({ optimization, recommendation, defaultOpen = f
                 recommendationStyles[recommendation.recommendation]
               ].join(" ")}
             >
-              {recommendation.recommendation}
+              {translateRecommendation(recommendation.recommendation)}
             </span>
             <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-              Status: {recommendation.currentStatus ?? "Unknown"}
+              {t("report.optimizationCard.statusPrefix")}{" "}
+              {translateScanDisplayState(recommendation.currentStatus ?? "Unknown")}
             </span>
           </div>
           <p className="max-w-3xl text-sm leading-6 text-slate-600">{recommendation.reason}</p>
@@ -57,7 +63,7 @@ export function OptimizationCard({ optimization, recommendation, defaultOpen = f
 
         <div className="flex items-center justify-between gap-4 md:justify-end">
           <span className={["rounded-full border px-3 py-1 text-xs font-semibold", levelStyles[optimization.risk.level]].join(" ")}>
-            Risk: {optimization.risk.level}
+            {t("report.optimizationCard.riskPrefix")} {translateRiskLevel(optimization.risk.level)}
           </span>
           <ChevronDown className="text-slate-400 transition group-open:rotate-180" size={20} aria-hidden="true" />
         </div>
@@ -66,12 +72,12 @@ export function OptimizationCard({ optimization, recommendation, defaultOpen = f
       <div className="border-t border-slate-100 px-5 pb-5 pt-1">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_220px]">
           <div>
-            <p className="mb-3 text-sm font-semibold text-slate-950">Impact</p>
+            <p className="mb-3 text-sm font-semibold text-slate-950">{t("report.optimizationCard.impact.title")}</p>
             <div className="grid gap-3 sm:grid-cols-2">
-              {impactLabels.map(([label, key]) => (
+              {impactLabelKeys.map(([labelKey, key]) => (
                 <div key={key}>
                   <div className="mb-1.5 flex items-center justify-between text-xs font-medium text-slate-500">
-                    <span>{label}</span>
+                    <span>{t(labelKey)}</span>
                     <span>{optimization.impact[key]}%</span>
                   </div>
                   <div className="h-2 rounded-full bg-slate-100">
@@ -84,9 +90,9 @@ export function OptimizationCard({ optimization, recommendation, defaultOpen = f
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
             <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Estimated Benefit</p>
-              <span className={["mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-semibold", levelStyles[optimization.impact.estimatedBenefit ?? "Low"]].join(" ")}>
-                {optimization.impact.estimatedBenefit ?? "Low"}
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.optimizationCard.label.estimatedBenefit")}</p>
+              <span className={["mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-semibold", levelStyles[estimatedBenefit]].join(" ")}>
+                {translateBenefitLevel(estimatedBenefit)}
               </span>
             </div>
             <Link
@@ -94,7 +100,7 @@ export function OptimizationCard({ optimization, recommendation, defaultOpen = f
               state={{ recommendationResults: [recommendation] }}
               to={`/decision?id=${optimization.id}&from=report`}
             >
-              View Details
+              {t("report.optimizationCard.action.viewDetails")}
               <ChevronRight size={16} aria-hidden="true" />
             </Link>
           </div>

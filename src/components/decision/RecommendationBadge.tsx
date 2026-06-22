@@ -1,4 +1,5 @@
 import type { OptimizationRecommendation } from "../../types/optimization";
+import { translateRecommendation } from "../../core/localization/localizationHelpers";
 
 interface RecommendationBadgeProps {
   value: OptimizationRecommendation;
@@ -20,7 +21,7 @@ export function RecommendationBadge({ value }: RecommendationBadgeProps) {
         recommendationStyles[value]
       ].join(" ")}
     >
-      {value}
+      {translateRecommendation(value)}
     </span>
   );
 }

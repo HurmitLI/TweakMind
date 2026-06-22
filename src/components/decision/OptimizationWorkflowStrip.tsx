@@ -1,14 +1,27 @@
+import { useTranslation } from "../../core/localization/LanguageProvider";
+
 type WorkflowStep = "Knowledge" | "Scan" | "Decision" | "Apply" | "Verify" | "Recover";
 
 const steps: WorkflowStep[] = ["Knowledge", "Scan", "Decision", "Apply", "Verify", "Recover"];
+
+const stepKeys: Record<WorkflowStep, "workflow.step.knowledge" | "workflow.step.scan" | "workflow.step.decision" | "workflow.step.apply" | "workflow.step.verify" | "workflow.step.recover"> = {
+  Knowledge: "workflow.step.knowledge",
+  Scan: "workflow.step.scan",
+  Decision: "workflow.step.decision",
+  Apply: "workflow.step.apply",
+  Verify: "workflow.step.verify",
+  Recover: "workflow.step.recover"
+};
 
 interface OptimizationWorkflowStripProps {
   currentStep: WorkflowStep;
 }
 
 export function OptimizationWorkflowStrip({ currentStep }: OptimizationWorkflowStripProps) {
+  const { t } = useTranslation();
+
   return (
-    <nav aria-label="Optimization workflow" className="rounded-lg border border-slate-200 bg-white/90 px-4 py-3 shadow-sm">
+    <nav aria-label={t("workflow.aria.label")} className="rounded-lg border border-slate-200 bg-white/90 px-4 py-3 shadow-sm">
       <ol className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500 sm:gap-3 sm:text-sm">
         {steps.map((step, index) => {
           const isCurrent = step === currentStep;
@@ -26,7 +39,7 @@ export function OptimizationWorkflowStrip({ currentStep }: OptimizationWorkflowS
                       : "border-slate-200 bg-slate-50 text-slate-600"
                 ].join(" ")}
               >
-                {step}
+                {t(stepKeys[step])}
               </span>
               {index < steps.length - 1 ? <span aria-hidden="true">→</span> : null}
             </li>

@@ -114,6 +114,8 @@ None
 
 - PRODUCT-011 Error Experience
 
+- PRODUCT-012 Localization Foundation
+
 ---
 
 # Completed RELEASE

@@ -1,5 +1,6 @@
 import type { OptimizationId } from "../../types/optimization";
 import { OptimizationCapabilityRegistry } from "../../core/execution/OptimizationCapabilityRegistry";
+import { LocalizationService } from "../../core/localization/LocalizationService";
 import type { OptimizationApplyMode } from "../../core/windows/WindowsOptimizationService";
 
 type ApplyMode = OptimizationApplyMode;
@@ -19,11 +20,7 @@ export function getApplyMode(optimizationId: OptimizationId): ApplyMode {
 }
 
 export function getApplyModeLabelForMode(mode: ApplyMode) {
-  if (mode === "real") {
-    return "Real Apply";
-  }
-
-  return mode === "mock" ? "Mock Apply" : "Unsupported Apply";
+  return LocalizationService.translate(`applyMode.${mode}`);
 }
 
 export function getApplyModeLabel(optimizationId: OptimizationId) {

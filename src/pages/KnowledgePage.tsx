@@ -4,6 +4,15 @@ import { Link } from "react-router-dom";
 import { EmptyState } from "../components/common/EmptyState";
 import { KnowledgeRepository } from "../core/knowledge/KnowledgeRepository";
 import { hasPrivacyRelevance } from "../core/knowledge/knowledgeSchemaHelpers";
+import { useTranslation } from "../core/localization/LanguageProvider";
+import {
+  translateBenefitLevel,
+  translateCategory,
+  translatePriority,
+  translateRiskLevel,
+  translateScanCapability,
+  translateScanDisplayState
+} from "../core/localization/localizationHelpers";
 import { RuntimeScanService } from "../core/scan/RuntimeScanService";
 import { useSettings } from "../core/settings/SettingsProvider";
 import { SettingsService } from "../core/settings/SettingsService";
@@ -11,6 +20,14 @@ import type { OptimizationCategory } from "../types/optimization";
 
 const categoryFilters = ["Performance", "Gaming", "Privacy", "Security", "Windows"] as const;
 type CategoryFilter = (typeof categoryFilters)[number];
+
+const categoryFilterKeys: Record<CategoryFilter, "knowledge.filter.performance" | "knowledge.filter.gaming" | "knowledge.filter.privacy" | "knowledge.filter.security" | "knowledge.filter.windows"> = {
+  Performance: "knowledge.filter.performance",
+  Gaming: "knowledge.filter.gaming",
+  Privacy: "knowledge.filter.privacy",
+  Security: "knowledge.filter.security",
+  Windows: "knowledge.filter.windows"
+};
 
 function matchesCategory(category: CategoryFilter, knowledge: ReturnType<typeof KnowledgeRepository.getAll>[number]) {
   if (category === "Privacy") {
@@ -68,6 +85,7 @@ function matchesSearch(
 }
 
 export function KnowledgePage() {
+  const { t } = useTranslation();
   const { settings } = useSettings();
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter | null>(null);
@@ -91,20 +109,18 @@ export function KnowledgePage() {
   return (
     <div className="flex flex-1 flex-col">
       <section className="rounded-lg border border-white/70 bg-white/80 px-8 py-8 shadow-sm backdrop-blur">
-        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">Knowledge base</p>
-        <h2 className="text-4xl font-semibold tracking-tight text-slate-950">Optimization Knowledge</h2>
-        <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">
-          Browse supported Windows optimizations before making a decision.
-        </p>
+        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">{t("knowledge.eyebrow")}</p>
+        <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{t("knowledge.title")}</h2>
+        <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">{t("knowledge.subtitle")}</p>
 
         <div className="mt-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <label className="relative block max-w-xl flex-1">
-            <span className="sr-only">Search optimizations</span>
+            <span className="sr-only">{t("knowledge.search.srOnly")}</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} aria-hidden="true" />
             <input
               className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm font-medium text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by name, keyword, or category"
+              placeholder={t("knowledge.search.placeholder")}
               type="search"
               value={query}
             />
@@ -126,7 +142,7 @@ export function KnowledgePage() {
                   onClick={() => setSelectedCategory(isSelected ? null : category)}
                   type="button"
                 >
-                  {category}
+                  {t(categoryFilterKeys[category])}
                 </button>
               );
             })}
@@ -137,12 +153,12 @@ export function KnowledgePage() {
       <section className="mt-6 grid gap-4">
         {visibleKnowledge.length === 0 ? (
           <EmptyState
-            actionLabel={knowledgeItems.length === 0 ? "Return Home" : "Clear filters"}
+            actionLabel={knowledgeItems.length === 0 ? t("knowledge.empty.noEntries.action") : t("knowledge.empty.noMatch.action")}
             actionTo={knowledgeItems.length === 0 ? "/dashboard" : undefined}
             description={
               knowledgeItems.length === 0
-                ? "Supported optimization knowledge will appear here as it becomes available."
-                : "No optimizations matched your search or category filter. Try another keyword or clear the filter."
+                ? t("knowledge.empty.noEntries.description")
+                : t("knowledge.empty.noMatch.description")
             }
             icon={Search}
             onAction={
@@ -153,7 +169,7 @@ export function KnowledgePage() {
                     setSelectedCategory(null);
                   }
             }
-            title={knowledgeItems.length === 0 ? "No knowledge entries yet" : "No matching optimizations"}
+            title={knowledgeItems.length === 0 ? t("knowledge.empty.noEntries.title") : t("knowledge.empty.noMatch.title")}
           />
         ) : (
           visibleKnowledge.map((knowledge) => (
@@ -169,10 +185,11 @@ export function KnowledgePage() {
                     {SettingsService.resolveKnowledgeTitle(knowledge)}
                   </h3>
                   <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                    {knowledge.identity.category}
+                    {translateCategory(knowledge.identity.category)}
                   </span>
                   <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                    Status: {statusById.get(knowledge.identity.id) ?? "Scan Required"}
+                    {t("knowledge.card.statusPrefix")}{" "}
+                    {translateScanDisplayState(statusById.get(knowledge.identity.id) ?? "Scan Required")}
                   </span>
                 </div>
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{knowledge.overview.summary}</p>
@@ -190,20 +207,22 @@ export function KnowledgePage() {
 
               <div className="grid shrink-0 gap-2 sm:grid-cols-2 lg:w-72 lg:grid-cols-2">
                 <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Risk</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-950">{knowledge.risks.riskLevel}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledge.card.label.risk")}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950">{translateRiskLevel(knowledge.risks.riskLevel)}</p>
                 </div>
                 <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Expected Benefit</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-950">{knowledge.decisionSupport.expectedBenefit}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledge.card.label.expectedBenefit")}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950">{translateBenefitLevel(knowledge.decisionSupport.expectedBenefit)}</p>
                 </div>
                 <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Priority</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-950">{knowledge.identity.priority}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledge.card.label.priority")}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950">{translatePriority(knowledge.identity.priority)}</p>
                 </div>
                 <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Scan</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-950">{RuntimeScanService.getCapability(knowledge.identity.id).scanCapability}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledge.card.label.scan")}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950">
+                    {translateScanCapability(RuntimeScanService.getCapability(knowledge.identity.id).scanCapability)}
+                  </p>
                 </div>
               </div>
             </div>

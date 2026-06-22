@@ -1,6 +1,14 @@
 import { ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { DecisionReportItem } from "../../core/report/DecisionReportTypes";
+import { useTranslation } from "../../core/localization/LanguageProvider";
+import {
+  translateBenefitLevel,
+  translateConfidence,
+  translateRecommendation,
+  translateRiskLevel,
+  translateScanDisplayState
+} from "../../core/localization/localizationHelpers";
 import type { OptimizationRecommendation, OptimizationRiskLevel } from "../../types/optimization";
 
 const recommendationStyles: Record<OptimizationRecommendation, string> = {
@@ -18,10 +26,6 @@ const levelStyles: Record<OptimizationRiskLevel | "Unknown", string> = {
   Unknown: "border-slate-200 bg-slate-50 text-slate-700"
 };
 
-function availabilityLabel(value: boolean) {
-  return value ? "Yes" : "No";
-}
-
 interface DecisionReportCardProps {
   item: DecisionReportItem;
   selected: boolean;
@@ -29,13 +33,15 @@ interface DecisionReportCardProps {
 }
 
 export function DecisionReportCard({ item, selected, onToggleSelected }: DecisionReportCardProps) {
+  const { t } = useTranslation();
+
   return (
     <article className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-3">
             <input
-              aria-label={`Select ${item.title}`}
+              aria-label={t("report.card.selectAriaLabel", { title: item.title })}
               checked={selected}
               className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
               onChange={() => onToggleSelected(item.id)}
@@ -50,12 +56,12 @@ export function DecisionReportCard({ item, selected, onToggleSelected }: Decisio
                     recommendationStyles[item.recommendation]
                   ].join(" ")}
                 >
-                  {item.recommendation}
+                  {translateRecommendation(item.recommendation)}
                 </span>
               </div>
               <p className="mt-2 text-sm leading-6 text-slate-600">{item.reason}</p>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                <span className="font-semibold text-slate-700">If ignored:</span> {item.ignoreConsequence}
+                <span className="font-semibold text-slate-700">{t("report.card.ifIgnoredPrefix")}</span> {item.ignoreConsequence}
               </p>
             </div>
           </div>
@@ -65,51 +71,51 @@ export function DecisionReportCard({ item, selected, onToggleSelected }: Decisio
           className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700"
           to={`/decision?id=${item.id}&from=report`}
         >
-          Details
+          {t("report.card.action.details")}
           <ChevronRight size={16} aria-hidden="true" />
         </Link>
       </div>
 
       <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current state</dt>
-          <dd className="mt-1 text-sm font-semibold text-slate-950">{item.currentState}</dd>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.currentState")}</dt>
+          <dd className="mt-1 text-sm font-semibold text-slate-950">{translateScanDisplayState(item.currentState)}</dd>
         </div>
         <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Risk</dt>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.risk")}</dt>
           <dd className="mt-1">
             <span className={["inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold", levelStyles[item.riskLevel]].join(" ")}>
-              {item.riskLevel}
+              {translateRiskLevel(item.riskLevel)}
             </span>
           </dd>
         </div>
         <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Expected benefit</dt>
-          <dd className="mt-1 text-sm font-semibold text-slate-950">{item.expectedBenefit}</dd>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.expectedBenefit")}</dt>
+          <dd className="mt-1 text-sm font-semibold text-slate-950">{translateBenefitLevel(item.expectedBenefit)}</dd>
         </div>
         <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Last applied</dt>
-          <dd className="mt-1 text-sm font-semibold text-slate-950">{item.lastAppliedLabel ?? "Never"}</dd>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.lastApplied")}</dt>
+          <dd className="mt-1 text-sm font-semibold text-slate-950">{item.lastAppliedLabel ?? t("common.value.never")}</dd>
         </div>
         <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Real apply</dt>
-          <dd className="mt-1 text-sm font-semibold text-slate-950">{availabilityLabel(item.canRealApply)}</dd>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.realApply")}</dt>
+          <dd className="mt-1 text-sm font-semibold text-slate-950">{item.canRealApply ? t("common.value.yes") : t("common.value.no")}</dd>
         </div>
         <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Verification</dt>
-          <dd className="mt-1 text-sm font-semibold text-slate-950">{availabilityLabel(item.canVerify)}</dd>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.verification")}</dt>
+          <dd className="mt-1 text-sm font-semibold text-slate-950">{item.canVerify ? t("common.value.yes") : t("common.value.no")}</dd>
         </div>
         <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recovery</dt>
-          <dd className="mt-1 text-sm font-semibold text-slate-950">{availabilityLabel(item.canRecover)}</dd>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.recovery")}</dt>
+          <dd className="mt-1 text-sm font-semibold text-slate-950">{item.canRecover ? t("common.value.yes") : t("common.value.no")}</dd>
         </div>
         <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Runtime scan</dt>
-          <dd className="mt-1 text-sm font-semibold text-slate-950">{item.runtimeScanStatus}</dd>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.runtimeScan")}</dt>
+          <dd className="mt-1 text-sm font-semibold text-slate-950">{translateScanDisplayState(item.runtimeScanStatus)}</dd>
         </div>
         <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Detection confidence</dt>
-          <dd className="mt-1 text-sm font-semibold text-slate-950">{item.detectionConfidence}</dd>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.detectionConfidence")}</dt>
+          <dd className="mt-1 text-sm font-semibold text-slate-950">{translateConfidence(item.detectionConfidence)}</dd>
         </div>
       </dl>
     </article>

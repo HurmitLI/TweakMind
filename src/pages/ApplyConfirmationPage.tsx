@@ -6,8 +6,10 @@ import { LoadingState } from "../components/common/LoadingState";
 import { ErrorPresentation } from "../components/error/ErrorPresentation";
 import { RecommendationBadge } from "../components/decision/RecommendationBadge";
 import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
-import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
 import { getApplyConfirmationPlan } from "../core/apply/ApplyConfirmationPlan";
+import { useTranslation } from "../core/localization/LanguageProvider";
+import { translateOptimizationStatus, translateRecommendation, translateRiskLevel } from "../core/localization/localizationHelpers";
+import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
 import { OptimizationExecutor } from "../core/windows/OptimizationExecutor";
 import { storePendingApplyResult } from "../core/windows/WindowsOptimizationService";
 import type { OptimizationId } from "../types/optimization";
@@ -44,6 +46,7 @@ function ListSection({ title, items }: { title: string; items: string[] }) {
 }
 
 export function ApplyConfirmationPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { optimizationId } = useParams();
   const [searchParams] = useSearchParams();
@@ -78,6 +81,11 @@ export function ApplyConfirmationPage() {
     }
   }
 
+  const recoveryTimeValue =
+    knowledge?.recovery.estimatedTime === "Unknown" || !knowledge?.recovery.estimatedTime
+      ? optimization.estimatedTime
+      : knowledge.recovery.estimatedTime;
+
   return (
     <div className="flex flex-1 flex-col gap-6">
       <button
@@ -93,13 +101,13 @@ export function ApplyConfirmationPage() {
         type="button"
       >
         <ArrowLeft size={17} aria-hidden="true" />
-        Cancel
+        {t("common.action.cancel")}
       </button>
 
       <section className="rounded-lg border border-white/70 bg-white/85 px-8 py-8 shadow-sm backdrop-blur">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">Review before applying</p>
+            <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">{t("applyConfirm.eyebrow")}</p>
             <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{optimization.title}</h2>
             <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">{recommendation.reason}</p>
           </div>
@@ -107,29 +115,22 @@ export function ApplyConfirmationPage() {
             <RecommendationBadge value={recommendation.recommendation} />
             <ApplyModeBadge optimizationId={optimization.id} />
             <span className={["inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold", riskStyles[optimization.risk.level]].join(" ")}>
-              Risk: {optimization.risk.level}
+              {t("applyConfirm.riskPrefix")} {translateRiskLevel(optimization.risk.level)}
             </span>
           </div>
         </div>
       </section>
 
       <dl className="grid gap-4 md:grid-cols-4">
-        <Field label="Current detected status" value={currentStatus} />
-        <Field label="Target state" value={targetState} />
-        <Field
-          label="Recovery time"
-          value={
-            knowledge?.recovery.estimatedTime === "Unknown" || !knowledge?.recovery.estimatedTime
-              ? optimization.estimatedTime
-              : knowledge.recovery.estimatedTime
-          }
-        />
-        <Field label="Action type" value={getApplyModeLabel(optimization.id)} />
+        <Field label={t("applyConfirm.label.currentDetectedStatus")} value={translateOptimizationStatus(currentStatus)} />
+        <Field label={t("applyConfirm.label.targetState")} value={translateOptimizationStatus(targetState)} />
+        <Field label={t("applyConfirm.label.recoveryTime")} value={recoveryTimeValue} />
+        <Field label={t("applyConfirm.label.actionType")} value={getApplyModeLabel(optimization.id)} />
       </dl>
 
       <div className="grid gap-6 xl:grid-cols-2">
         <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
-          <h3 className="text-lg font-semibold tracking-tight text-slate-950">What will change</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-slate-950">{t("applyConfirm.section.whatWillChange")}</h3>
           <p className="mt-4 text-sm leading-6 text-slate-600">{plan.whatWillChange}</p>
           <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
             <div className="flex items-start gap-3">
@@ -148,7 +149,9 @@ export function ApplyConfirmationPage() {
         </section>
 
         <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
-          <h3 className="text-lg font-semibold tracking-tight text-slate-950">Why this is {recommendation.recommendation.toLowerCase()}</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-slate-950">
+            {t("applyConfirm.section.whyRecommended", { recommendation: translateRecommendation(recommendation.recommendation).toLowerCase() })}
+          </h3>
           <p className="mt-4 text-sm leading-6 text-slate-600">{recommendation.reason}</p>
           <div className="mt-5 flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
             <ShieldCheck className="mt-0.5 shrink-0 text-slate-700" size={18} aria-hidden="true" />
@@ -157,7 +160,7 @@ export function ApplyConfirmationPage() {
         </section>
 
         <ListSection
-          title="Trade-offs"
+          title={t("applyConfirm.section.tradeoffs")}
           items={
             knowledge
               ? [...knowledge.tradeOffs.cons, ...knowledge.tradeOffs.possibleSideEffects]
@@ -166,19 +169,15 @@ export function ApplyConfirmationPage() {
         />
 
         <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
-          <h3 className="text-lg font-semibold tracking-tight text-slate-950">Recovery method</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-slate-950">{t("applyConfirm.section.recoveryMethod")}</h3>
           <p className="mt-4 text-sm leading-6 text-slate-600">{knowledge?.recovery.recoveryMethod ?? optimization.recovery}</p>
           <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
             <div>
-              <dt className="font-semibold text-slate-500">Estimated recovery time</dt>
-              <dd className="mt-1 text-slate-950">
-                {knowledge?.recovery.estimatedTime === "Unknown" || !knowledge?.recovery.estimatedTime
-                  ? optimization.estimatedTime
-                  : knowledge.recovery.estimatedTime}
-              </dd>
+              <dt className="font-semibold text-slate-500">{t("applyConfirm.label.estimatedRecoveryTime")}</dt>
+              <dd className="mt-1 text-slate-950">{recoveryTimeValue}</dd>
             </div>
             <div>
-              <dt className="font-semibold text-slate-500">Expected result</dt>
+              <dt className="font-semibold text-slate-500">{t("applyConfirm.label.expectedResult")}</dt>
               <dd className="mt-1 text-slate-950">
                 {knowledge?.recovery.expectedResult === "Unknown" || !knowledge?.recovery.expectedResult
                   ? optimization.expectedResult
@@ -190,7 +189,7 @@ export function ApplyConfirmationPage() {
       </div>
 
       {isConfirming ? (
-        <LoadingState description="Capturing state and preparing the apply workflow..." title="Preparing apply" />
+        <LoadingState description={t("applyConfirm.loading.description")} title={t("applyConfirm.loading.title")} />
       ) : null}
 
       {applyError ? (
@@ -210,7 +209,7 @@ export function ApplyConfirmationPage() {
           to={cancelTarget}
         >
           <ArrowLeft size={17} aria-hidden="true" />
-          Cancel
+          {t("common.action.cancel")}
         </Link>
         <button
           className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300"
@@ -218,7 +217,7 @@ export function ApplyConfirmationPage() {
           onClick={confirmAndApply}
           type="button"
         >
-          {isConfirming ? "Preparing Apply..." : "Confirm and Continue"}
+          {isConfirming ? t("applyConfirm.action.preparingApply") : t("applyConfirm.action.confirmAndContinue")}
         </button>
       </footer>
     </div>

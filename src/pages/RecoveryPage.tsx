@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ErrorPresentation } from "../components/error/ErrorPresentation";
 import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
+import { useTranslation } from "../core/localization/LanguageProvider";
 import { OptimizationExecutor } from "../core/windows/OptimizationExecutor";
 import {
   readPendingRecoveryResult,
@@ -11,17 +12,18 @@ import {
   WindowsOptimizationService
 } from "../core/windows/WindowsOptimizationService";
 
-const recoverySteps = [
-  "Reading saved state",
-  "Applying recovery",
-  "Verifying recovery",
-  "Recording recovery",
-  "Completed"
-];
+const recoveryStepKeys = [
+  "recovery.step.readingSavedState",
+  "recovery.step.applyingRecovery",
+  "recovery.step.verifyingRecovery",
+  "recovery.step.recordingRecovery",
+  "recovery.step.completed"
+] as const;
 
 const stepDurationMs = 1000;
 
 export function RecoveryPage() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const historyEntryId = searchParams.get("historyId") ?? "";
   const entry = historyEntryId ? WindowsOptimizationService.getHistoryEntry(historyEntryId) : undefined;
@@ -30,6 +32,7 @@ export function RecoveryPage() {
   );
   const [progress, setProgress] = useState(0);
   const hasStarted = useRef(false);
+  const recoverySteps = useMemo(() => recoveryStepKeys.map((key) => t(key)), [t]);
 
   useEffect(() => {
     if (!entry || result || hasStarted.current) {
@@ -64,12 +67,12 @@ export function RecoveryPage() {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [entry, result]);
+  }, [entry, recoverySteps.length, result]);
 
   const completed = progress >= 100 && result !== null;
   const activeStepIndex = useMemo(
     () => Math.min(recoverySteps.length - 1, Math.floor((progress / 100) * recoverySteps.length)),
-    [progress]
+    [progress, recoverySteps.length]
   );
   const estimatedRemainingSeconds = Math.max(0, Math.ceil(((100 - progress) / 100) * 5));
 
@@ -114,21 +117,21 @@ export function RecoveryPage() {
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
             <Check size={28} aria-hidden="true" />
           </div>
-          <h2 className="mt-5 text-4xl font-semibold tracking-tight text-slate-950">Recovery completed successfully.</h2>
+          <h2 className="mt-5 text-4xl font-semibold tracking-tight text-slate-950">{t("recovery.success.title")}</h2>
           <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600">
-            {result.message ?? "Recovery result was recorded in History."}
+            {result.message ?? t("recovery.success.defaultMessage")}
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Link className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950" to="/history">
               <History size={17} aria-hidden="true" />
-              Open History
+              {t("common.action.openHistory")}
             </Link>
             <Link
               className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
               to={`/verify?id=${entry.optimizationId}&mode=recovery&historyId=${entry.id}`}
             >
               <ShieldCheck size={17} aria-hidden="true" />
-              Verify Recovery
+              {t("recovery.success.action.verifyRecovery")}
             </Link>
           </div>
         </section>
@@ -144,31 +147,31 @@ export function RecoveryPage() {
             <Loader2 className="animate-spin" size={23} aria-hidden="true" />
           </div>
           <div>
-            <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-700">Real Recovery flow</p>
-            <h2 className="text-4xl font-semibold tracking-tight text-slate-950">Recovering Optimization</h2>
-            <p className="mt-4 text-lg leading-8 text-slate-600">Restoring the saved optimization configuration...</p>
+            <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-700">{t("recovery.progress.eyebrow")}</p>
+            <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{t("recovery.progress.title")}</h2>
+            <p className="mt-4 text-lg leading-8 text-slate-600">{t("recovery.progress.subtitle")}</p>
           </div>
         </div>
 
         <div className="mt-8 rounded-lg border border-slate-200 bg-slate-50/80 p-5">
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current optimization</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("recovery.progress.label.currentOptimization")}</p>
               <p className="mt-1 text-sm font-semibold text-slate-950">{entry.optimizationName}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Expected restored state</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("recovery.progress.label.expectedRestoredState")}</p>
               <p className="mt-1 text-sm font-semibold text-slate-950">{entry.previousState}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current step</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("recovery.progress.label.currentStep")}</p>
               <p className="mt-1 text-sm font-semibold text-slate-950">{recoverySteps[activeStepIndex]}</p>
             </div>
             <div className="sm:col-span-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Estimated remaining</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("recovery.progress.label.estimatedRemaining")}</p>
               <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-950">
                 <Clock size={15} aria-hidden="true" />
-                {estimatedRemainingSeconds}s
+                {t("recovery.progress.remainingSeconds", { seconds: estimatedRemainingSeconds })}
               </p>
             </div>
           </div>
@@ -176,7 +179,7 @@ export function RecoveryPage() {
 
         <div className="mt-7">
           <div className="mb-3 flex items-center justify-between text-sm font-medium text-slate-600">
-            <span>Progress</span>
+            <span>{t("recovery.progress.label.progress")}</span>
             <span>{progress}%</span>
           </div>
           <div className="h-4 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
@@ -199,7 +202,7 @@ export function RecoveryPage() {
                       ? "border-blue-200 bg-blue-50 text-slate-950"
                       : "border-slate-200 bg-white/60 text-slate-400"
                 ].join(" ")}
-                key={step}
+                key={recoveryStepKeys[index]}
               >
                 <span
                   className={[

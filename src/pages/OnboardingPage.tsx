@@ -1,22 +1,33 @@
 import { ArrowRight } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "../core/localization/LanguageProvider";
 import { OnboardingService } from "../core/onboarding/OnboardingService";
 
-const workflowSteps = [
-  { title: "Knowledge", sentence: "Learn what each optimization does before you change anything." },
-  { title: "Scan", sentence: "Detect current Windows states without making changes." },
-  { title: "Decision", sentence: "Review recommendations and decide what fits your goals." },
-  { title: "Apply", sentence: "Apply changes through the native executor, not the UI." },
-  { title: "Verify", sentence: "Compare expected and actual states after a change." },
-  { title: "Recover", sentence: "Restore previous settings from History when needed." }
+const workflowStepKeys = [
+  { titleKey: "onboarding.workflow.knowledge.title", sentenceKey: "onboarding.workflow.knowledge.sentence" },
+  { titleKey: "onboarding.workflow.scan.title", sentenceKey: "onboarding.workflow.scan.sentence" },
+  { titleKey: "onboarding.workflow.decision.title", sentenceKey: "onboarding.workflow.decision.sentence" },
+  { titleKey: "onboarding.workflow.apply.title", sentenceKey: "onboarding.workflow.apply.sentence" },
+  { titleKey: "onboarding.workflow.verify.title", sentenceKey: "onboarding.workflow.verify.sentence" },
+  { titleKey: "onboarding.workflow.recover.title", sentenceKey: "onboarding.workflow.recover.sentence" }
 ] as const;
 
-const stepTitles = ["Welcome", "What is TweakMind", "Workflow", "Start First Scan"] as const;
+const stepTitleKeys = [
+  "onboarding.step.welcome",
+  "onboarding.step.whatIsTweakMind",
+  "onboarding.step.workflow",
+  "onboarding.step.startFirstScan"
+] as const;
 
 export function OnboardingPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [stepIndex, setStepIndex] = useState(0);
+  const workflowSteps = useMemo(
+    () => workflowStepKeys.map((step) => ({ title: t(step.titleKey), sentence: t(step.sentenceKey) })),
+    [t]
+  );
 
   function finish(destination: "/scan" | "/knowledge" | "/dashboard") {
     OnboardingService.markComplete();
@@ -27,33 +38,29 @@ export function OnboardingPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 py-10 text-slate-100">
       <div className="w-full max-w-2xl rounded-lg border border-slate-800 bg-slate-900/95 p-8 shadow-2xl backdrop-blur">
         <p className="text-sm font-semibold uppercase tracking-wide text-blue-400">
-          Step {stepIndex + 1} of {stepTitles.length}
+          {t("onboarding.stepIndicator", { current: stepIndex + 1, total: stepTitleKeys.length })}
         </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">{stepTitles[stepIndex]}</h1>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">{t(stepTitleKeys[stepIndex])}</h1>
 
         {stepIndex === 0 ? (
           <div className="mt-6 space-y-4 text-base leading-7 text-slate-300">
-            <p>TweakMind helps you decide which Windows optimizations are worth changing.</p>
-            <p className="font-medium text-slate-100">What should I do first?</p>
-            <p>Start with a scan to see your current state, then review recommendations before applying anything.</p>
+            <p>{t("onboarding.welcome.intro")}</p>
+            <p className="font-medium text-slate-100">{t("onboarding.welcome.question")}</p>
+            <p>{t("onboarding.welcome.answer")}</p>
           </div>
         ) : null}
 
         {stepIndex === 1 ? (
           <div className="mt-6 space-y-4 text-base leading-7 text-slate-300">
-            <p>
-              TweakMind is a decision tool for Windows optimizations — not an encyclopedia and not a one-click tweaker.
-            </p>
-            <p>
-              It shows trade-offs, scan results, and recovery options so you stay in control of what changes on your PC.
-            </p>
+            <p>{t("onboarding.whatIs.paragraph1")}</p>
+            <p>{t("onboarding.whatIs.paragraph2")}</p>
           </div>
         ) : null}
 
         {stepIndex === 2 ? (
           <ol className="mt-6 grid gap-3">
             {workflowSteps.map((step, index) => (
-              <li className="rounded-lg border border-slate-800 bg-slate-950/70 p-4" key={step.title}>
+              <li className="rounded-lg border border-slate-800 bg-slate-950/70 p-4" key={workflowStepKeys[index].titleKey}>
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
                     {index + 1}
@@ -70,21 +77,21 @@ export function OnboardingPage() {
 
         {stepIndex === 3 ? (
           <div className="mt-6 space-y-4 text-base leading-7 text-slate-300">
-            <p>Your first step is a scan. It is read-only and helps TweakMind recommend what to review next.</p>
+            <p>{t("onboarding.final.intro")}</p>
             <div className="flex flex-col gap-3 pt-2 sm:flex-row">
               <button
                 className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700"
                 onClick={() => finish("/scan")}
                 type="button"
               >
-                Start Scan
+                {t("onboarding.action.startScan")}
               </button>
               <button
                 className="inline-flex h-11 items-center justify-center rounded-lg border border-slate-700 bg-slate-950 px-5 text-sm font-semibold text-slate-100 transition hover:border-slate-500"
                 onClick={() => finish("/knowledge")}
                 type="button"
               >
-                Explore Knowledge
+                {t("onboarding.action.exploreKnowledge")}
               </button>
             </div>
             <button
@@ -92,7 +99,7 @@ export function OnboardingPage() {
               onClick={() => finish("/dashboard")}
               type="button"
             >
-              Skip onboarding
+              {t("onboarding.action.skip")}
             </button>
           </div>
         ) : null}
@@ -104,22 +111,22 @@ export function OnboardingPage() {
               onClick={() => finish("/dashboard")}
               type="button"
             >
-              Skip onboarding
+              {t("onboarding.action.skip")}
             </button>
             <button
               className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700"
               onClick={() => setStepIndex((current) => current + 1)}
               type="button"
             >
-              Continue
+              {t("onboarding.action.continue")}
               <ArrowRight size={16} aria-hidden="true" />
             </button>
           </div>
         ) : (
           <p className="mt-8 text-sm text-slate-500">
-            Prefer the dashboard first?{" "}
+            {t("onboarding.final.dashboardPrompt")}{" "}
             <Link className="font-semibold text-slate-300 hover:text-white" to="/dashboard" onClick={() => OnboardingService.markComplete()}>
-              Go to Dashboard
+              {t("onboarding.final.goToDashboard")}
             </Link>
           </p>
         )}

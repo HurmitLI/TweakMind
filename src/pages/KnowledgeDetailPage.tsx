@@ -10,6 +10,16 @@ import { RecommendationBadge } from "../components/decision/RecommendationBadge"
 import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
 import { OptimizationCapabilityRegistry } from "../core/execution/OptimizationCapabilityRegistry";
 import { KnowledgeRepository } from "../core/knowledge/KnowledgeRepository";
+import { useTranslation } from "../core/localization/LanguageProvider";
+import {
+  translateBenefitLevel,
+  translateConfidence,
+  translateConfidenceLevel,
+  translateRecommendation,
+  translateRiskLevel,
+  translateScanCapability,
+  translateScanDisplayState
+} from "../core/localization/localizationHelpers";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
 import { RuntimeScanService } from "../core/scan/RuntimeScanService";
 import { readStoredScanResult, toRecommendationResult } from "../core/scan/ScanResult";
@@ -54,7 +64,20 @@ function resolveCurrentScanState(optimizationId: OptimizationId) {
   return RuntimeScanService.getDisplayState(optimizationId);
 }
 
+function translateRuntimeScanStatus(value: string, t: ReturnType<typeof useTranslation>["t"]) {
+  if (value === "Detected") {
+    return t("scan.runtimeStatus.detected");
+  }
+
+  if (value === "Unknown") {
+    return t("scan.runtimeStatus.unknown");
+  }
+
+  return translateScanDisplayState(value);
+}
+
 export function KnowledgeDetailPage() {
+  const { t } = useTranslation();
   const { settings } = useSettings();
   const [searchParams] = useSearchParams();
   const scanResult = useMemo(() => readStoredScanResult(), []);
@@ -70,7 +93,7 @@ export function KnowledgeDetailPage() {
         recommendation: knowledge
           ? "Optional"
           : OptimizationRepository.getById(requestedOptimizationId)?.recommendation ?? "Optional",
-        reason: knowledge?.overview.purpose ?? "Run a scan to generate a recommendation for this optimization.",
+        reason: knowledge?.overview.purpose ?? t("knowledgeDetail.fallback.scanReason"),
         currentStatus: "Unknown" as const,
         selectable: false,
         selectedByDefault: false
@@ -84,7 +107,7 @@ export function KnowledgeDetailPage() {
     [requestedOptimizationId]
   );
   const backTarget = from === "knowledge" ? "/knowledge" : "/report";
-  const backLabel = from === "knowledge" ? "Back to Knowledge Center" : "Back to Report";
+  const backLabel = from === "knowledge" ? t("knowledgeDetail.back.knowledge") : t("knowledgeDetail.back.report");
   const applyFrom = from === "knowledge" ? "knowledge-detail" : "decision";
 
   if (!knowledge) {
@@ -101,12 +124,12 @@ export function KnowledgeDetailPage() {
           <ErrorPresentation
             actions={{ goBackHref: backTarget }}
             descriptor={ErrorPresentationService.fromTechnicalError(
-              "This optimization is not available in the knowledge base.",
+              t("knowledgeDetail.error.notAvailable.explanation"),
               "knowledge",
               {
-                title: "Optimization Not Available",
-                explanation: "This optimization is not available in the knowledge base.",
-                recommendedAction: "Return to the previous page and choose a supported optimization."
+                title: t("knowledgeDetail.error.notAvailable.title"),
+                explanation: t("knowledgeDetail.error.notAvailable.explanation"),
+                recommendedAction: t("knowledgeDetail.error.notAvailable.action")
               }
             )}
           />
@@ -124,6 +147,9 @@ export function KnowledgeDetailPage() {
   const runtimeScanError = ErrorPresentationService.forRuntimeScanUnavailable(
     runtimeScan?.unavailableReason ?? scanCapability.unavailableReason
   );
+  const runtimeScanStatus =
+    runtimeScan?.runtimeScanStatus ??
+    (scanCapability.scanCapability === "Not Supported Yet" ? "Not Supported Yet" : "Scan Required");
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -138,8 +164,8 @@ export function KnowledgeDetailPage() {
       <OptimizationWorkflowStrip currentStep="Decision" />
 
       <section className="rounded-lg border border-white/70 bg-white/85 px-8 py-8 shadow-sm backdrop-blur">
-        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">Decision support</p>
-        <h2 className="text-4xl font-semibold tracking-tight text-slate-950">Should I apply {displayTitle}?</h2>
+        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">{t("knowledgeDetail.eyebrow")}</p>
+        <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{t("knowledgeDetail.title", { title: displayTitle })}</h2>
         <div className="mt-5 flex flex-wrap gap-3">
           <RecommendationBadge value={recommendation.recommendation} />
           <span
@@ -148,10 +174,10 @@ export function KnowledgeDetailPage() {
               riskStyles[displayRiskLevel === "Unknown" ? "Unknown" : displayRiskLevel]
             ].join(" ")}
           >
-            Risk: {displayRiskLevel}
+            {t("knowledgeDetail.badge.riskPrefix")} {translateRiskLevel(displayRiskLevel)}
           </span>
           <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
-            Current state: {currentScanState}
+            {t("knowledgeDetail.badge.currentStatePrefix")} {translateScanDisplayState(currentScanState)}
           </span>
           <ApplyModeBadge optimizationId={knowledge.identity.id} />
         </div>
@@ -171,28 +197,28 @@ export function KnowledgeDetailPage() {
         <ErrorPresentation actions={{ goBackHref: backTarget }} descriptor={applyUnavailableError} />
       ) : null}
 
-      <DecisionSection title="Summary">
+      <DecisionSection title={t("knowledgeDetail.section.summary")}>
         <p className="text-base leading-7 text-slate-700">{knowledge.overview.summary}</p>
       </DecisionSection>
 
       <dl className="grid gap-4 md:grid-cols-3">
         <div className="rounded-lg border border-slate-200 bg-white/80 p-4">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Expected benefit</dt>
-          <dd className="mt-2 text-sm font-semibold text-slate-950">{knowledge.decisionSupport.expectedBenefit}</dd>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.expectedBenefit")}</dt>
+          <dd className="mt-2 text-sm font-semibold text-slate-950">{translateBenefitLevel(knowledge.decisionSupport.expectedBenefit)}</dd>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white/80 p-4">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Confidence</dt>
-          <dd className="mt-2 text-sm font-semibold text-slate-950">{knowledge.decisionSupport.confidence}</dd>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.confidence")}</dt>
+          <dd className="mt-2 text-sm font-semibold text-slate-950">{translateConfidenceLevel(knowledge.decisionSupport.confidence)}</dd>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white/80 p-4">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recommendation</dt>
-          <dd className="mt-2 text-sm font-semibold text-slate-950">{recommendation.recommendation}</dd>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.recommendation")}</dt>
+          <dd className="mt-2 text-sm font-semibold text-slate-950">{translateRecommendation(recommendation.recommendation)}</dd>
         </div>
       </dl>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <BulletListSection title="Trade-offs" items={tradeOffItems} />
-        <DecisionSection title="Risks">
+        <BulletListSection title={t("knowledgeDetail.section.tradeoffs")} items={tradeOffItems} />
+        <DecisionSection title={t("knowledgeDetail.section.risks")}>
           <p>{knowledge.risks.riskExplanation}</p>
           {knowledge.risks.whenNotToUse.length > 0 ? (
             <ul className="mt-4 grid gap-2 text-sm leading-6 text-slate-700">
@@ -202,53 +228,51 @@ export function KnowledgeDetailPage() {
             </ul>
           ) : null}
         </DecisionSection>
-        <ChecklistSection title="Recommended for" items={knowledge.recommendation.recommendedFor} variant="positive" />
-        <ChecklistSection title="Not recommended for" items={knowledge.recommendation.notRecommendedFor} variant="negative" />
+        <ChecklistSection title={t("knowledgeDetail.section.recommendedFor")} items={knowledge.recommendation.recommendedFor} variant="positive" />
+        <ChecklistSection title={t("knowledgeDetail.section.notRecommendedFor")} items={knowledge.recommendation.notRecommendedFor} variant="negative" />
       </div>
 
-      <DecisionSection title="Recovery">
+      <DecisionSection title={t("knowledgeDetail.section.recovery")}>
         <dl className="grid gap-4 md:grid-cols-2">
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recovery method</dt>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.recoveryMethod")}</dt>
             <dd className="mt-2 text-sm leading-6 text-slate-700">{knowledge.recovery.recoveryMethod}</dd>
           </div>
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recovery difficulty</dt>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.recoveryDifficulty")}</dt>
             <dd className="mt-2 text-sm leading-6 text-slate-700">{knowledge.recovery.recoveryDifficulty}</dd>
           </div>
           {recoveryTime !== "Unknown" ? (
             <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Estimated recovery time</dt>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.estimatedRecoveryTime")}</dt>
               <dd className="mt-2 text-sm leading-6 text-slate-700">{recoveryTime}</dd>
             </div>
           ) : null}
         </dl>
       </DecisionSection>
 
-      <DecisionSection title="Runtime scan">
+      <DecisionSection title={t("knowledgeDetail.section.runtimeScan")}>
         <dl className="grid gap-4 md:grid-cols-2">
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Scan capability</dt>
-            <dd className="mt-2 text-sm font-semibold text-slate-950">{scanCapability.scanCapability}</dd>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.scanCapability")}</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-950">{translateScanCapability(scanCapability.scanCapability)}</dd>
           </div>
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Detection method</dt>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.detectionMethod")}</dt>
             <dd className="mt-2 text-sm leading-6 text-slate-700">{scanCapability.detectionMethod}</dd>
           </div>
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Runtime scan status</dt>
-            <dd className="mt-2 text-sm font-semibold text-slate-950">
-              {runtimeScan?.runtimeScanStatus ?? (scanCapability.scanCapability === "Not Supported Yet" ? "Not Supported Yet" : "Scan Required")}
-            </dd>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.runtimeScanStatus")}</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-950">{translateRuntimeScanStatus(runtimeScanStatus, t)}</dd>
           </div>
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current runtime state</dt>
-            <dd className="mt-2 text-sm font-semibold text-slate-950">{currentScanState}</dd>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.currentRuntimeState")}</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-950">{translateScanDisplayState(currentScanState)}</dd>
           </div>
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Detection confidence</dt>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.detectionConfidence")}</dt>
             <dd className="mt-2 text-sm font-semibold text-slate-950">
-              {runtimeScan?.detectionConfidence ?? (scanCapability.scanCapability === "Not Supported Yet" ? "None" : "None")}
+              {translateConfidence(runtimeScan?.detectionConfidence ?? "None")}
             </dd>
           </div>
           {runtimeScanError ? (
@@ -259,12 +283,12 @@ export function KnowledgeDetailPage() {
         </dl>
       </DecisionSection>
 
-      <DecisionSection title="Decision notes">
+      <DecisionSection title={t("knowledgeDetail.section.decisionNotes")}>
         <p className="text-base leading-7 text-slate-700">{knowledge.decisionSupport.decisionNotes}</p>
       </DecisionSection>
 
       {knowledge.learning.relatedOptimizations.length > 0 ? (
-        <DecisionSection title="Related optimizations">
+        <DecisionSection title={t("knowledgeDetail.section.relatedOptimizations")}>
           <div className="flex flex-wrap gap-2">
             {knowledge.learning.relatedOptimizations.map((relatedId) => {
               const related = KnowledgeRepository.getById(relatedId);
@@ -301,7 +325,7 @@ export function KnowledgeDetailPage() {
               className="inline-flex h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               to="/history"
             >
-              View History
+              {t("knowledgeDetail.action.viewHistory")}
             </Link>
           ) : null}
 
@@ -310,7 +334,7 @@ export function KnowledgeDetailPage() {
               className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               to={`/confirm/${knowledge.identity.id}?from=${applyFrom}`}
             >
-              Apply This Optimization
+              {t("knowledgeDetail.action.apply")}
             </Link>
           ) : (
             <button
@@ -318,7 +342,7 @@ export function KnowledgeDetailPage() {
               disabled
               type="button"
             >
-              Apply Not Available
+              {t("knowledgeDetail.action.applyNotAvailable")}
             </button>
           )}
         </div>

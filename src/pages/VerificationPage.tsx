@@ -6,6 +6,14 @@ import { ErrorPresentation } from "../components/error/ErrorPresentation";
 import { LoadingState } from "../components/common/LoadingState";
 import { getTargetStateForOptimization } from "../core/apply/ApplyConfirmationPlan";
 import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
+import { useTranslation } from "../core/localization/LanguageProvider";
+import {
+  translateConfidence,
+  translateOptimizationStatus,
+  translateScanCapability,
+  translateScanDisplayState,
+  translateVerificationStatus
+} from "../core/localization/localizationHelpers";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
 import { RuntimeScanService } from "../core/scan/RuntimeScanService";
 import { VerificationService } from "../core/verification/VerificationService";
@@ -33,7 +41,20 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
+function translateRuntimeScanStatusLabel(value: string, t: ReturnType<typeof useTranslation>["t"]) {
+  if (value === "Detected") {
+    return t("scan.runtimeStatus.detected");
+  }
+
+  if (value === "Unknown") {
+    return t("scan.runtimeStatus.unknown");
+  }
+
+  return translateScanDisplayState(value);
+}
+
 export function VerificationPage() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const defaultOptimization = OptimizationRepository.getDefault();
   const requestedOptimizationId = (searchParams.get("id") as OptimizationId | null) ?? defaultOptimization.id;
@@ -68,38 +89,46 @@ export function VerificationPage() {
   const status = result?.status ?? "Pending / Not Available";
   const StatusIcon = isVerifying ? Loader2 : statusIcons[status];
   const verificationError = result ? ErrorPresentationService.fromVerificationResult(result) : null;
+  const checkingLabel = t("verify.status.checking");
 
   return (
     <div className="flex flex-1 flex-col gap-6">
       <section className="rounded-lg border border-white/70 bg-white/85 px-8 py-8 shadow-sm backdrop-blur">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">Verification Center</p>
+            <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">{t("verify.eyebrow")}</p>
             <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{optimization.title}</h2>
-            <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">
-              TweakMind compares the saved previous state, the expected state, and the current detected state.
-            </p>
+            <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">{t("verify.subtitle")}</p>
           </div>
           <span className={["inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold", statusStyles[status]].join(" ")}>
             <StatusIcon className={isVerifying ? "animate-spin" : ""} size={16} aria-hidden="true" />
-            {isVerifying ? "Checking..." : status}
+            {isVerifying ? checkingLabel : translateVerificationStatus(status)}
           </span>
         </div>
       </section>
 
       <dl className="grid gap-4 md:grid-cols-3">
-        <Field label="Previous state" value={result?.previousState ?? "Unknown"} />
-        <Field label="Expected state" value={result?.expectedState ?? (mode === "recovery" ? "Unknown" : expectedApplyState)} />
-        <Field label="Actual detected state" value={isVerifying ? "Checking..." : result?.actualState ?? "Unknown"} />
-        <Field label="Runtime scan status" value={runtimeScan?.runtimeScanStatus ?? scanCapability.scanCapability} />
-        <Field label="Scan capability" value={scanCapability.scanCapability} />
-        <Field label="Detection confidence" value={runtimeScan?.detectionConfidence ?? "None"} />
+        <Field label={t("verify.label.previousState")} value={translateOptimizationStatus(result?.previousState ?? "Unknown")} />
+        <Field
+          label={t("verify.label.expectedState")}
+          value={translateOptimizationStatus(result?.expectedState ?? (mode === "recovery" ? "Unknown" : expectedApplyState))}
+        />
+        <Field
+          label={t("verify.label.actualDetectedState")}
+          value={isVerifying ? checkingLabel : translateOptimizationStatus(result?.actualState ?? "Unknown")}
+        />
+        <Field
+          label={t("verify.label.runtimeScanStatus")}
+          value={translateRuntimeScanStatusLabel(runtimeScan?.runtimeScanStatus ?? scanCapability.scanCapability, t)}
+        />
+        <Field label={t("verify.label.scanCapability")} value={translateScanCapability(scanCapability.scanCapability)} />
+        <Field label={t("verify.label.detectionConfidence")} value={translateConfidence(runtimeScan?.detectionConfidence ?? "None")} />
       </dl>
 
       {isVerifying ? (
         <LoadingState
-          description={`Reading the current ${optimization.title} state...`}
-          title="Checking verification"
+          description={t("verify.loading.description", { title: optimization.title })}
+          title={t("verify.loading.title")}
         />
       ) : verificationError ? (
         <ErrorPresentation
@@ -112,18 +141,16 @@ export function VerificationPage() {
         />
       ) : status === "Pending / Not Available" ? (
         <EmptyState
-          actionLabel="Open History"
+          actionLabel={t("common.action.openHistory")}
           actionTo="/history"
-          description={result?.message ?? "Verification is not available for this optimization yet."}
-          title="Verification not available yet"
+          description={result?.message ?? t("verify.empty.description")}
+          title={t("verify.empty.title")}
         />
       ) : (
         <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
-          <h3 className="text-lg font-semibold tracking-tight text-slate-950">Verification Result</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-slate-950">{t("verify.result.title")}</h3>
           <p className="mt-4 text-sm leading-6 text-slate-600">{result?.message}</p>
-          <p className="mt-4 text-sm leading-6 text-slate-500">
-            Verification is read-only. It does not modify Windows settings.
-          </p>
+          <p className="mt-4 text-sm leading-6 text-slate-500">{t("verify.result.readOnlyNote")}</p>
         </section>
       )}
 
@@ -132,14 +159,14 @@ export function VerificationPage() {
           className="inline-flex h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950"
           to="/dashboard"
         >
-          Return Home
+          {t("common.action.returnHome")}
         </Link>
         <Link
           className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
           to="/history"
         >
           <History size={17} aria-hidden="true" />
-          Open History
+          {t("common.action.openHistory")}
         </Link>
       </footer>
     </div>

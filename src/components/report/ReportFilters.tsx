@@ -1,12 +1,15 @@
 import type { DecisionReportFilterId } from "../../core/report/DecisionReportTypes";
+import { useTranslation } from "../../core/localization/LanguageProvider";
+import { translateCategory, translateRiskLevel } from "../../core/localization/localizationHelpers";
 import type { OptimizationCategory, OptimizationRiskLevel } from "../../types/optimization";
+import type { TranslationKey } from "../../core/localization/messages";
 
-const filterOptions: Array<{ id: DecisionReportFilterId; label: string }> = [
-  { id: "all", label: "All" },
-  { id: "real-apply", label: "Real Apply" },
-  { id: "knowledge-only", label: "Knowledge Only" },
-  { id: "risk", label: "Risk" },
-  { id: "category", label: "Category" }
+const filterOptions: Array<{ id: DecisionReportFilterId; labelKey: TranslationKey }> = [
+  { id: "all", labelKey: "report.filter.all" },
+  { id: "real-apply", labelKey: "report.filter.realApply" },
+  { id: "knowledge-only", labelKey: "report.filter.knowledgeOnly" },
+  { id: "risk", labelKey: "report.filter.risk" },
+  { id: "category", labelKey: "report.filter.category" }
 ];
 
 const riskOptions: OptimizationRiskLevel[] = ["High", "Medium", "Low"];
@@ -29,6 +32,8 @@ export function ReportFilters({
   onRiskChange,
   onCategoryChange
 }: ReportFiltersProps) {
+  const { t } = useTranslation();
+
   return (
     <section className="rounded-lg border border-slate-200 bg-white/90 p-4 shadow-sm">
       <div className="flex flex-wrap gap-2">
@@ -47,7 +52,7 @@ export function ReportFilters({
               onClick={() => onFilterChange(option.id)}
               type="button"
             >
-              {option.label}
+              {t(option.labelKey)}
             </button>
           );
         })}
@@ -67,7 +72,7 @@ export function ReportFilters({
               onClick={() => onRiskChange(activeRisk === risk ? undefined : risk)}
               type="button"
             >
-              {risk}
+              {translateRiskLevel(risk)}
             </button>
           ))}
         </div>
@@ -87,7 +92,7 @@ export function ReportFilters({
               onClick={() => onCategoryChange(activeCategory === category ? undefined : category)}
               type="button"
             >
-              {category}
+              {translateCategory(category)}
             </button>
           ))}
         </div>

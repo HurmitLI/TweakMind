@@ -2,9 +2,18 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { EmptyState } from "../components/common/EmptyState";
 import { ErrorPresentation } from "../components/error/ErrorPresentation";
-import { getApplyModeLabelForMode } from "../components/apply/ApplyModeBadge";
 import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
 import { OptimizationCapabilityRegistry } from "../core/execution/OptimizationCapabilityRegistry";
+import { useTranslation } from "../core/localization/LanguageProvider";
+import {
+  translateApplyMode,
+  translateHistoryStatus,
+  translateOptimizationStatus,
+  translateRecoveryStatus,
+  translateScanCapability,
+  translateScanDisplayState,
+  translateVerificationStatus
+} from "../core/localization/localizationHelpers";
 import { RuntimeScanService } from "../core/scan/RuntimeScanService";
 import {
   type OptimizationHistoryEntry,
@@ -26,6 +35,22 @@ const recoveryStyles: Record<OptimizationRecoveryStatus, string> = {
   Failed: "border-rose-200 bg-rose-50 text-rose-700"
 };
 
+function translateRuntimeScanField(value: string, t: ReturnType<typeof useTranslation>["t"]) {
+  if (value === "Native Detection" || value === "Not Supported Yet") {
+    return translateScanCapability(value);
+  }
+
+  if (value === "Detected") {
+    return t("scan.runtimeStatus.detected");
+  }
+
+  if (value === "Unknown") {
+    return t("scan.runtimeStatus.unknown");
+  }
+
+  return translateScanDisplayState(value);
+}
+
 function canRecover(entry: OptimizationHistoryEntry) {
   const capabilities = OptimizationCapabilityRegistry.get(entry.optimizationId);
 
@@ -38,29 +63,30 @@ function canRecover(entry: OptimizationHistoryEntry) {
 }
 
 export function HistoryPage() {
+  const { t } = useTranslation();
   const [history] = useState<OptimizationHistoryEntry[]>(() => WindowsOptimizationService.getHistory());
 
   return (
     <div className="flex flex-1 flex-col">
       <section className="rounded-lg border border-white/70 bg-white/80 px-8 py-8 shadow-sm backdrop-blur">
-        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">History</p>
-        <h2 className="text-4xl font-semibold tracking-tight text-slate-950">History</h2>
-        <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">
-          Review previous optimizations and restore them if necessary.
-        </p>
+        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">{t("history.eyebrow")}</p>
+        <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{t("history.title")}</h2>
+        <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">{t("history.subtitle")}</p>
       </section>
 
       <section className="mt-6 grid gap-4">
         {history.length === 0 ? (
           <EmptyState
-            actionLabel="Start analysis"
+            actionLabel={t("history.empty.action")}
             actionTo="/scan"
-            description="When you apply an optimization, TweakMind records the previous state, result, and recovery options here."
-            title="No optimization history yet"
+            description={t("history.empty.description")}
+            title={t("history.empty.title")}
           />
         ) : (
           history.map((entry) => {
             const historyError = ErrorPresentationService.forHistoryEntry(entry);
+            const verificationStatus = entry.verificationStatus ?? "Pending / Not Available";
+            const recoveryStatus = entry.recoveryStatus ?? "Not Started";
 
             return (
             <article className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm" key={entry.id}>
@@ -69,27 +95,27 @@ export function HistoryPage() {
                   <div className="flex flex-wrap items-center gap-3">
                     <h3 className="text-xl font-semibold text-slate-950">{entry.optimizationName}</h3>
                     <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                      {entry.status}
+                      {translateHistoryStatus(entry.status)}
                     </span>
                     <span
                       className={[
                         "rounded-full border px-3 py-1 text-xs font-semibold",
-                        verificationStyles[entry.verificationStatus ?? "Pending / Not Available"]
+                        verificationStyles[verificationStatus]
                       ].join(" ")}
                     >
-                      Verification: {entry.verificationStatus ?? "Pending / Not Available"}
+                      {t("history.entry.verificationPrefix")} {translateVerificationStatus(verificationStatus)}
                     </span>
                     <span
                       className={[
                         "rounded-full border px-3 py-1 text-xs font-semibold",
-                        recoveryStyles[entry.recoveryStatus ?? "Not Started"]
+                        recoveryStyles[recoveryStatus]
                       ].join(" ")}
                     >
-                      Recovery: {entry.recoveryStatus ?? "Not Started"}
+                      {t("history.entry.recoveryPrefix")} {translateRecoveryStatus(recoveryStatus)}
                     </span>
                   </div>
                   <p className="mt-2 text-sm leading-6 text-slate-600">
-                    {historyError ? "This record needs review before you continue." : entry.recoveryMessage ?? entry.message}
+                    {historyError ? t("history.entry.needsReview") : entry.recoveryMessage ?? entry.message}
                   </p>
                   {historyError ? (
                     <div className="mt-4">
@@ -110,41 +136,44 @@ export function HistoryPage() {
                   ) : null}
                   <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-6">
                     <div>
-                      <dt className="font-semibold text-slate-500">Apply mode</dt>
+                      <dt className="font-semibold text-slate-500">{t("history.label.applyMode")}</dt>
                       <dd className="mt-1 text-slate-950">
-                        {entry.applyMode ? getApplyModeLabelForMode(entry.applyMode) : "Unknown"}
+                        {entry.applyMode ? translateApplyMode(entry.applyMode) : t("common.value.unknown")}
                       </dd>
                     </div>
                     <div>
-                      <dt className="font-semibold text-slate-500">Previous state</dt>
-                      <dd className="mt-1 text-slate-950">{entry.previousState}</dd>
+                      <dt className="font-semibold text-slate-500">{t("history.label.previousState")}</dt>
+                      <dd className="mt-1 text-slate-950">{translateOptimizationStatus(entry.previousState)}</dd>
                     </div>
                     <div>
-                      <dt className="font-semibold text-slate-500">New state</dt>
-                      <dd className="mt-1 text-slate-950">{entry.newState}</dd>
+                      <dt className="font-semibold text-slate-500">{t("history.label.newState")}</dt>
+                      <dd className="mt-1 text-slate-950">{translateOptimizationStatus(entry.newState)}</dd>
                     </div>
                     <div>
-                      <dt className="font-semibold text-slate-500">Verified actual</dt>
-                      <dd className="mt-1 text-slate-950">{entry.verificationActualState ?? "Unknown"}</dd>
+                      <dt className="font-semibold text-slate-500">{t("history.label.verifiedActual")}</dt>
+                      <dd className="mt-1 text-slate-950">{translateOptimizationStatus(entry.verificationActualState ?? "Unknown")}</dd>
                     </div>
                     <div>
-                      <dt className="font-semibold text-slate-500">Recovery actual</dt>
-                      <dd className="mt-1 text-slate-950">{entry.recoveryActualState ?? "Unknown"}</dd>
+                      <dt className="font-semibold text-slate-500">{t("history.label.recoveryActual")}</dt>
+                      <dd className="mt-1 text-slate-950">{translateOptimizationStatus(entry.recoveryActualState ?? "Unknown")}</dd>
                     </div>
                     <div>
-                      <dt className="font-semibold text-slate-500">Timestamp</dt>
+                      <dt className="font-semibold text-slate-500">{t("history.label.timestamp")}</dt>
                       <dd className="mt-1 text-slate-950">{new Date(Number(entry.timestamp) * 1000).toLocaleString()}</dd>
                     </div>
                     <div>
-                      <dt className="font-semibold text-slate-500">Runtime scan</dt>
+                      <dt className="font-semibold text-slate-500">{t("history.label.runtimeScan")}</dt>
                       <dd className="mt-1 text-slate-950">
-                        {RuntimeScanService.getStoredSnapshot(entry.optimizationId)?.runtimeScanStatus ??
-                          RuntimeScanService.getCapability(entry.optimizationId).scanCapability}
+                        {translateRuntimeScanField(
+                          RuntimeScanService.getStoredSnapshot(entry.optimizationId)?.runtimeScanStatus ??
+                            RuntimeScanService.getCapability(entry.optimizationId).scanCapability,
+                          t
+                        )}
                       </dd>
                     </div>
                     <div>
-                      <dt className="font-semibold text-slate-500">Scan state</dt>
-                      <dd className="mt-1 text-slate-950">{RuntimeScanService.getDisplayState(entry.optimizationId)}</dd>
+                      <dt className="font-semibold text-slate-500">{t("history.label.scanState")}</dt>
+                      <dd className="mt-1 text-slate-950">{translateScanDisplayState(RuntimeScanService.getDisplayState(entry.optimizationId))}</dd>
                     </div>
                   </dl>
                 </div>
@@ -154,7 +183,7 @@ export function HistoryPage() {
                     className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
                     to={`/recover/${entry.id}`}
                   >
-                    Restore
+                    {t("history.action.restore")}
                   </Link>
                 ) : (
                   <button
@@ -162,7 +191,7 @@ export function HistoryPage() {
                     disabled
                     type="button"
                   >
-                    {entry.recoveryStatus === "Success" ? "Recovered" : "Recovery Unavailable"}
+                    {entry.recoveryStatus === "Success" ? t("history.action.recovered") : t("history.action.recoveryUnavailable")}
                   </button>
                 )}
               </div>

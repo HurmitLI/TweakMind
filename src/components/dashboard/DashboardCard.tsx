@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "../../core/localization/LanguageProvider";
 
 interface DashboardCardProps {
   title: string;
@@ -17,11 +18,13 @@ export function DashboardCard({
   description,
   helperText,
   metaText,
-  actionLabel = "Open",
+  actionLabel,
   to,
   icon: Icon,
   tone
 }: DashboardCardProps) {
+  const { t } = useTranslation();
+  const resolvedActionLabel = actionLabel ?? t("common.action.open");
   const isPrimary = tone === "primary";
 
   return (
@@ -61,7 +64,7 @@ export function DashboardCard({
             : "text-slate-600 group-hover:text-slate-950"
         ].join(" ")}
       >
-        {actionLabel}
+        {resolvedActionLabel}
       </span>
     </Link>
   );

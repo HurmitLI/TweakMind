@@ -1,6 +1,8 @@
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { OptimizationCapabilityRegistry } from "../core/execution/OptimizationCapabilityRegistry";
+import { useTranslation } from "../core/localization/LanguageProvider";
+import { translateOptimizationStatus, translateRiskLevel } from "../core/localization/localizationHelpers";
 import { WindowsOptimizationService } from "../core/windows/WindowsOptimizationService";
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -32,6 +34,7 @@ function canRecover(entryId: string | undefined) {
 }
 
 export function RecoveryConfirmationPage() {
+  const { t } = useTranslation();
   const { historyId } = useParams();
   const entry = canRecover(historyId);
 
@@ -39,15 +42,13 @@ export function RecoveryConfirmationPage() {
     return (
       <div className="flex flex-1 items-center justify-center">
         <section className="w-full max-w-3xl rounded-lg border border-amber-100 bg-white/90 p-8 text-center shadow-sm backdrop-blur">
-          <h2 className="text-4xl font-semibold tracking-tight text-slate-950">Recovery Not Available</h2>
-          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600">
-            Recovery is available only for successful Real Apply records with recovery support.
-          </p>
+          <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{t("recoveryConfirm.unavailable.title")}</h2>
+          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600">{t("recoveryConfirm.unavailable.description")}</p>
           <Link
             className="mt-8 inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
             to="/history"
           >
-            Open History
+            {t("common.action.openHistory")}
           </Link>
         </section>
       </div>
@@ -58,65 +59,58 @@ export function RecoveryConfirmationPage() {
     <div className="flex flex-1 flex-col gap-6">
       <Link className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-blue-700" to="/history">
         <ArrowLeft size={17} aria-hidden="true" />
-        Cancel
+        {t("common.action.cancel")}
       </Link>
 
       <section className="rounded-lg border border-white/70 bg-white/85 px-8 py-8 shadow-sm backdrop-blur">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">Recovery Confirmation</p>
+            <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">{t("recoveryConfirm.eyebrow")}</p>
             <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{entry.optimizationName}</h2>
             <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">
-              Review the saved previous state before restoring {entry.optimizationName}.
+              {t("recoveryConfirm.subtitle", { name: entry.optimizationName })}
             </p>
           </div>
           <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
             <ShieldCheck size={16} aria-hidden="true" />
-            Real Recovery
+            {t("recoveryConfirm.badge.realRecovery")}
           </span>
         </div>
       </section>
 
       <dl className="grid gap-4 md:grid-cols-3">
-        <Field label="Current state" value={entry.recoveryActualState ?? entry.newState} />
-        <Field label="Previous saved state" value={entry.previousState} />
-        <Field label="Expected restored state" value={entry.previousState} />
-        <Field label="Recovery time" value="About 1 minute" />
-        <Field label="Risk" value="Low" />
-        <Field label="Startup configuration" value={entry.previousStartupType} />
+        <Field label={t("recoveryConfirm.label.currentState")} value={translateOptimizationStatus(entry.recoveryActualState ?? entry.newState)} />
+        <Field label={t("recoveryConfirm.label.previousSavedState")} value={translateOptimizationStatus(entry.previousState)} />
+        <Field label={t("recoveryConfirm.label.expectedRestoredState")} value={translateOptimizationStatus(entry.previousState)} />
+        <Field label={t("recoveryConfirm.label.recoveryTime")} value={t("recoveryConfirm.value.recoveryTime")} />
+        <Field label={t("recoveryConfirm.label.risk")} value={translateRiskLevel("Low")} />
+        <Field label={t("recoveryConfirm.label.startupConfiguration")} value={entry.previousStartupType} />
       </dl>
 
       <div className="grid gap-6 xl:grid-cols-2">
         <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
-          <h3 className="text-lg font-semibold tracking-tight text-slate-950">What will change</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-slate-950">{t("recoveryConfirm.section.whatWillChange")}</h3>
           <p className="mt-4 text-sm leading-6 text-slate-600">
-            TweakMind will ask the native recovery executor to restore {entry.optimizationName} to the saved previous state:
-            {` ${entry.previousState}`}.
+            {t("recoveryConfirm.whatWillChange.body", { name: entry.optimizationName, state: entry.previousState })}
           </p>
         </section>
 
         <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
-          <h3 className="text-lg font-semibold tracking-tight text-slate-950">Recovery Method</h3>
-          <p className="mt-4 text-sm leading-6 text-slate-600">
-            Recovery uses the History record created during Real Apply. The UI does not modify Windows directly.
-          </p>
+          <h3 className="text-lg font-semibold tracking-tight text-slate-950">{t("recoveryConfirm.section.recoveryMethod")}</h3>
+          <p className="mt-4 text-sm leading-6 text-slate-600">{t("recoveryConfirm.recoveryMethod.body")}</p>
           {entry.optimizationId === "sysmain" ? (
             <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-              Restoring SysMain may re-enable app launch prefetching and change memory behavior. TweakMind does not
-              guarantee performance improvements from disabling or re-enabling SysMain.
+              {t("recoveryConfirm.notice.sysmain")}
             </p>
           ) : null}
           {entry.optimizationId === "hags" ? (
             <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-              Restoring HAGS returns the saved graphics scheduling registry value. GPU driver, Windows version, and
-              individual games may behave differently. TweakMind does not guarantee FPS improvements, and a restart may
-              be required.
+              {t("recoveryConfirm.notice.hags")}
             </p>
           ) : null}
           {entry.optimizationId === "power-plan" ? (
             <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-              Restoring the saved power plan returns Windows to the previous energy/performance balance. Different
-              workloads benefit from different plans, and TweakMind does not guarantee performance improvements.
+              {t("recoveryConfirm.notice.powerPlan")}
             </p>
           ) : null}
         </section>
@@ -128,13 +122,13 @@ export function RecoveryConfirmationPage() {
           to="/history"
         >
           <ArrowLeft size={17} aria-hidden="true" />
-          Cancel
+          {t("common.action.cancel")}
         </Link>
         <Link
           className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
           to={`/recovery?historyId=${entry.id}`}
         >
-          Confirm Recovery
+          {t("recoveryConfirm.action.confirmRecovery")}
         </Link>
       </footer>
     </div>

@@ -4,21 +4,23 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ErrorPresentation } from "../components/error/ErrorPresentation";
 import { getApplyModeLabelForMode } from "../components/apply/ApplyModeBadge";
 import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
+import { useTranslation } from "../core/localization/LanguageProvider";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
 import { readPendingApplyResult } from "../core/windows/WindowsOptimizationService";
 import type { OptimizationApplyResult } from "../core/windows/WindowsOptimizationService";
 import type { OptimizationId } from "../types/optimization";
 
-const applySteps = [
-  "Capturing current state...",
-  "Applying optimization...",
-  "Recording apply result...",
-  "Finishing..."
-];
+const applyStepKeys = [
+  "apply.step.capturingState",
+  "apply.step.applying",
+  "apply.step.recording",
+  "apply.step.finishing"
+] as const;
 
 const stepDurationMs = 1150;
 
 export function ApplyPage() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const defaultOptimization = OptimizationRepository.getDefault();
   const requestedOptimizationId = (searchParams.get("id") as OptimizationId | null) ?? defaultOptimization.id;
@@ -26,6 +28,7 @@ export function ApplyPage() {
     OptimizationRepository.getById(requestedOptimizationId) ?? defaultOptimization;
   const [progress, setProgress] = useState(0);
   const [executionResult] = useState<OptimizationApplyResult | null>(() => readPendingApplyResult(optimization.id));
+  const applySteps = useMemo(() => applyStepKeys.map((key) => t(key)), [t]);
 
   useEffect(() => {
     if (!executionResult) {
@@ -48,12 +51,12 @@ export function ApplyPage() {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [executionResult]);
+  }, [applySteps.length, executionResult]);
 
   const completed = progress >= 100 && executionResult !== null;
   const activeStepIndex = useMemo(
     () => Math.min(applySteps.length - 1, Math.floor((progress / 100) * applySteps.length)),
-    [progress]
+    [applySteps.length, progress]
   );
   const estimatedRemainingSeconds = Math.max(0, Math.ceil(((100 - progress) / 100) * 5));
 
@@ -61,15 +64,13 @@ export function ApplyPage() {
     return (
       <div className="flex flex-1 items-center justify-center">
         <section className="w-full max-w-3xl rounded-lg border border-amber-100 bg-white/90 p-8 text-center shadow-sm backdrop-blur">
-          <h2 className="text-4xl font-semibold tracking-tight text-slate-950">Review before applying</h2>
-          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600">
-            Apply can only start from the confirmation page. No Windows changes were made.
-          </p>
+          <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{t("apply.guard.title")}</h2>
+          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600">{t("apply.guard.description")}</p>
           <Link
             className="mt-8 inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
             to={`/confirm/${optimization.id}?from=decision`}
           >
-            Open Confirmation
+            {t("apply.guard.action.openConfirmation")}
           </Link>
         </section>
       </div>
@@ -99,9 +100,9 @@ export function ApplyPage() {
     const message =
       isSuccess
         ? executionResult.applyMode === "real"
-          ? "The successful real apply result was recorded in History. Run Verification Center to compare expected and actual state."
-          : "This mock apply result completed without modifying Windows."
-        : "TweakMind did not record a success History entry because Apply failed.";
+          ? t("apply.success.message.real")
+          : t("apply.success.message.mock")
+        : t("apply.success.message.failed");
 
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -109,7 +110,7 @@ export function ApplyPage() {
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
             <Check size={28} aria-hidden="true" />
           </div>
-          <h2 className="mt-5 text-4xl font-semibold tracking-tight text-slate-950">Optimization completed successfully.</h2>
+          <h2 className="mt-5 text-4xl font-semibold tracking-tight text-slate-950">{t("apply.success.title")}</h2>
           <div className="mt-4 inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
             {getApplyModeLabelForMode(executionResult.applyMode)}
           </div>
@@ -122,7 +123,7 @@ export function ApplyPage() {
               to="/history"
             >
               <History size={17} aria-hidden="true" />
-              Open History
+              {t("common.action.openHistory")}
             </Link>
             {isSuccess ? (
               <Link
@@ -130,7 +131,7 @@ export function ApplyPage() {
                 to={`/verify?id=${executionResult.optimizationId}`}
               >
                 <ShieldCheck size={17} aria-hidden="true" />
-                Verify Result
+                {t("apply.success.action.verifyResult")}
               </Link>
             ) : null}
           </div>
@@ -148,32 +149,32 @@ export function ApplyPage() {
           </div>
           <div>
             <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-700">
-              {getApplyModeLabelForMode(executionResult.applyMode)} flow
+              {getApplyModeLabelForMode(executionResult.applyMode)} {t("apply.progress.flowSuffix")}
             </p>
-            <h2 className="text-4xl font-semibold tracking-tight text-slate-950">Applying Optimizations</h2>
-            <p className="mt-4 text-lg leading-8 text-slate-600">Preparing your Windows configuration...</p>
+            <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{t("apply.progress.title")}</h2>
+            <p className="mt-4 text-lg leading-8 text-slate-600">{t("apply.progress.subtitle")}</p>
           </div>
         </div>
 
         <div className="mt-8 rounded-lg border border-slate-200 bg-slate-50/80 p-5">
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current optimization</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("apply.progress.label.currentOptimization")}</p>
               <p className="mt-1 text-sm font-semibold text-slate-950">{optimization.title}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Apply mode</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("apply.progress.label.applyMode")}</p>
               <p className="mt-1 text-sm font-semibold text-slate-950">{getApplyModeLabelForMode(executionResult.applyMode)}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current step</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("apply.progress.label.currentStep")}</p>
               <p className="mt-1 text-sm font-semibold text-slate-950">{applySteps[activeStepIndex]}</p>
             </div>
             <div className="sm:col-span-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Estimated remaining</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("apply.progress.label.estimatedRemaining")}</p>
               <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-950">
                 <Clock size={15} aria-hidden="true" />
-                {estimatedRemainingSeconds}s
+                {t("apply.progress.remainingSeconds", { seconds: estimatedRemainingSeconds })}
               </p>
             </div>
           </div>
@@ -181,7 +182,7 @@ export function ApplyPage() {
 
         <div className="mt-7">
           <div className="mb-3 flex items-center justify-between text-sm font-medium text-slate-600">
-            <span>Progress</span>
+            <span>{t("apply.progress.label.progress")}</span>
             <span>{progress}%</span>
           </div>
           <div className="h-4 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
@@ -204,7 +205,7 @@ export function ApplyPage() {
                       ? "border-blue-200 bg-blue-50 text-slate-950"
                       : "border-slate-200 bg-white/60 text-slate-400"
                 ].join(" ")}
-                key={step}
+                key={applyStepKeys[index]}
               >
                 <span
                   className={[

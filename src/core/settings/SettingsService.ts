@@ -1,4 +1,5 @@
 import type { KnowledgeTerminology, OptimizationKnowledge } from "../knowledge/KnowledgeDefinition";
+import { LocalizationService } from "../localization/LocalizationService";
 
 export type AppLanguage = "en" | "zh-CN";
 export type AppTheme = "system" | "light" | "dark";
@@ -147,7 +148,7 @@ export class SettingsService {
 
   private static applyLanguage(language: AppLanguage): void {
     document.documentElement.lang = language === "zh-CN" ? "zh-CN" : "en";
-    // TODO: Wire full localization when i18n is implemented.
+    LocalizationService.translate("app.name");
   }
 
   private static applyTheme(theme: AppTheme): void {

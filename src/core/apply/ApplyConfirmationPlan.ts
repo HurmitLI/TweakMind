@@ -2,6 +2,7 @@ import { KnowledgeRepository, knowledgeToOptimizationDefinition } from "../knowl
 import { OptimizationRepository } from "../optimization/OptimizationRepository";
 import { readStoredScanResult, toRecommendationResult } from "../scan/ScanResult";
 import { OptimizationCapabilityRegistry } from "../execution/OptimizationCapabilityRegistry";
+import { LocalizationService } from "../localization/LocalizationService";
 import type { OptimizationApplyResult } from "../windows/WindowsOptimizationService";
 import type { OptimizationId, OptimizationRecommendation, OptimizationStatus } from "../../types/optimization";
 
@@ -50,14 +51,12 @@ export function getApplyConfirmationPlan(id: OptimizationId) {
   const currentStatus = recommendation.currentStatus ?? "Unknown";
   const capabilities = OptimizationCapabilityRegistry.get(optimization.id);
   const isAlreadyOptimized = recommendation.recommendation === "Already Optimized";
-  const safetyNotices: Partial<Record<OptimizationId, string>> = {
-    sysmain:
-      "Disabling SysMain may reduce app launch prefetching and change memory behavior. TweakMind does not guarantee FPS or performance gains. Review the trade-offs before applying rather than disabling blindly.",
-    hags:
-      "HAGS behavior depends on your GPU driver, Windows version, and individual games. TweakMind does not guarantee FPS improvements. Review the trade-offs before enabling or disabling rather than changing the setting blindly.",
-    "power-plan":
-      "Different workloads benefit from different power plans. High performance may increase energy use, heat, or fan noise. TweakMind does not guarantee performance improvements and does not create Ultimate Performance automatically."
+  const safetyNoticeKeys: Partial<Record<OptimizationId, "applyPlan.safetyNotice.sysmain" | "applyPlan.safetyNotice.hags" | "applyPlan.safetyNotice.powerPlan">> = {
+    sysmain: "applyPlan.safetyNotice.sysmain",
+    hags: "applyPlan.safetyNotice.hags",
+    "power-plan": "applyPlan.safetyNotice.powerPlan"
   };
+  const safetyNoticeKey = safetyNoticeKeys[optimization.id];
 
   return {
     optimization,
@@ -65,16 +64,16 @@ export function getApplyConfirmationPlan(id: OptimizationId) {
     recommendation,
     currentStatus,
     targetState: getTargetStateForOptimization(optimization.id, recommendation.recommendation, currentStatus),
-    safetyNotice: safetyNotices[optimization.id],
+    safetyNotice: safetyNoticeKey ? LocalizationService.translate(safetyNoticeKey) : undefined,
     whatWillChange:
       capabilities.canRealApply && !isAlreadyOptimized
-        ? `TweakMind will capture the current ${optimization.title} state, then ask the native executor to move it to the target state.`
+        ? LocalizationService.translate("applyPlan.whatWillChange.real", { title: optimization.title })
         : capabilities.canRealApply
-          ? `${optimization.title} is already in the recommended state. The executor will still capture the current state before reporting the result.`
-          : "This optimization is not connected to real Windows Apply yet. Confirmation will not modify Windows.",
+          ? LocalizationService.translate("applyPlan.whatWillChange.alreadyOptimized", { title: optimization.title })
+          : LocalizationService.translate("applyPlan.whatWillChange.notConnected"),
     readinessMessage: capabilities.canRealApply
-      ? `Real Apply is available for ${optimization.title} and runs through the Tauri executor, not UI code.`
-      : "Real Apply is not available for this optimization yet. No Windows changes will be made."
+      ? LocalizationService.translate("applyPlan.readiness.real", { title: optimization.title })
+      : LocalizationService.translate("applyPlan.readiness.notAvailable")
   };
 }
 

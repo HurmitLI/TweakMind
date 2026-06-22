@@ -2,15 +2,26 @@ import { ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ScanChecklistItem } from "../components/scan/ScanChecklistItem";
+import { useTranslation } from "../core/localization/LanguageProvider";
 import { ScanManager } from "../core/scan/ScanManager";
 
-const scanItems = ["Windows configuration", "Services", "Gaming settings", "Privacy", "Power", "Security"];
+const scanItemKeys = [
+  "scan.checklist.windowsConfiguration",
+  "scan.checklist.services",
+  "scan.checklist.gamingSettings",
+  "scan.checklist.privacy",
+  "scan.checklist.power",
+  "scan.checklist.security"
+] as const;
+
 const scanDurationMs = 5400;
 const scanTickMs = 120;
 
 export function ScanPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [progress, setProgress] = useState(0);
+  const scanItems = useMemo(() => scanItemKeys.map((key) => t(key)), [t]);
 
   useEffect(() => {
     const startedAt = Date.now();
@@ -65,7 +76,7 @@ export function ScanPage() {
 
   const completedItems = useMemo(
     () => Math.min(scanItems.length, Math.floor((progress / 100) * (scanItems.length + 1))),
-    [progress]
+    [progress, scanItems.length]
   );
 
   return (
@@ -76,15 +87,15 @@ export function ScanPage() {
             <ShieldCheck size={23} aria-hidden="true" />
           </div>
           <div>
-            <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-700">System scan</p>
-            <h2 className="text-4xl font-semibold tracking-tight text-slate-950">Analyzing your PC</h2>
-            <p className="mt-4 text-lg leading-8 text-slate-600">Looking for optimization opportunities...</p>
+            <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-700">{t("scan.eyebrow")}</p>
+            <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{t("scan.title")}</h2>
+            <p className="mt-4 text-lg leading-8 text-slate-600">{t("scan.subtitle")}</p>
           </div>
         </div>
 
         <div className="mt-8">
           <div className="mb-3 flex items-center justify-between text-sm font-medium text-slate-600">
-            <span>Progress</span>
+            <span>{t("scan.progress.label")}</span>
             <span>{progress}%</span>
           </div>
           <div className="h-4 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
@@ -97,11 +108,11 @@ export function ScanPage() {
 
         <ul className="mt-8 grid gap-3 sm:grid-cols-2">
           {scanItems.map((item, index) => (
-            <ScanChecklistItem complete={index < completedItems} key={item} label={item} />
+            <ScanChecklistItem complete={index < completedItems} key={scanItemKeys[index]} label={item} />
           ))}
         </ul>
 
-        <p className="mt-8 text-center text-sm font-medium text-slate-500">Please wait...</p>
+        <p className="mt-8 text-center text-sm font-medium text-slate-500">{t("scan.waitMessage")}</p>
       </section>
     </div>
   );

@@ -6,6 +6,7 @@ import type {
   OptimizationStatus
 } from "../../types/optimization";
 import { OptimizationCapabilityRegistry } from "../execution/OptimizationCapabilityRegistry";
+import { LocalizationService } from "../localization/LocalizationService";
 import type { KnowledgePriority } from "../knowledge/KnowledgeDefinition";
 import { KnowledgeRepository } from "../knowledge/KnowledgeRepository";
 import type { RuntimeScanStatus } from "../scan/RuntimeScanModel";
@@ -23,24 +24,30 @@ import type {
   DecisionReportSelectionSummary
 } from "./DecisionReportTypes";
 
-const sectionMeta: Record<DecisionReportSectionId, { title: string; description: string }> = {
-  recommended: {
-    title: "Recommended",
-    description: "These optimizations deserve attention first based on your scan."
-  },
-  optional: {
-    title: "Optional",
-    description: "Review these when the trade-offs fit your goals."
-  },
-  "keep-current": {
-    title: "Keep Current",
-    description: "These settings already match a sensible default for your scan."
-  },
-  unavailable: {
-    title: "Unavailable",
-    description: "Scan or real apply is not available for these items in the current MVP step."
+function getSectionMeta(id: DecisionReportSectionId) {
+  switch (id) {
+    case "recommended":
+      return {
+        title: LocalizationService.translate("report.section.recommended.title"),
+        description: LocalizationService.translate("report.section.recommended.description")
+      };
+    case "optional":
+      return {
+        title: LocalizationService.translate("report.section.optional.title"),
+        description: LocalizationService.translate("report.section.optional.description")
+      };
+    case "keep-current":
+      return {
+        title: LocalizationService.translate("report.section.keepCurrent.title"),
+        description: LocalizationService.translate("report.section.keepCurrent.description")
+      };
+    case "unavailable":
+      return {
+        title: LocalizationService.translate("report.section.unavailable.title"),
+        description: LocalizationService.translate("report.section.unavailable.description")
+      };
   }
-};
+}
 
 const sectionOrder: DecisionReportSectionId[] = ["recommended", "optional", "keep-current", "unavailable"];
 
@@ -167,8 +174,7 @@ function sortItems(items: DecisionReportItem[]): DecisionReportItem[] {
 function buildSections(items: DecisionReportItem[]): DecisionReportSection[] {
   return sectionOrder.map((id) => ({
     id,
-    title: sectionMeta[id].title,
-    description: sectionMeta[id].description,
+    ...getSectionMeta(id),
     items: sortItems(items.filter((item) => item.section === id))
   }));
 }
@@ -180,8 +186,7 @@ export class DecisionReportService {
         hasScan: false,
         sections: sectionOrder.map((id) => ({
           id,
-          title: sectionMeta[id].title,
-          description: sectionMeta[id].description,
+          ...getSectionMeta(id),
           items: []
         })),
         allItems: []
@@ -252,32 +257,35 @@ export class DecisionReportService {
     const estimatedMinutes = selectedItems.reduce((total, item) => total + item.estimatedMinutes, 0);
     const estimatedExecutionTime =
       selectedItems.length === 0
-        ? "None selected"
+        ? LocalizationService.translate("report.selection.noneSelected")
         : estimatedMinutes <= 1
-          ? "About 1 minute"
-          : `About ${estimatedMinutes} minutes`;
+          ? LocalizationService.translate("report.selection.aboutOneMinute")
+          : LocalizationService.translate("report.selection.aboutMinutes", { count: estimatedMinutes });
 
     let applyState: DecisionReportApplyState = "disabled-none";
-    let applyMessage = "Select a supported optimization to continue.";
+    let applyMessage = LocalizationService.translate("report.selection.applyMessage.selectSupported");
     let applyTargetId: DecisionReportSelectionSummary["applyTargetId"];
 
     if (selectedItems.length === 0) {
       applyState = "disabled-none";
-      applyMessage = "Select at least one optimization to review apply options.";
+      applyMessage = LocalizationService.translate("report.selection.applyMessage.selectAtLeastOne");
     } else if (supportedSelected.length === 0) {
       applyState = "disabled-unsupported";
-      applyMessage = "Selected optimizations are not available for real apply in this MVP step.";
+      applyMessage = LocalizationService.translate("report.selection.applyMessage.unsupportedOnly");
     } else if (supportedSelected.length > 1) {
       applyState = "disabled-multiple";
-      applyMessage = "MVP applies one optimization at a time. Select one supported optimization to continue.";
+      applyMessage = LocalizationService.translate("report.selection.applyMessage.multipleSelected");
     } else {
       applyState = "ready";
-      applyMessage = "Continue to Apply Confirmation for the selected optimization.";
+      applyMessage = LocalizationService.translate("report.selection.applyMessage.ready");
       applyTargetId = supportedSelected[0]?.id;
     }
 
     if (unsupportedSelected.length > 0 && supportedSelected.length > 0) {
-      applyMessage = `${unsupportedSelected.length} selected item(s) are not available for real apply. ${applyMessage}`;
+      applyMessage = LocalizationService.translate("report.selection.applyMessage.mixedSelection", {
+        unsupportedCount: unsupportedSelected.length,
+        message: applyMessage
+      });
     }
 
     return {

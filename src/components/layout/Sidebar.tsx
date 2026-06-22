@@ -1,16 +1,19 @@
 import { BookOpen, History, Home, Info, ScanLine, Settings, Sparkles } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { AppInfo } from "../../core/app/AppInfo";
+import { useTranslation } from "../../core/localization/LanguageProvider";
 
 const navItems = [
-  { to: "/dashboard", label: "Home", icon: Home },
-  { to: "/scan", label: "Analyze", icon: ScanLine },
-  { to: "/knowledge", label: "Knowledge", icon: BookOpen },
-  { to: "/history", label: "History", icon: History },
-  { to: "/settings", label: "Settings", icon: Settings }
+  { to: "/dashboard", labelKey: "sidebar.nav.home" as const, icon: Home },
+  { to: "/scan", labelKey: "sidebar.nav.analyze" as const, icon: ScanLine },
+  { to: "/knowledge", labelKey: "sidebar.nav.knowledge" as const, icon: BookOpen },
+  { to: "/history", labelKey: "sidebar.nav.history" as const, icon: History },
+  { to: "/settings", labelKey: "sidebar.nav.settings" as const, icon: Settings }
 ];
 
 export function Sidebar() {
+  const { t } = useTranslation();
+
   return (
     <aside className="flex w-72 shrink-0 flex-col border-r border-slate-800 bg-slate-950 px-5 py-6">
       <div className="mb-8 flex items-center gap-3">
@@ -19,11 +22,11 @@ export function Sidebar() {
         </div>
         <div>
           <h1 className="text-xl font-semibold tracking-tight">{AppInfo.name}</h1>
-          <p className="text-sm text-slate-400">{AppInfo.tagline}</p>
+          <p className="text-sm text-slate-400">{t("app.tagline")}</p>
         </div>
       </div>
 
-      <nav className="grid gap-1" aria-label="Primary navigation">
+      <nav className="grid gap-1" aria-label={t("sidebar.aria.primaryNavigation")}>
         {navItems.map((item) => {
           const Icon = item.icon;
 
@@ -41,7 +44,7 @@ export function Sidebar() {
               to={item.to}
             >
               <Icon size={18} aria-hidden="true" />
-              {item.label}
+              {t(item.labelKey)}
             </NavLink>
           );
         })}
@@ -60,10 +63,10 @@ export function Sidebar() {
           to="/about"
         >
           <Info size={18} aria-hidden="true" />
-          About
+          {t("sidebar.nav.about")}
         </NavLink>
         <p className="mt-3 px-3 text-xs text-slate-500">
-          {AppInfo.name} {AppInfo.versionLabel}
+          {AppInfo.name} {t("app.versionLabel", { version: AppInfo.version })}
         </p>
       </div>
     </aside>

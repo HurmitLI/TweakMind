@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { DecisionReportCard } from "./DecisionReportCard";
 import type { DecisionReportItem, DecisionReportSection } from "../../core/report/DecisionReportTypes";
+import { useTranslation } from "../../core/localization/LanguageProvider";
 
 interface DecisionReportSectionPanelProps {
   section: DecisionReportSection;
@@ -15,6 +16,8 @@ export function DecisionReportSectionPanel({
   onToggleSelected,
   emptyState
 }: DecisionReportSectionPanelProps) {
+  const { t } = useTranslation();
+
   return (
     <details className="group rounded-lg border border-slate-200 bg-white/90 shadow-sm" open={section.id === "recommended"}>
       <summary className="cursor-pointer list-none px-5 py-4">
@@ -33,7 +36,7 @@ export function DecisionReportSectionPanel({
         {section.items.length === 0
           ? emptyState ?? (
               <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                No optimizations in this section for the current scan and filters.
+                {t("report.sectionPanel.emptyDefault")}
               </p>
             )
           : section.items.map((item) => (

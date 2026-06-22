@@ -1,64 +1,63 @@
 import { BookOpen, CheckCircle2, History, MonitorCheck, RotateCcw, Scale } from "lucide-react";
 import { DashboardCard } from "../components/dashboard/DashboardCard";
-
-const dashboardCards = [
-  {
-    title: "Analyze My PC",
-    description: "Analyze the current Windows configuration and identify optimizations worth considering.",
-    helperText: "Safe analysis. No changes will be made.",
-    metaText: "About 30 seconds.",
-    actionLabel: "Start analysis",
-    to: "/scan",
-    icon: MonitorCheck,
-    tone: "primary" as const
-  },
-  {
-    title: "Knowledge Base",
-    description: "Browse all supported Windows optimizations before making changes.",
-    to: "/knowledge",
-    icon: BookOpen,
-    tone: "secondary" as const
-  },
-  {
-    title: "Optimization History",
-    description: "Review previous optimizations and restore them if necessary.",
-    to: "/history",
-    icon: History,
-    tone: "secondary" as const
-  }
-];
-
-const highlights = [
-  {
-    title: "Understand before you optimize",
-    description: "Plain-language explanations show what each optimization changes.",
-    icon: CheckCircle2
-  },
-  {
-    title: "See every trade-off",
-    description: "Benefits and downsides are shown together so decisions stay balanced.",
-    icon: Scale
-  },
-  {
-    title: "Recover anytime",
-    description: "Recovery guidance is part of the decision, not an afterthought.",
-    icon: RotateCcw
-  }
-];
+import { useTranslation } from "../core/localization/LanguageProvider";
 
 export function DashboardPage() {
+  const { t } = useTranslation();
+
+  const dashboardCards = [
+    {
+      title: t("dashboard.card.analyze.title"),
+      description: t("dashboard.card.analyze.description"),
+      helperText: t("dashboard.card.analyze.helperText"),
+      metaText: t("dashboard.card.analyze.metaText"),
+      actionLabel: t("dashboard.card.analyze.actionLabel"),
+      to: "/scan",
+      icon: MonitorCheck,
+      tone: "primary" as const
+    },
+    {
+      title: t("dashboard.card.knowledge.title"),
+      description: t("dashboard.card.knowledge.description"),
+      to: "/knowledge",
+      icon: BookOpen,
+      tone: "secondary" as const
+    },
+    {
+      title: t("dashboard.card.history.title"),
+      description: t("dashboard.card.history.description"),
+      to: "/history",
+      icon: History,
+      tone: "secondary" as const
+    }
+  ];
+
+  const highlights = [
+    {
+      title: t("dashboard.highlight.understand.title"),
+      description: t("dashboard.highlight.understand.description"),
+      icon: CheckCircle2
+    },
+    {
+      title: t("dashboard.highlight.tradeoffs.title"),
+      description: t("dashboard.highlight.tradeoffs.description"),
+      icon: Scale
+    },
+    {
+      title: t("dashboard.highlight.recover.title"),
+      description: t("dashboard.highlight.recover.description"),
+      icon: RotateCcw
+    }
+  ];
+
   return (
     <div className="flex flex-1 flex-col">
       <section className="relative overflow-hidden rounded-lg border border-white/70 bg-white/80 px-8 py-10 shadow-sm backdrop-blur">
         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400" />
         <div className="max-w-4xl">
-          <h2 className="text-5xl font-semibold tracking-tight text-slate-950">TweakMind</h2>
-          <p className="mt-4 text-xl leading-8 text-slate-700">
-            Make every Windows optimization an informed decision.
-          </p>
-          <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
-            Understand what changes, why it matters, and how to recover before you optimize.
-          </p>
+          <h2 className="text-5xl font-semibold tracking-tight text-slate-950">{t("dashboard.hero.title")}</h2>
+          <p className="mt-4 text-xl leading-8 text-slate-700">{t("dashboard.hero.subtitle")}</p>
+          <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">{t("dashboard.hero.body")}</p>
         </div>
       </section>
 
@@ -79,7 +78,7 @@ export function DashboardPage() {
       </section>
 
       <section className="mt-6 rounded-lg border border-slate-200 bg-white/90 p-6 shadow-sm backdrop-blur">
-        <h3 className="text-lg font-semibold tracking-tight text-slate-950">Why TweakMind?</h3>
+        <h3 className="text-lg font-semibold tracking-tight text-slate-950">{t("dashboard.why.title")}</h3>
         <div className="mt-5 grid gap-4 lg:grid-cols-3">
           {highlights.map((highlight) => {
             const Icon = highlight.icon;

@@ -1,6 +1,7 @@
 import { AlertTriangle, ArrowLeft, History, RotateCcw, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { ErrorDescriptor } from "../../core/error/ErrorPresentationService";
+import { useTranslation } from "../../core/localization/LanguageProvider";
 
 export interface ErrorPresentationActions {
   onRetry?: () => void;
@@ -18,6 +19,7 @@ interface ErrorPresentationProps {
 }
 
 export function ErrorPresentation({ descriptor, actions = {}, layout = "inline" }: ErrorPresentationProps) {
+  const { t } = useTranslation();
   const {
     onRetry,
     onGoBack,
@@ -66,7 +68,7 @@ export function ErrorPresentation({ descriptor, actions = {}, layout = "inline" 
 
         {descriptor.possibleReasons && descriptor.possibleReasons.length > 0 ? (
           <div className={layout === "centered" ? "mt-2 w-full max-w-xl text-left" : ""}>
-            <p className="text-sm font-semibold text-slate-700">Possible reasons</p>
+            <p className="text-sm font-semibold text-slate-700">{t("error.possibleReasons.title")}</p>
             <ul className="mt-2 grid gap-2 text-sm leading-6 text-slate-600">
               {descriptor.possibleReasons.map((reason) => (
                 <li key={reason}>• {reason}</li>
@@ -76,7 +78,7 @@ export function ErrorPresentation({ descriptor, actions = {}, layout = "inline" 
         ) : null}
 
         <p className={["text-slate-700", layout === "centered" ? "mt-2 text-base leading-7" : "text-sm leading-6"].join(" ")}>
-          <span className="font-semibold">Recommended action: </span>
+          <span className="font-semibold">{t("error.recommendedActionPrefix")} </span>
           {descriptor.recommendedAction}
         </p>
 
@@ -94,7 +96,7 @@ export function ErrorPresentation({ descriptor, actions = {}, layout = "inline" 
                   to={retryHref}
                 >
                   <RotateCcw size={17} aria-hidden="true" />
-                  Retry
+                  {t("common.action.retry")}
                 </Link>
               ) : (
                 <button
@@ -103,7 +105,7 @@ export function ErrorPresentation({ descriptor, actions = {}, layout = "inline" 
                   type="button"
                 >
                   <RotateCcw size={17} aria-hidden="true" />
-                  Retry
+                  {t("common.action.retry")}
                 </button>
               )
             ) : null}
@@ -115,7 +117,7 @@ export function ErrorPresentation({ descriptor, actions = {}, layout = "inline" 
                   to={goBackHref}
                 >
                   <ArrowLeft size={17} aria-hidden="true" />
-                  Go Back
+                  {t("common.action.goBack")}
                 </Link>
               ) : (
                 <button
@@ -124,7 +126,7 @@ export function ErrorPresentation({ descriptor, actions = {}, layout = "inline" 
                   type="button"
                 >
                   <ArrowLeft size={17} aria-hidden="true" />
-                  Go Back
+                  {t("common.action.goBack")}
                 </button>
               )
             ) : null}
@@ -135,7 +137,7 @@ export function ErrorPresentation({ descriptor, actions = {}, layout = "inline" 
                 to={historyHref}
               >
                 <History size={17} aria-hidden="true" />
-                Open History
+                {t("common.action.openHistory")}
               </Link>
             ) : null}
 
@@ -146,7 +148,7 @@ export function ErrorPresentation({ descriptor, actions = {}, layout = "inline" 
                 type="button"
               >
                 <X size={17} aria-hidden="true" />
-                Dismiss
+                {t("common.action.dismiss")}
               </button>
             ) : null}
           </div>
