@@ -67,7 +67,8 @@ export function DashboardPage() {
         <section className="tm-home-hero tm-home-panel">
           <div className="tm-home-hero-content">
             <h1 className="tm-home-hero-title">
-              让每一次 Windows 优化，
+              让每一次{" "}
+              <span className="tm-home-hero-title-unit">Windows 优化，</span>
               <br />
               都心里有数。
             </h1>

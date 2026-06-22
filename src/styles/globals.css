@@ -785,7 +785,7 @@
 
   .tm-home-hero-content {
     display: flex;
-    max-width: 40rem;
+    max-width: 46rem;
     flex-direction: column;
     align-items: center;
     gap: 1.375rem;
@@ -793,11 +793,20 @@
   }
 
   .tm-home-hero-title {
-    font-size: var(--tm-font-hero-title-size);
+    width: 100%;
+    max-width: 46rem;
+    font-size: clamp(2rem, 2.5rem + 1.25vw, 3.5rem);
     font-weight: var(--tm-font-hero-title-weight);
-    line-height: var(--tm-font-hero-title-line-height);
+    line-height: 1.08;
     letter-spacing: var(--tm-font-hero-title-tracking);
     color: var(--tm-color-text);
+    word-break: keep-all;
+    line-break: strict;
+    text-wrap: balance;
+  }
+
+  .tm-home-hero-title-unit {
+    white-space: nowrap;
   }
 
   .tm-home-hero-subtitle {
