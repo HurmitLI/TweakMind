@@ -64,6 +64,8 @@ None
 
 - ENGINE-009 Apply Framework Expansion
 
+- DATA-002 Optimization Knowledge Expansion
+
 ---
 
 # Completed PRODUCT
@@ -90,7 +92,7 @@ None
 
 # Next Development
 
-DATA-002 Optimization Knowledge Expansion
+ENGINE-010 Game Mode Real Apply
 
 ---
 

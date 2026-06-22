@@ -10,14 +10,14 @@ function targetStateFor(id: OptimizationId, recommendation: OptimizationRecommen
     return currentStatus;
   }
 
-  const targetStates: Record<OptimizationId, OptimizationStatus> = {
+  const targetStates: Partial<Record<OptimizationId, OptimizationStatus>> = {
     "windows-search": "Disabled",
     "game-mode": "Enabled",
     "core-isolation": "Enabled",
     "delivery-optimization": "Default"
   };
 
-  return targetStates[id];
+  return targetStates[id] ?? "Unknown";
 }
 
 export function getApplyConfirmationPlan(id: OptimizationId) {

@@ -2,9 +2,16 @@ export type OptimizationId =
   | "windows-search"
   | "game-mode"
   | "core-isolation"
-  | "delivery-optimization";
+  | "delivery-optimization"
+  | "sysmain"
+  | "hags"
+  | "background-apps"
+  | "startup-apps"
+  | "power-plan"
+  | "windows-update-active-hours"
+  | "visual-effects";
 
-export type OptimizationCategory = "Performance" | "Gaming" | "Security" | "Network";
+export type OptimizationCategory = "Performance" | "Gaming" | "Security" | "Network" | "Privacy" | "Windows";
 
 export type OptimizationRecommendation =
   | "Recommended"

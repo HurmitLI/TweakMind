@@ -1,16 +1,30 @@
 import type { OptimizationDefinition, OptimizationId } from "../../types/optimization";
 import type { OptimizationBenefitLevel } from "../../types/optimization";
 import type { OptimizationKnowledge } from "./KnowledgeDefinition";
+import { backgroundAppsKnowledge } from "./items/background-apps";
 import { coreIsolationKnowledge } from "./items/core-isolation";
 import { deliveryOptimizationKnowledge } from "./items/delivery-optimization";
 import { gameModeKnowledge } from "./items/game-mode";
+import { hagsKnowledge } from "./items/hags";
+import { powerPlanKnowledge } from "./items/power-plan";
+import { startupAppsKnowledge } from "./items/startup-apps";
+import { sysMainKnowledge } from "./items/sysmain";
+import { visualEffectsKnowledge } from "./items/visual-effects";
 import { windowsSearchKnowledge } from "./items/windows-search";
+import { windowsUpdateActiveHoursKnowledge } from "./items/windows-update-active-hours";
 
 const knowledgeItems: OptimizationKnowledge[] = [
   windowsSearchKnowledge,
   gameModeKnowledge,
   coreIsolationKnowledge,
-  deliveryOptimizationKnowledge
+  deliveryOptimizationKnowledge,
+  sysMainKnowledge,
+  hagsKnowledge,
+  backgroundAppsKnowledge,
+  startupAppsKnowledge,
+  powerPlanKnowledge,
+  windowsUpdateActiveHoursKnowledge,
+  visualEffectsKnowledge
 ];
 
 export function estimateBenefitFromImpact(performanceImpact: number): OptimizationBenefitLevel {
@@ -47,7 +61,7 @@ export function knowledgeToOptimizationDefinition(knowledge: OptimizationKnowled
     expectedResult: knowledge.recovery.expectedResult,
     impact: {
       ...knowledge.impact,
-      estimatedBenefit: estimateBenefitFromImpact(knowledge.impact.performance)
+      estimatedBenefit: knowledge.expectedBenefit
     },
     icon: knowledge.icon
   };

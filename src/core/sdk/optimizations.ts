@@ -36,6 +36,22 @@ function createNativeDetector(command: string, label: string) {
   };
 }
 
+function createUnavailableDetector(label: string) {
+  return {
+    detect(): Promise<OptimizationEngineResult> {
+      return Promise.resolve(
+        createEngineResult({
+          status: "Failed",
+          success: false,
+          previousState: "Unknown",
+          currentState: "Unknown",
+          message: `${label} detection is not available yet.`
+        })
+      );
+    }
+  };
+}
+
 function createMockExecutor(definition: OptimizationDefinition, previousState: OptimizationStatus, currentState: OptimizationStatus) {
   return {
     apply(): Promise<OptimizationEngineResult> {
@@ -150,5 +166,24 @@ export const optimizationSdkModules: OptimizationSdkModule[] = [
     },
     executor: createMockExecutor(definitions["delivery-optimization"], "Unknown", "Unknown"),
     recovery: createMockRecovery(definitions["delivery-optimization"], "Unknown")
-  }
+  },
+  ...([
+    "sysmain",
+    "hags",
+    "background-apps",
+    "startup-apps",
+    "power-plan",
+    "windows-update-active-hours",
+    "visual-effects"
+  ] as const).map((id): OptimizationSdkModule => ({
+    definition: definitions[id],
+    detector: createUnavailableDetector(definitions[id].title),
+    evaluator: {
+      evaluate(context) {
+        return createEvaluation(context, "Optional", "Unknown");
+      }
+    },
+    executor: createMockExecutor(definitions[id], "Unknown", "Unknown"),
+    recovery: createMockRecovery(definitions[id], "Unknown")
+  }))
 ];

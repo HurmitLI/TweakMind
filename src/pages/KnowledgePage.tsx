@@ -30,8 +30,16 @@ function matchesSearch(query: string, knowledge: ReturnType<typeof KnowledgeRepo
   const searchableText = [
     knowledge.title,
     knowledge.category,
+    knowledge.summary,
+    knowledge.whatItDoes,
+    knowledge.whyItMatters,
+    knowledge.userDecisionNotes,
+    knowledge.terminology.original,
+    knowledge.terminology.localized,
+    knowledge.terminology.tweakmind,
     knowledge.why,
     ...knowledge.benefits,
+    ...knowledge.risks,
     ...knowledge.tradeOffs,
     ...knowledge.recommendedFor,
     ...knowledge.notRecommendedFor
@@ -121,10 +129,10 @@ export function KnowledgePage() {
                     {knowledge.category}
                   </span>
                   <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                    Status: {statusById.get(knowledge.id) ?? "Unknown"}
+                    Status: {statusById.get(knowledge.id) ?? "Not Available"}
                   </span>
                 </div>
-                <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{knowledge.why}</p>
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{knowledge.summary}</p>
               </div>
 
               <div className="grid shrink-0 gap-2 sm:grid-cols-2 lg:w-56 lg:grid-cols-1">

@@ -21,7 +21,14 @@ const capabilities: Record<OptimizationId, OptimizationExecutionCapabilities> = 
   },
   "game-mode": unsupportedCapabilities,
   "core-isolation": unsupportedCapabilities,
-  "delivery-optimization": unsupportedCapabilities
+  "delivery-optimization": unsupportedCapabilities,
+  sysmain: unsupportedCapabilities,
+  hags: unsupportedCapabilities,
+  "background-apps": unsupportedCapabilities,
+  "startup-apps": unsupportedCapabilities,
+  "power-plan": unsupportedCapabilities,
+  "windows-update-active-hours": unsupportedCapabilities,
+  "visual-effects": unsupportedCapabilities
 };
 
 export class OptimizationCapabilityRegistry {
