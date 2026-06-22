@@ -1,6 +1,5 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { ApplyModeBadge } from "../apply/ApplyModeBadge";
 import type { RecommendationResult } from "../../core/recommendation/RecommendationResult";
 import type { OptimizationBenefitLevel, OptimizationDefinition, OptimizationRecommendation, OptimizationRiskLevel } from "../../types/optimization";
 
@@ -52,7 +51,6 @@ export function OptimizationCard({ optimization, recommendation, defaultOpen = f
             <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
               Status: {recommendation.currentStatus ?? "Unknown"}
             </span>
-            <ApplyModeBadge optimizationId={optimization.id} />
           </div>
           <p className="max-w-3xl text-sm leading-6 text-slate-600">{recommendation.reason}</p>
         </div>

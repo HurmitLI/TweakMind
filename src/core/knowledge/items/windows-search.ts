@@ -16,7 +16,7 @@ export const windowsSearchKnowledge: OptimizationKnowledge = {
   riskAnalysis:
     "The change is easy to reverse and does not remove files or disable security features. The main downside is slower search behavior.",
   recovery: {
-    method: "Previous state will be saved to History for future recovery. Restore is not available in this MVP step.",
+    method: "Restore the previous Windows Search service startup configuration from History.",
     estimatedTime: "About 1 minute",
     difficulty: "Easy",
     expectedResult: "Windows returns to normal search behavior after the index has time to rebuild."

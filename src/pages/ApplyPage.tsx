@@ -80,7 +80,7 @@ export function ApplyPage() {
     const message =
       executionResult?.error ??
       (isSuccess
-        ? "The successful apply result was recorded in History."
+        ? "This mock apply result completed without modifying Windows."
         : "TweakMind did not record a success History entry because Apply failed.");
 
     return (
@@ -94,7 +94,7 @@ export function ApplyPage() {
             {getApplyModeLabel(executionResult.optimizationId)}
           </div>
           <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600">
-            {isSuccess ? "Everything can be restored later from History." : message}
+            {message}
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Link

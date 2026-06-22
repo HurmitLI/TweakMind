@@ -1,35 +1,18 @@
 import { ArrowLeft, CheckCircle2, Info, ShieldCheck } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ApplyModeBadge, getApplyModeLabel } from "../components/apply/ApplyModeBadge";
 import { RecommendationBadge } from "../components/decision/RecommendationBadge";
-import { KnowledgeRepository, knowledgeToOptimizationDefinition } from "../core/knowledge/KnowledgeRepository";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
-import { readStoredScanResult, toRecommendationResult } from "../core/scan/ScanResult";
-import { OptimizationExecutor } from "../core/windows/OptimizationExecutor";
+import { createMockApplyResult, getApplyConfirmationPlan } from "../core/apply/ApplyConfirmationPlan";
 import { storePendingApplyResult } from "../core/windows/WindowsOptimizationService";
-import type { OptimizationId, OptimizationRecommendation, OptimizationStatus } from "../types/optimization";
+import type { OptimizationId } from "../types/optimization";
 
 const riskStyles = {
   Low: "border-emerald-200 bg-emerald-50 text-emerald-700",
   Medium: "border-amber-200 bg-amber-50 text-amber-700",
   High: "border-rose-200 bg-rose-50 text-rose-700"
 };
-
-function targetStateFor(id: OptimizationId, recommendation: OptimizationRecommendation, currentStatus: OptimizationStatus) {
-  if (recommendation === "Already Optimized" || recommendation === "Keep Default" || recommendation === "Keep Enabled") {
-    return currentStatus;
-  }
-
-  const targetStates: Record<OptimizationId, string> = {
-    "windows-search": "Disabled",
-    "game-mode": "Enabled",
-    "core-isolation": "Enabled",
-    "delivery-optimization": "Default"
-  };
-
-  return targetStates[id];
-}
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -58,48 +41,18 @@ function ListSection({ title, items }: { title: string; items: string[] }) {
 
 export function ApplyConfirmationPage() {
   const navigate = useNavigate();
-  const [applyError, setApplyError] = useState<string | null>(null);
-  const [isApplying, setIsApplying] = useState(false);
   const { optimizationId } = useParams();
   const [searchParams] = useSearchParams();
-  const scanResult = useMemo(() => readStoredScanResult(), []);
   const defaultOptimization = OptimizationRepository.getDefault();
   const requestedOptimizationId = (optimizationId as OptimizationId | undefined) ?? defaultOptimization.id;
-  const optimizationResult = scanResult?.optimizationResults.find((result) => result.id === requestedOptimizationId);
-  const knowledge = KnowledgeRepository.getById(requestedOptimizationId);
-  const optimization =
-    (knowledge ? knowledgeToOptimizationDefinition(knowledge) : undefined) ??
-    optimizationResult?.definition ??
-    OptimizationRepository.getById(requestedOptimizationId) ??
-    defaultOptimization;
-  const recommendation = optimizationResult
-    ? toRecommendationResult(optimizationResult)
-    : {
-        id: optimization.id,
-        recommendation: optimization.recommendation,
-        reason: optimization.description,
-        currentStatus: optimization.status,
-        selectable: false,
-        selectedByDefault: false
-      };
-  const currentStatus = recommendation.currentStatus ?? "Unknown";
-  const targetState = targetStateFor(optimization.id, recommendation.recommendation, currentStatus);
+  const plan = useMemo(() => getApplyConfirmationPlan(requestedOptimizationId), [requestedOptimizationId]);
+  const { currentStatus, knowledge, optimization, recommendation, targetState } = plan;
   const source = searchParams.get("from") === "decision" ? "decision" : "report";
   const cancelTarget = source === "decision" ? `/decision?id=${optimization.id}` : "/report";
 
-  async function confirmAndApply() {
-    setApplyError(null);
-    setIsApplying(true);
-
-    try {
-      const result = await OptimizationExecutor.apply(optimization.id);
-      storePendingApplyResult(result);
-      navigate(`/apply?id=${optimization.id}`);
-    } catch (error) {
-      setApplyError(error instanceof Error ? error.message : "Apply could not be started.");
-    } finally {
-      setIsApplying(false);
-    }
+  function confirmAndApply() {
+    storePendingApplyResult(createMockApplyResult(optimization.id, currentStatus));
+    navigate(`/apply?id=${optimization.id}`);
   }
 
   return (
@@ -147,15 +100,11 @@ export function ApplyConfirmationPage() {
       <div className="grid gap-6 xl:grid-cols-2">
         <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
           <h3 className="text-lg font-semibold tracking-tight text-slate-950">What will change</h3>
-          <p className="mt-4 text-sm leading-6 text-slate-600">{knowledge?.why ?? optimization.description}</p>
+          <p className="mt-4 text-sm leading-6 text-slate-600">{plan.whatWillChange}</p>
           <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
             <div className="flex items-start gap-3">
               <Info className="mt-0.5 shrink-0" size={18} aria-hidden="true" />
-              <p>
-                {optimization.id === "windows-search"
-                  ? "This action uses the native Windows executor and requires Administrator permission."
-                  : "This optimization does not have a real apply executor yet. No Windows changes will be made."}
-              </p>
+              <p>{plan.readinessMessage}</p>
             </div>
           </div>
         </section>
@@ -187,12 +136,6 @@ export function ApplyConfirmationPage() {
         </section>
       </div>
 
-      {applyError ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-medium text-rose-700">
-          {applyError}
-        </div>
-      ) : null}
-
       <footer className="flex flex-col-reverse gap-3 rounded-lg border border-slate-200 bg-white/90 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <Link
           className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
@@ -202,12 +145,11 @@ export function ApplyConfirmationPage() {
           Cancel
         </Link>
         <button
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          disabled={isApplying}
-          onClick={() => void confirmAndApply()}
+          className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          onClick={confirmAndApply}
           type="button"
         >
-          {isApplying ? "Preparing Apply..." : "Confirm and Apply"}
+          Confirm and Continue
         </button>
       </footer>
     </div>
