@@ -15,14 +15,14 @@ import { storePendingApplyResult } from "../core/windows/WindowsOptimizationServ
 import type { OptimizationId } from "../types/optimization";
 
 const riskStyles = {
-  Low: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-950/40 dark:text-emerald-300",
-  Medium: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-300",
-  High: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-950/40 dark:text-rose-300"
+  Low: "tm-status-badge-success",
+  Medium: "tm-status-badge-warning",
+  High: "tm-status-badge-danger"
 };
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div className="tm-field">
+    <div className="tm-card-metadata">
       <dt className="tm-label">{label}</dt>
       <dd className="tm-value">{value}</dd>
     </div>
@@ -31,11 +31,11 @@ function Field({ label, value }: { label: string; value: string }) {
 
 function ListSection({ title, items }: { title: string; items: string[] }) {
   return (
-    <section className="tm-panel">
-      <h3 className="tm-section-title">{title}</h3>
-      <ul className="mt-4 grid gap-3 tm-body">
+    <section className="tm-card">
+      <h3 className="tm-typo-section">{title}</h3>
+      <ul className="tm-mt-md tm-layout-stack tm-typo-body">
         {items.map((item) => (
-          <li className="flex gap-3" key={item}>
+          <li className="flex tm-gap-sm" key={item}>
             <CheckCircle2 className="mt-0.5 shrink-0 text-blue-700" size={17} aria-hidden="true" />
             <span>{item}</span>
           </li>
@@ -87,7 +87,7 @@ export function ApplyConfirmationPage() {
       : knowledge.recovery.estimatedTime;
 
   return (
-    <div className="tm-page">
+    <div className="tm-layout-page">
       <button
         className="tm-button-ghost"
         onClick={() => {
@@ -104,58 +104,60 @@ export function ApplyConfirmationPage() {
         {t("common.action.cancel")}
       </button>
 
-      <section className="tm-hero">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+      <section className="tm-card-hero">
+        <div className="flex flex-col tm-gap-lg lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="tm-eyebrow">{t("applyConfirm.eyebrow")}</p>
-            <h2 className="tm-title">{optimization.title}</h2>
+            <h2 className="tm-typo-page">{optimization.title}</h2>
             <p className="tm-subtitle">{recommendation.reason}</p>
           </div>
-          <div className="flex flex-wrap gap-3 lg:justify-end">
+          <div className="flex flex-wrap tm-gap-sm lg:justify-end">
             <RecommendationBadge value={recommendation.recommendation} />
             <ApplyModeBadge optimizationId={optimization.id} />
-            <span className={["inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold", riskStyles[optimization.risk.level]].join(" ")}>
+            <span className={["tm-status-badge", riskStyles[optimization.risk.level]].join(" ")}>
               {t("applyConfirm.riskPrefix")} {translateRiskLevel(optimization.risk.level)}
             </span>
           </div>
         </div>
       </section>
 
-      <dl className="grid gap-4 md:grid-cols-4">
+      <dl className="tm-form-grid tm-form-grid-4">
         <Field label={t("applyConfirm.label.currentDetectedStatus")} value={translateOptimizationStatus(currentStatus)} />
         <Field label={t("applyConfirm.label.targetState")} value={translateOptimizationStatus(targetState)} />
         <Field label={t("applyConfirm.label.recoveryTime")} value={recoveryTimeValue} />
         <Field label={t("applyConfirm.label.actionType")} value={getApplyModeLabel(optimization.id)} />
       </dl>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <section className="tm-panel">
-          <h3 className="tm-section-title">{t("applyConfirm.section.whatWillChange")}</h3>
-          <p className="mt-4 tm-body">{plan.whatWillChange}</p>
-          <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900 dark:border-blue-500/40 dark:bg-blue-950/40 dark:text-blue-100">
-            <div className="flex items-start gap-3">
+      <div className="tm-layout-grid-lg xl:grid-cols-2">
+        <section className="tm-card">
+          <h3 className="tm-typo-section">{t("applyConfirm.section.whatWillChange")}</h3>
+          <p className="tm-mt-md tm-typo-body">{plan.whatWillChange}</p>
+          <div className="tm-notice-info">
+            <div className="tm-notice-row">
               <Info className="mt-0.5 shrink-0" size={18} aria-hidden="true" />
-              <p>{plan.readinessMessage}</p>
+              <p className="tm-typo-body">{plan.readinessMessage}</p>
             </div>
           </div>
           {plan.safetyNotice ? (
-            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-100">
-              <div className="flex items-start gap-3">
+            <div className="tm-notice-warning">
+              <div className="tm-notice-row">
                 <Info className="mt-0.5 shrink-0" size={18} aria-hidden="true" />
-                <p>{plan.safetyNotice}</p>
+                <p className="tm-typo-body">{plan.safetyNotice}</p>
               </div>
             </div>
           ) : null}
         </section>
 
-        <section className="tm-panel">
-          <h3 className="tm-section-title">
+        <section className="tm-card">
+          <h3 className="tm-typo-section">
             {t("applyConfirm.section.whyRecommended", { recommendation: translateRecommendation(recommendation.recommendation).toLowerCase() })}
           </h3>
-          <p className="mt-4 tm-body">{recommendation.reason}</p>
-          <div className="mt-5 flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 tm-body dark:border-slate-700 dark:bg-slate-800">
-            <ShieldCheck className="mt-0.5 shrink-0 text-slate-700 dark:text-slate-200" size={18} aria-hidden="true" />
-            <p>{knowledge?.risks.riskExplanation ?? optimization.risk.reason}</p>
+          <p className="tm-mt-md tm-typo-body">{recommendation.reason}</p>
+          <div className="tm-notice-info">
+            <div className="tm-notice-row">
+              <ShieldCheck className="mt-0.5 shrink-0" size={18} aria-hidden="true" />
+              <p className="tm-typo-body">{knowledge?.risks.riskExplanation ?? optimization.risk.reason}</p>
+            </div>
           </div>
         </section>
 
@@ -168,17 +170,17 @@ export function ApplyConfirmationPage() {
           }
         />
 
-        <section className="tm-panel">
-          <h3 className="tm-section-title">{t("applyConfirm.section.recoveryMethod")}</h3>
-          <p className="mt-4 tm-body">{knowledge?.recovery.recoveryMethod ?? optimization.recovery}</p>
-          <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
+        <section className="tm-card">
+          <h3 className="tm-typo-section">{t("applyConfirm.section.recoveryMethod")}</h3>
+          <p className="tm-mt-md tm-typo-body">{knowledge?.recovery.recoveryMethod ?? optimization.recovery}</p>
+          <dl className="tm-mt-lg tm-form-grid sm:grid-cols-2">
             <div>
-              <dt className="font-semibold text-slate-500">{t("applyConfirm.label.estimatedRecoveryTime")}</dt>
-              <dd className="mt-1 text-slate-950 dark:text-slate-100">{recoveryTimeValue}</dd>
+              <dt className="tm-label">{t("applyConfirm.label.estimatedRecoveryTime")}</dt>
+              <dd className="tm-value">{recoveryTimeValue}</dd>
             </div>
             <div>
-              <dt className="font-semibold text-slate-500">{t("applyConfirm.label.expectedResult")}</dt>
-              <dd className="mt-1 text-slate-950 dark:text-slate-100">
+              <dt className="tm-label">{t("applyConfirm.label.expectedResult")}</dt>
+              <dd className="tm-value">
                 {knowledge?.recovery.expectedResult === "Unknown" || !knowledge?.recovery.expectedResult
                   ? optimization.expectedResult
                   : knowledge.recovery.expectedResult}

@@ -80,39 +80,36 @@ export function ScanPage() {
   );
 
   return (
-    <div className="tm-page-center">
-      <section className="w-full max-w-3xl tm-hero">
-        <div className="flex items-start gap-4">
+    <div className="tm-centered-shell">
+      <section className="tm-card-hero tm-layout-section w-full max-w-3xl">
+        <div className="flex items-start tm-gap-md">
           <div className="tm-icon-tile">
             <ShieldCheck size={23} aria-hidden="true" />
           </div>
           <div>
             <p className="tm-eyebrow">{t("scan.eyebrow")}</p>
-            <h2 className="tm-title">{t("scan.title")}</h2>
+            <h2 className="tm-typo-page">{t("scan.title")}</h2>
             <p className="tm-subtitle">{t("scan.subtitle")}</p>
           </div>
         </div>
 
-        <div className="mt-8">
-          <div className="mb-3 flex items-center justify-between text-sm font-medium text-slate-600">
+        <div className="tm-mt-lg">
+          <div className="tm-progress-header">
             <span>{t("scan.progress.label")}</span>
             <span>{progress}%</span>
           </div>
           <div className="tm-progress-track">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500 transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
+            <div className="tm-progress-value" style={{ width: `${progress}%` }} />
           </div>
         </div>
 
-        <ul className="mt-8 grid gap-3 sm:grid-cols-2">
+        <ul className="tm-mt-lg tm-layout-grid sm:grid-cols-2">
           {scanItems.map((item, index) => (
             <ScanChecklistItem complete={index < completedItems} key={scanItemKeys[index]} label={item} />
           ))}
         </ul>
 
-        <p className="mt-8 text-center text-sm font-medium text-slate-500">{t("scan.waitMessage")}</p>
+        <p className="tm-mt-lg text-center tm-typo-caption">{t("scan.waitMessage")}</p>
       </section>
     </div>
   );

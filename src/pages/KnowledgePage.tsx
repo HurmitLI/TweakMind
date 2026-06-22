@@ -114,18 +114,18 @@ export function KnowledgePage() {
   );
 
   return (
-    <div className="tm-page">
-      <section className="tm-hero">
+    <div className="tm-layout-page">
+      <section className="tm-card-hero">
         <p className="tm-eyebrow">{t("knowledge.eyebrow")}</p>
-        <h2 className="tm-title">{t("knowledge.title")}</h2>
+        <h2 className="tm-typo-page">{t("knowledge.title")}</h2>
         <p className="tm-subtitle">{t("knowledge.subtitle")}</p>
 
-        <div className="mt-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="tm-mt-lg flex flex-col tm-gap-md lg:flex-row lg:items-center lg:justify-between">
           <label className="relative block max-w-xl flex-1">
             <span className="sr-only">{t("knowledge.search.srOnly")}</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} aria-hidden="true" />
             <input
-              className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm font-medium text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className="tm-input pl-10"
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("knowledge.search.placeholder")}
               type="search"

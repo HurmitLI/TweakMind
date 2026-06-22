@@ -28,11 +28,11 @@ import { SettingsService } from "../core/settings/SettingsService";
 import { WindowsOptimizationService } from "../core/windows/WindowsOptimizationService";
 import type { OptimizationId } from "../types/optimization";
 
-const riskStyles = {
-  Low: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  Medium: "border-amber-200 bg-amber-50 text-amber-700",
-  High: "border-rose-200 bg-rose-50 text-rose-700",
-  Unknown: "border-slate-200 bg-slate-50 text-slate-700"
+const riskBadgeStyles = {
+  Low: "tm-status-badge tm-status-badge-success",
+  Medium: "tm-status-badge tm-status-badge-warning",
+  High: "tm-status-badge tm-status-badge-danger",
+  Unknown: "tm-status-badge"
 };
 
 function ChecklistSection({ title, items, variant }: { title: string; items: string[]; variant: "positive" | "negative" }) {
@@ -112,7 +112,7 @@ export function KnowledgeDetailPage() {
 
   if (!knowledge) {
     return (
-      <div className="tm-page">
+      <div className="tm-layout-page">
         <Link
           className="tm-button-ghost"
           to={backTarget}
@@ -120,7 +120,7 @@ export function KnowledgeDetailPage() {
           <ArrowLeft size={17} aria-hidden="true" />
           {backLabel}
         </Link>
-        <section className="tm-panel">
+        <section className="tm-card">
           <ErrorPresentation
             actions={{ goBackHref: backTarget }}
             descriptor={ErrorPresentationService.fromTechnicalError(
@@ -152,7 +152,7 @@ export function KnowledgeDetailPage() {
     (scanCapability.scanCapability === "Not Supported Yet" ? "Not Supported Yet" : "Scan Required");
 
   return (
-    <div className="tm-page">
+    <div className="tm-layout-page">
       <Link
         className="tm-button-ghost"
         to={backTarget}
@@ -163,20 +163,15 @@ export function KnowledgeDetailPage() {
 
       <OptimizationWorkflowStrip currentStep="Decision" />
 
-      <section className="tm-hero">
+      <section className="tm-card-hero">
         <p className="tm-eyebrow">{t("knowledgeDetail.eyebrow")}</p>
-        <h2 className="tm-title">{t("knowledgeDetail.title", { title: displayTitle })}</h2>
-        <div className="mt-5 flex flex-wrap gap-3">
+        <h2 className="tm-typo-page">{t("knowledgeDetail.title", { title: displayTitle })}</h2>
+        <div className="tm-mt-md flex flex-wrap tm-gap-sm">
           <RecommendationBadge value={recommendation.recommendation} />
-          <span
-            className={[
-              "rounded-full border px-3 py-1 text-sm font-semibold",
-              riskStyles[displayRiskLevel === "Unknown" ? "Unknown" : displayRiskLevel]
-            ].join(" ")}
-          >
+          <span className={riskBadgeStyles[displayRiskLevel === "Unknown" ? "Unknown" : displayRiskLevel]}>
             {t("knowledgeDetail.badge.riskPrefix")} {translateRiskLevel(displayRiskLevel)}
           </span>
-          <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
+          <span className="tm-status-badge">
             {t("knowledgeDetail.badge.currentStatePrefix")} {translateScanDisplayState(currentScanState)}
           </span>
           <ApplyModeBadge optimizationId={knowledge.identity.id} />
@@ -198,30 +193,30 @@ export function KnowledgeDetailPage() {
       ) : null}
 
       <DecisionSection title={t("knowledgeDetail.section.summary")}>
-        <p className="text-base leading-7 text-slate-700">{knowledge.overview.summary}</p>
+        <p className="tm-typo-body">{knowledge.overview.summary}</p>
       </DecisionSection>
 
-      <dl className="grid gap-4 md:grid-cols-3">
-        <div className="tm-field">
+      <dl className="tm-layout-grid md:grid-cols-3">
+        <div className="tm-card-metadata">
           <dt className="tm-label">{t("knowledgeDetail.label.expectedBenefit")}</dt>
           <dd className="tm-value">{translateBenefitLevel(knowledge.decisionSupport.expectedBenefit)}</dd>
         </div>
-        <div className="tm-field">
+        <div className="tm-card-metadata">
           <dt className="tm-label">{t("knowledgeDetail.label.confidence")}</dt>
           <dd className="tm-value">{translateConfidenceLevel(knowledge.decisionSupport.confidence)}</dd>
         </div>
-        <div className="tm-field">
+        <div className="tm-card-metadata">
           <dt className="tm-label">{t("knowledgeDetail.label.recommendation")}</dt>
           <dd className="tm-value">{translateRecommendation(recommendation.recommendation)}</dd>
         </div>
       </dl>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="tm-layout-grid xl:grid-cols-2">
         <BulletListSection title={t("knowledgeDetail.section.tradeoffs")} items={tradeOffItems} />
         <DecisionSection title={t("knowledgeDetail.section.risks")}>
           <p>{knowledge.risks.riskExplanation}</p>
           {knowledge.risks.whenNotToUse.length > 0 ? (
-            <ul className="mt-4 grid gap-2 text-sm leading-6 text-slate-700">
+            <ul className="tm-mt-md tm-layout-stack tm-typo-body">
               {knowledge.risks.whenNotToUse.map((item) => (
                 <li key={item}>• {item}</li>
               ))}
@@ -233,45 +228,45 @@ export function KnowledgeDetailPage() {
       </div>
 
       <DecisionSection title={t("knowledgeDetail.section.recovery")}>
-        <dl className="grid gap-4 md:grid-cols-2">
+        <dl className="tm-form-grid md:grid-cols-2">
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.recoveryMethod")}</dt>
-            <dd className="mt-2 text-sm leading-6 text-slate-700">{knowledge.recovery.recoveryMethod}</dd>
+            <dt className="tm-label">{t("knowledgeDetail.label.recoveryMethod")}</dt>
+            <dd className="tm-mt-sm tm-typo-body">{knowledge.recovery.recoveryMethod}</dd>
           </div>
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.recoveryDifficulty")}</dt>
-            <dd className="mt-2 text-sm leading-6 text-slate-700">{knowledge.recovery.recoveryDifficulty}</dd>
+            <dt className="tm-label">{t("knowledgeDetail.label.recoveryDifficulty")}</dt>
+            <dd className="tm-mt-sm tm-typo-body">{knowledge.recovery.recoveryDifficulty}</dd>
           </div>
           {recoveryTime !== "Unknown" ? (
             <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.estimatedRecoveryTime")}</dt>
-              <dd className="mt-2 text-sm leading-6 text-slate-700">{recoveryTime}</dd>
+              <dt className="tm-label">{t("knowledgeDetail.label.estimatedRecoveryTime")}</dt>
+              <dd className="tm-mt-sm tm-typo-body">{recoveryTime}</dd>
             </div>
           ) : null}
         </dl>
       </DecisionSection>
 
       <DecisionSection title={t("knowledgeDetail.section.runtimeScan")}>
-        <dl className="grid gap-4 md:grid-cols-2">
+        <dl className="tm-form-grid md:grid-cols-2">
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.scanCapability")}</dt>
-            <dd className="mt-2 text-sm font-semibold text-slate-950">{translateScanCapability(scanCapability.scanCapability)}</dd>
+            <dt className="tm-label">{t("knowledgeDetail.label.scanCapability")}</dt>
+            <dd className="tm-mt-sm tm-value">{translateScanCapability(scanCapability.scanCapability)}</dd>
           </div>
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.detectionMethod")}</dt>
-            <dd className="mt-2 text-sm leading-6 text-slate-700">{scanCapability.detectionMethod}</dd>
+            <dt className="tm-label">{t("knowledgeDetail.label.detectionMethod")}</dt>
+            <dd className="tm-mt-sm tm-typo-body">{scanCapability.detectionMethod}</dd>
           </div>
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.runtimeScanStatus")}</dt>
-            <dd className="mt-2 text-sm font-semibold text-slate-950">{translateRuntimeScanStatus(runtimeScanStatus, t)}</dd>
+            <dt className="tm-label">{t("knowledgeDetail.label.runtimeScanStatus")}</dt>
+            <dd className="tm-mt-sm tm-value">{translateRuntimeScanStatus(runtimeScanStatus, t)}</dd>
           </div>
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.currentRuntimeState")}</dt>
-            <dd className="mt-2 text-sm font-semibold text-slate-950">{translateScanDisplayState(currentScanState)}</dd>
+            <dt className="tm-label">{t("knowledgeDetail.label.currentRuntimeState")}</dt>
+            <dd className="tm-mt-sm tm-value">{translateScanDisplayState(currentScanState)}</dd>
           </div>
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.detectionConfidence")}</dt>
-            <dd className="mt-2 text-sm font-semibold text-slate-950">
+            <dt className="tm-label">{t("knowledgeDetail.label.detectionConfidence")}</dt>
+            <dd className="tm-mt-sm tm-value">
               {translateConfidence(runtimeScan?.detectionConfidence ?? "None")}
             </dd>
           </div>
@@ -284,12 +279,12 @@ export function KnowledgeDetailPage() {
       </DecisionSection>
 
       <DecisionSection title={t("knowledgeDetail.section.decisionNotes")}>
-        <p className="text-base leading-7 text-slate-700">{knowledge.decisionSupport.decisionNotes}</p>
+        <p className="tm-typo-body">{knowledge.decisionSupport.decisionNotes}</p>
       </DecisionSection>
 
       {knowledge.learning.relatedOptimizations.length > 0 ? (
         <DecisionSection title={t("knowledgeDetail.section.relatedOptimizations")}>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap tm-gap-sm">
             {knowledge.learning.relatedOptimizations.map((relatedId) => {
               const related = KnowledgeRepository.getById(relatedId);
               if (!related) {
@@ -298,7 +293,7 @@ export function KnowledgeDetailPage() {
 
               return (
                 <Link
-                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700"
+                  className="tm-tag"
                   key={relatedId}
                   to={`/knowledge/detail?id=${relatedId}&from=${from}`}
                 >
@@ -338,7 +333,7 @@ export function KnowledgeDetailPage() {
             </Link>
           ) : (
             <button
-              className="inline-flex h-11 cursor-not-allowed items-center justify-center rounded-lg bg-slate-200 px-5 text-sm font-semibold text-slate-600"
+              className="tm-button-disabled"
               disabled
               type="button"
             >

@@ -22,9 +22,9 @@ import type { VerificationResult, VerificationStatus } from "../core/verificatio
 import type { OptimizationId } from "../types/optimization";
 
 const statusStyles: Record<VerificationStatus, string> = {
-  Verified: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  Failed: "border-rose-200 bg-rose-50 text-rose-700",
-  "Pending / Not Available": "border-amber-200 bg-amber-50 text-amber-700"
+  Verified: "tm-status-badge-success",
+  Failed: "tm-status-badge-danger",
+  "Pending / Not Available": "tm-status-badge-warning"
 };
 
 const statusIcons = {
@@ -35,7 +35,7 @@ const statusIcons = {
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div className="tm-field">
+    <div className="tm-card-metadata">
       <dt className="tm-label">{label}</dt>
       <dd className="tm-value">{value}</dd>
     </div>
@@ -93,22 +93,22 @@ export function VerificationPage() {
   const checkingLabel = t("verify.status.checking");
 
   return (
-    <div className="tm-page">
-      <section className="tm-hero">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+    <div className="tm-layout-page">
+      <section className="tm-card-hero">
+        <div className="flex flex-col tm-gap-lg lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="tm-eyebrow">{t("verify.eyebrow")}</p>
-            <h2 className="tm-title">{optimization.title}</h2>
+            <h2 className="tm-typo-page">{optimization.title}</h2>
             <p className="tm-subtitle">{t("verify.subtitle")}</p>
           </div>
-          <span className={["inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold", statusStyles[status]].join(" ")}>
+          <span className={["tm-status-badge", statusStyles[status]].join(" ")}>
             <StatusIcon className={isVerifying ? "animate-spin" : ""} size={16} aria-hidden="true" />
             {isVerifying ? checkingLabel : translateVerificationStatus(status)}
           </span>
         </div>
       </section>
 
-      <dl className="grid gap-4 md:grid-cols-3">
+      <dl className="tm-form-grid tm-form-grid-3">
         <Field label={t("verify.label.previousState")} value={translateOptimizationStatus(result?.previousState ?? "Unknown")} />
         <Field
           label={t("verify.label.expectedState")}
@@ -148,10 +148,10 @@ export function VerificationPage() {
           title={t("verify.empty.title")}
         />
       ) : (
-        <section className="tm-panel">
-          <h3 className="tm-section-title">{t("verify.result.title")}</h3>
-          <p className="mt-4 tm-body">{translateRuntimeMessage(result?.message)}</p>
-          <p className="mt-4 text-sm leading-6 text-slate-500">{t("verify.result.readOnlyNote")}</p>
+        <section className="tm-card">
+          <h3 className="tm-typo-section">{t("verify.result.title")}</h3>
+          <p className="tm-mt-md tm-typo-body">{translateRuntimeMessage(result?.message)}</p>
+          <p className="tm-mt-md tm-typo-caption">{t("verify.result.readOnlyNote")}</p>
         </section>
       )}
 

@@ -24,16 +24,16 @@ import {
 import type { VerificationStatus } from "../core/verification/VerificationResult";
 
 const verificationStyles: Record<VerificationStatus, string> = {
-  Verified: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-950/40 dark:text-emerald-300",
-  Failed: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-950/40 dark:text-rose-300",
-  "Pending / Not Available": "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-300"
+  Verified: "tm-status-badge-success",
+  Failed: "tm-status-badge-danger",
+  "Pending / Not Available": "tm-status-badge-warning"
 };
 
 const recoveryStyles: Record<OptimizationRecoveryStatus, string> = {
-  "Not Started": "border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200",
-  Started: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/40 dark:bg-blue-950/40 dark:text-blue-300",
-  Success: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-950/40 dark:text-emerald-300",
-  Failed: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-950/40 dark:text-rose-300"
+  "Not Started": "tm-status-badge",
+  Started: "tm-status-badge-warning",
+  Success: "tm-status-badge-success",
+  Failed: "tm-status-badge-danger"
 };
 
 function translateRuntimeScanField(value: string, t: ReturnType<typeof useTranslation>["t"]) {
@@ -68,14 +68,14 @@ export function HistoryPage() {
   const [history] = useState<OptimizationHistoryEntry[]>(() => WindowsOptimizationService.getHistory());
 
   return (
-    <div className="tm-page">
-      <section className="tm-hero">
+    <div className="tm-layout-page">
+      <section className="tm-card-hero">
         <p className="tm-eyebrow">{t("history.eyebrow")}</p>
-        <h2 className="tm-title">{t("history.title")}</h2>
+        <h2 className="tm-typo-page">{t("history.title")}</h2>
         <p className="tm-subtitle">{t("history.subtitle")}</p>
       </section>
 
-      <section className="grid gap-4">
+      <section className="tm-layout-grid">
         {history.length === 0 ? (
           <EmptyState
             actionLabel={t("history.empty.action")}
@@ -91,32 +91,20 @@ export function HistoryPage() {
             const recoveryStatus = entry.recoveryStatus ?? "Not Started";
 
             return (
-              <article className="tm-card" key={entry.id}>
-                <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+              <article className="tm-card-hover" key={entry.id}>
+                <div className="flex flex-col tm-gap-md md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h3 className="text-xl font-semibold text-slate-950 dark:text-slate-100">{entry.optimizationName}</h3>
-                      <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                        {translateHistoryStatus(entry.status)}
-                      </span>
-                      <span
-                        className={[
-                          "rounded-full border px-3 py-1 text-xs font-semibold",
-                          verificationStyles[verificationStatus]
-                        ].join(" ")}
-                      >
+                    <div className="flex flex-wrap items-center tm-gap-sm">
+                      <h3 className="tm-typo-body-emphasis">{entry.optimizationName}</h3>
+                      <span className="tm-status-badge">{translateHistoryStatus(entry.status)}</span>
+                      <span className={["tm-status-badge", verificationStyles[verificationStatus]].join(" ")}>
                         {t("history.entry.verificationPrefix")} {translateVerificationStatus(verificationStatus)}
                       </span>
-                      <span
-                        className={[
-                          "rounded-full border px-3 py-1 text-xs font-semibold",
-                          recoveryStyles[recoveryStatus]
-                        ].join(" ")}
-                      >
+                      <span className={["tm-status-badge", recoveryStyles[recoveryStatus]].join(" ")}>
                         {t("history.entry.recoveryPrefix")} {translateRecoveryStatus(recoveryStatus)}
                       </span>
                     </div>
-                    <p className="mt-2 tm-body">
+                    <p className="tm-mt-md tm-typo-body">
                       {historyError ? t("history.entry.needsReview") : translateRuntimeMessage(entry.recoveryMessage ?? entry.message)}
                     </p>
                     {historyError ? (
@@ -136,34 +124,34 @@ export function HistoryPage() {
                         />
                       </div>
                     ) : null}
-                    <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
-                      <div className="tm-mini-card">
+                    <dl className="tm-mt-lg tm-form-grid sm:grid-cols-2 xl:grid-cols-4">
+                      <div className="tm-card-metadata">
                         <dt className="tm-label">{t("history.label.applyMode")}</dt>
                         <dd className="tm-value">
                           {entry.applyMode ? translateApplyMode(entry.applyMode) : t("common.value.unknown")}
                         </dd>
                       </div>
-                      <div className="tm-mini-card">
+                      <div className="tm-card-metadata">
                         <dt className="tm-label">{t("history.label.previousState")}</dt>
                         <dd className="tm-value">{translateOptimizationStatus(entry.previousState)}</dd>
                       </div>
-                      <div className="tm-mini-card">
+                      <div className="tm-card-metadata">
                         <dt className="tm-label">{t("history.label.newState")}</dt>
                         <dd className="tm-value">{translateOptimizationStatus(entry.newState)}</dd>
                       </div>
-                      <div className="tm-mini-card">
+                      <div className="tm-card-metadata">
                         <dt className="tm-label">{t("history.label.verifiedActual")}</dt>
                         <dd className="tm-value">{translateOptimizationStatus(entry.verificationActualState ?? "Unknown")}</dd>
                       </div>
-                      <div className="tm-mini-card">
+                      <div className="tm-card-metadata">
                         <dt className="tm-label">{t("history.label.recoveryActual")}</dt>
                         <dd className="tm-value">{translateOptimizationStatus(entry.recoveryActualState ?? "Unknown")}</dd>
                       </div>
-                      <div className="tm-mini-card">
+                      <div className="tm-card-metadata">
                         <dt className="tm-label">{t("history.label.timestamp")}</dt>
                         <dd className="tm-value">{new Date(Number(entry.timestamp) * 1000).toLocaleString()}</dd>
                       </div>
-                      <div className="tm-mini-card">
+                      <div className="tm-card-metadata">
                         <dt className="tm-label">{t("history.label.runtimeScan")}</dt>
                         <dd className="tm-value">
                           {translateRuntimeScanField(
@@ -173,7 +161,7 @@ export function HistoryPage() {
                           )}
                         </dd>
                       </div>
-                      <div className="tm-mini-card">
+                      <div className="tm-card-metadata">
                         <dt className="tm-label">{t("history.label.scanState")}</dt>
                         <dd className="tm-value">{translateScanDisplayState(RuntimeScanService.getDisplayState(entry.optimizationId))}</dd>
                       </div>

@@ -38,9 +38,9 @@ function PreferenceSection({
 }) {
   return (
     <section className="tm-settings-section">
-      <h3 className="tm-section-title">{title}</h3>
-      <p className="mt-2 max-w-2xl tm-body-secondary">{description}</p>
-      <div className="mt-5">{children}</div>
+      <h3 className="tm-typo-section">{title}</h3>
+      <p className="tm-mt-md max-w-2xl tm-typo-body-secondary">{description}</p>
+      <div className="tm-mt-lg">{children}</div>
     </section>
   );
 }
@@ -55,16 +55,13 @@ function OptionButtons<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap tm-gap-sm">
       {options.map((option) => {
         const isSelected = value === option.value;
 
         return (
           <button
-            className={[
-              "h-9 tm-chip",
-              isSelected ? "tm-chip-active" : ""
-            ].join(" ")}
+            className={["h-9 tm-chip", isSelected ? "tm-chip-active" : ""].join(" ")}
             key={option.value}
             onClick={() => onChange(option.value)}
             type="button"
@@ -79,12 +76,7 @@ function OptionButtons<T extends string>({
 
 function ApplicationLink({ href, label }: { href: string; label: string }) {
   return (
-    <a
-      className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 transition hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
-      href={href}
-      rel="noreferrer"
-      target="_blank"
-    >
+    <a className="tm-link-accent" href={href} rel="noreferrer" target="_blank">
       {label}
       <ExternalLink size={14} aria-hidden="true" />
     </a>
@@ -97,14 +89,14 @@ export function SettingsPage() {
   const { settings, updateSettings } = useSettings();
 
   return (
-    <div className="tm-page">
-      <section className="tm-hero">
+    <div className="tm-layout-page">
+      <section className="tm-card-hero">
         <p className="tm-eyebrow">{t("settings.eyebrow")}</p>
-        <h2 className="tm-title">{t("settings.title")}</h2>
+        <h2 className="tm-typo-page">{t("settings.title")}</h2>
         <p className="tm-subtitle">{t("settings.subtitle")}</p>
       </section>
 
-      <div className="rounded-xl bg-white/95 px-7 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:bg-slate-900/95">
+      <div className="tm-settings-panel">
         <PreferenceSection description={t("settings.language.description")} title={t("settings.language.title")}>
           <OptionButtons
             onChange={(language) => updateSettings({ language })}
@@ -143,19 +135,19 @@ export function SettingsPage() {
         </PreferenceSection>
       </div>
 
-      <section className="tm-about-card">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+      <section className="tm-section-card">
+        <div className="flex flex-col tm-gap-lg lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="tm-eyebrow">{t("settings.application.title")}</p>
-            <h3 className="tm-title">{AppInfo.name}</h3>
-            <p className="mt-3 max-w-2xl tm-body-secondary">{t("settings.application.description")}</p>
+            <h3 className="tm-typo-page">{AppInfo.name}</h3>
+            <p className="tm-mt-md max-w-2xl tm-typo-body-secondary">{t("settings.application.description")}</p>
           </div>
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-emerald-400/90 text-slate-950 dark:bg-emerald-500">
+          <div className="tm-about-icon">
             <Sparkles size={24} aria-hidden="true" />
           </div>
         </div>
 
-        <dl className="mt-8 grid gap-5 md:grid-cols-2">
+        <dl className="tm-mt-lg tm-form-grid tm-form-grid-2">
           <div className="tm-field-plain">
             <dt className="tm-label">{t("settings.application.version")}</dt>
             <dd className="tm-value">{t("app.versionLabel", { version: AppInfo.version })}</dd>
@@ -166,21 +158,18 @@ export function SettingsPage() {
           </div>
           <div className="tm-field-plain">
             <dt className="tm-label">{t("settings.application.repository")}</dt>
-            <dd className="mt-1.5">
+            <dd className="tm-mt-md">
               <ApplicationLink href={AppInfo.repositoryUrl} label={AppInfo.repositoryUrl.replace("https://", "")} />
             </dd>
           </div>
           <div className="tm-field-plain">
             <dt className="tm-label">{t("settings.application.issueTracker")}</dt>
-            <dd className="mt-1.5">
+            <dd className="tm-mt-md">
               <ApplicationLink href={AppInfo.issueTrackerUrl} label={AppInfo.issueTrackerUrl.replace("https://", "")} />
             </dd>
           </div>
         </dl>
-        <Link
-          className="mt-6 tm-button-secondary"
-          to="/about"
-        >
+        <Link className="tm-mt-lg tm-button-secondary" to="/about">
           {t("settings.application.action")}
         </Link>
       </section>

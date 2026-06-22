@@ -35,39 +35,35 @@ export function OnboardingPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 py-10 text-slate-100">
-      <div className="w-full max-w-2xl rounded-lg border border-slate-800 bg-slate-900/95 p-8 shadow-2xl shadow-slate-950/30 backdrop-blur">
-        <p className="text-sm font-semibold uppercase tracking-wide text-blue-400">
-          {t("onboarding.stepIndicator", { current: stepIndex + 1, total: stepTitleKeys.length })}
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">{t(stepTitleKeys[stepIndex])}</h1>
+    <div className="tm-onboarding-shell">
+      <div className="tm-onboarding-card">
+        <p className="tm-eyebrow">{t("onboarding.stepIndicator", { current: stepIndex + 1, total: stepTitleKeys.length })}</p>
+        <h1 className="tm-mt-md tm-typo-section">{t(stepTitleKeys[stepIndex])}</h1>
 
         {stepIndex === 0 ? (
-          <div className="mt-6 space-y-4 text-base leading-7 text-slate-300">
+          <div className="tm-mt-lg tm-layout-stack tm-typo-body">
             <p>{t("onboarding.welcome.intro")}</p>
-            <p className="font-medium text-slate-100">{t("onboarding.welcome.question")}</p>
+            <p className="tm-typo-body-emphasis">{t("onboarding.welcome.question")}</p>
             <p>{t("onboarding.welcome.answer")}</p>
           </div>
         ) : null}
 
         {stepIndex === 1 ? (
-          <div className="mt-6 space-y-4 text-base leading-7 text-slate-300">
+          <div className="tm-mt-lg tm-layout-stack tm-typo-body">
             <p>{t("onboarding.whatIs.paragraph1")}</p>
             <p>{t("onboarding.whatIs.paragraph2")}</p>
           </div>
         ) : null}
 
         {stepIndex === 2 ? (
-          <ol className="mt-6 grid gap-3">
+          <ol className="tm-mt-lg tm-step-list">
             {workflowSteps.map((step, index) => (
-              <li className="rounded-lg border border-slate-800 bg-slate-950/70 p-4" key={workflowStepKeys[index].titleKey}>
-                <div className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
-                    {index + 1}
-                  </span>
+              <li className="tm-onboarding-step" key={workflowStepKeys[index].titleKey}>
+                <div className="flex items-start tm-gap-sm">
+                  <span className="tm-step-marker tm-step-marker-active">{index + 1}</span>
                   <div>
-                    <p className="text-sm font-semibold text-white">{step.title}</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-300">{step.sentence}</p>
+                    <p className="tm-typo-body-emphasis">{step.title}</p>
+                    <p className="tm-mt-md tm-typo-body">{step.sentence}</p>
                   </div>
                 </div>
               </li>
@@ -76,56 +72,36 @@ export function OnboardingPage() {
         ) : null}
 
         {stepIndex === 3 ? (
-          <div className="mt-6 space-y-4 text-base leading-7 text-slate-300">
+          <div className="tm-mt-lg tm-layout-stack tm-typo-body">
             <p>{t("onboarding.final.intro")}</p>
-            <div className="flex flex-col gap-3 pt-2 sm:flex-row">
-              <button
-                className="tm-button-primary"
-                onClick={() => finish("/scan")}
-                type="button"
-              >
+            <div className="flex flex-col tm-gap-sm pt-2 sm:flex-row">
+              <button className="tm-button-primary" onClick={() => finish("/scan")} type="button">
                 {t("onboarding.action.startScan")}
               </button>
-              <button
-                className="tm-button-secondary border-slate-700 bg-slate-950 text-slate-100 hover:border-slate-500"
-                onClick={() => finish("/knowledge")}
-                type="button"
-              >
+              <button className="tm-button-secondary" onClick={() => finish("/knowledge")} type="button">
                 {t("onboarding.action.exploreKnowledge")}
               </button>
             </div>
-            <button
-              className="text-sm font-semibold text-slate-400 transition hover:text-slate-200"
-              onClick={() => finish("/dashboard")}
-              type="button"
-            >
+            <button className="tm-button-ghost" onClick={() => finish("/dashboard")} type="button">
               {t("onboarding.action.skip")}
             </button>
           </div>
         ) : null}
 
         {stepIndex < 3 ? (
-          <div className="mt-8 flex items-center justify-between gap-4">
-            <button
-              className="text-sm font-semibold text-slate-400 transition hover:text-slate-200"
-              onClick={() => finish("/dashboard")}
-              type="button"
-            >
+          <div className="tm-mt-lg flex items-center justify-between tm-gap-md">
+            <button className="tm-button-ghost" onClick={() => finish("/dashboard")} type="button">
               {t("onboarding.action.skip")}
             </button>
-            <button
-              className="tm-button-primary"
-              onClick={() => setStepIndex((current) => current + 1)}
-              type="button"
-            >
+            <button className="tm-button-primary" onClick={() => setStepIndex((current) => current + 1)} type="button">
               {t("onboarding.action.continue")}
               <ArrowRight size={16} aria-hidden="true" />
             </button>
           </div>
         ) : (
-          <p className="mt-8 text-sm text-slate-500">
+          <p className="tm-mt-lg tm-typo-caption">
             {t("onboarding.final.dashboardPrompt")}{" "}
-            <Link className="font-semibold text-slate-300 hover:text-white" to="/dashboard" onClick={() => OnboardingService.markComplete()}>
+            <Link className="tm-link-accent" to="/dashboard" onClick={() => OnboardingService.markComplete()}>
               {t("onboarding.final.goToDashboard")}
             </Link>
           </p>

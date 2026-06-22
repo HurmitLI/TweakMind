@@ -4,20 +4,22 @@
  */
 export const DesignSystem = {
   typography: {
-    heroTitle: "tm-typo-hero-title",
-    pageTitle: "tm-typo-page-title",
-    sectionTitle: "tm-typo-section-title",
+    hero: "tm-typo-hero",
+    page: "tm-typo-page",
+    section: "tm-typo-section",
     body: "tm-typo-body",
     bodyEmphasis: "tm-typo-body-emphasis",
     caption: "tm-typo-caption"
   },
-  spacing: {
-    page: "tm-page",
-    sectionGap: "tm-gap-section",
-    stackSm: "tm-stack-sm",
-    stackMd: "tm-stack-md",
-    stackLg: "tm-stack-lg",
-    cardPadding: "tm-space-card-padding"
+  layout: {
+    page: "tm-layout-page",
+    section: "tm-layout-section",
+    stack: "tm-layout-stack",
+    grid: "tm-layout-grid",
+    shell: "tm-layout-shell",
+    main: "tm-layout-main",
+    content: "tm-layout-content",
+    centeredShell: "tm-centered-shell"
   },
   buttons: {
     primary: "tm-button-primary",
@@ -29,13 +31,9 @@ export const DesignSystem = {
     default: "tm-card",
     hover: "tm-card-hover",
     hero: "tm-card-hero",
-    metadata: "tm-metadata-panel",
-    section: "tm-section-card"
-  },
-  layout: {
-    shell: "tm-layout-shell",
-    main: "tm-layout-main",
-    content: "tm-layout-content"
+    metadata: "tm-card-metadata",
+    section: "tm-section-card",
+    centered: "tm-centered-card"
   }
 } as const;
 

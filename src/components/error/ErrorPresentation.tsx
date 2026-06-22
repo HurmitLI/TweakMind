@@ -34,42 +34,35 @@ export function ErrorPresentation({ descriptor, actions = {}, layout = "inline" 
   const showOpenHistory = descriptor.showOpenHistory;
   const showDismiss = descriptor.showDismiss && Boolean(onDismiss);
 
-  const containerClass =
-    layout === "centered"
-      ? "w-full max-w-3xl rounded-lg border border-rose-200 bg-white/95 p-8 text-center shadow-sm backdrop-blur dark:border-rose-500/40 dark:bg-slate-900/95"
-      : "rounded-lg border border-rose-200 bg-rose-50 p-5 shadow-sm dark:border-rose-500/40 dark:bg-rose-950/30";
+  const containerClass = [
+    "tm-error-state",
+    layout === "centered" ? "tm-error-state-centered" : ""
+  ].join(" ");
 
   return (
     <section aria-live="polite" className={containerClass} role="alert">
-      <div className={layout === "centered" ? "mx-auto flex max-w-2xl flex-col items-center" : "flex flex-col gap-4"}>
-        <div className={layout === "centered" ? "flex flex-col items-center" : "flex items-start gap-3"}>
+      <div className={layout === "centered" ? "mx-auto flex max-w-2xl flex-col items-center" : "tm-layout-section"}>
+        <div className={layout === "centered" ? "flex flex-col items-center" : "flex items-start tm-gap-sm"}>
           <span
             className={[
-              "flex shrink-0 items-center justify-center rounded-full border border-rose-200 bg-rose-100 text-rose-700 dark:border-rose-500/40 dark:bg-rose-950/50 dark:text-rose-300",
+              "tm-error-state-icon",
               layout === "centered" ? "h-14 w-14" : "mt-0.5 h-10 w-10"
             ].join(" ")}
           >
             <AlertTriangle size={layout === "centered" ? 28 : 20} aria-hidden="true" />
           </span>
-          <div className={layout === "centered" ? "mt-5 text-center" : "min-w-0 flex-1"}>
-            <h3
-              className={[
-                "font-semibold tracking-tight text-slate-950 dark:text-slate-100",
-                layout === "centered" ? "text-3xl" : "text-lg"
-              ].join(" ")}
-            >
-              {descriptor.title}
-            </h3>
-            <p className={["leading-7 text-slate-600 dark:text-slate-300", layout === "centered" ? "mt-4 text-base" : "mt-2 text-sm"].join(" ")}>
+          <div className={layout === "centered" ? "tm-mt-lg text-center" : "min-w-0 flex-1"}>
+            <h3 className={layout === "centered" ? "tm-typo-page" : "tm-typo-section"}>{descriptor.title}</h3>
+            <p className={layout === "centered" ? "tm-mt-md tm-typo-body" : "tm-mt-md tm-typo-body-secondary"}>
               {descriptor.explanation}
             </p>
           </div>
         </div>
 
         {descriptor.possibleReasons && descriptor.possibleReasons.length > 0 ? (
-          <div className={layout === "centered" ? "mt-2 w-full max-w-xl text-left" : ""}>
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t("error.possibleReasons.title")}</p>
-            <ul className="mt-2 grid gap-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+          <div className={layout === "centered" ? "tm-mt-md w-full max-w-xl text-left" : ""}>
+            <p className="tm-typo-body-emphasis">{t("error.possibleReasons.title")}</p>
+            <ul className="tm-mt-md tm-layout-stack-sm tm-typo-body">
               {descriptor.possibleReasons.map((reason) => (
                 <li key={reason}>• {reason}</li>
               ))}
@@ -77,33 +70,26 @@ export function ErrorPresentation({ descriptor, actions = {}, layout = "inline" 
           </div>
         ) : null}
 
-        <p className={["text-slate-700 dark:text-slate-300", layout === "centered" ? "mt-2 text-base leading-7" : "text-sm leading-6"].join(" ")}>
-          <span className="font-semibold">{t("error.recommendedActionPrefix")} </span>
+        <p className={layout === "centered" ? "tm-mt-md tm-typo-body" : "tm-typo-body-secondary"}>
+          <span className="tm-typo-body-emphasis">{t("error.recommendedActionPrefix")} </span>
           {descriptor.recommendedAction}
         </p>
 
         {showRetry || showGoBack || showOpenHistory || showDismiss ? (
           <div
             className={[
-              "flex flex-col gap-3 sm:flex-row sm:flex-wrap",
-              layout === "centered" ? "mt-8 justify-center" : "mt-1"
+              "flex flex-col tm-gap-sm sm:flex-row sm:flex-wrap",
+              layout === "centered" ? "tm-mt-lg justify-center" : "tm-mt-md"
             ].join(" ")}
           >
             {showRetry ? (
               retryHref ? (
-                <Link
-                  className="tm-button-primary"
-                  to={retryHref}
-                >
+                <Link className="tm-button-primary" to={retryHref}>
                   <RotateCcw size={17} aria-hidden="true" />
                   {t("common.action.retry")}
                 </Link>
               ) : (
-                <button
-                  className="tm-button-primary"
-                  onClick={onRetry}
-                  type="button"
-                >
+                <button className="tm-button-primary" onClick={onRetry} type="button">
                   <RotateCcw size={17} aria-hidden="true" />
                   {t("common.action.retry")}
                 </button>
@@ -112,19 +98,12 @@ export function ErrorPresentation({ descriptor, actions = {}, layout = "inline" 
 
             {showGoBack ? (
               goBackHref ? (
-                <Link
-                  className="tm-button-secondary"
-                  to={goBackHref}
-                >
+                <Link className="tm-button-secondary" to={goBackHref}>
                   <ArrowLeft size={17} aria-hidden="true" />
                   {t("common.action.goBack")}
                 </Link>
               ) : (
-                <button
-                  className="tm-button-secondary"
-                  onClick={onGoBack}
-                  type="button"
-                >
+                <button className="tm-button-secondary" onClick={onGoBack} type="button">
                   <ArrowLeft size={17} aria-hidden="true" />
                   {t("common.action.goBack")}
                 </button>
@@ -132,21 +111,14 @@ export function ErrorPresentation({ descriptor, actions = {}, layout = "inline" 
             ) : null}
 
             {showOpenHistory ? (
-              <Link
-                className="tm-button-secondary"
-                to={historyHref}
-              >
+              <Link className="tm-button-secondary" to={historyHref}>
                 <History size={17} aria-hidden="true" />
                 {t("common.action.openHistory")}
               </Link>
             ) : null}
 
             {showDismiss ? (
-              <button
-                className="tm-button-secondary"
-                onClick={onDismiss}
-                type="button"
-              >
+              <button className="tm-button-secondary" onClick={onDismiss} type="button">
                 <X size={17} aria-hidden="true" />
                 {t("common.action.dismiss")}
               </button>

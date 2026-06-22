@@ -62,11 +62,11 @@ export function ApplyPage() {
 
   if (!executionResult) {
     return (
-      <div className="tm-page-center">
-        <section className="w-full max-w-3xl rounded-lg border border-amber-100 bg-white/90 p-8 text-center shadow-sm backdrop-blur dark:border-amber-500/40 dark:bg-slate-900/90">
-          <h2 className="tm-title">{t("apply.guard.title")}</h2>
-          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600 dark:text-slate-300">{t("apply.guard.description")}</p>
-          <Link className="mt-8 tm-button-primary" to={`/confirm/${optimization.id}?from=decision`}>
+      <div className="tm-centered-shell">
+        <section className="tm-centered-card">
+          <h2 className="tm-typo-page">{t("apply.guard.title")}</h2>
+          <p className="tm-mt-md mx-auto max-w-xl tm-typo-body">{t("apply.guard.description")}</p>
+          <Link className="tm-mt-lg tm-button-primary" to={`/confirm/${optimization.id}?from=decision`}>
             {t("apply.guard.action.openConfirmation")}
           </Link>
         </section>
@@ -80,7 +80,7 @@ export function ApplyPage() {
 
     if (!isSuccess && applyError) {
       return (
-        <div className="tm-page-center">
+        <div className="tm-centered-shell">
           <ErrorPresentation
             actions={{
               goBackHref: `/confirm/${executionResult.optimizationId}?from=decision`,
@@ -102,19 +102,15 @@ export function ApplyPage() {
         : t("apply.success.message.failed");
 
     return (
-      <div className="tm-page-center">
-        <section className="w-full max-w-3xl rounded-lg border border-emerald-100 bg-white/90 p-8 text-center shadow-sm backdrop-blur dark:border-emerald-500/40 dark:bg-slate-900/90">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+      <div className="tm-centered-shell">
+        <section className="tm-centered-card">
+          <div className="tm-centered-card-icon tm-centered-card-icon-success">
             <Check size={28} aria-hidden="true" />
           </div>
-          <h2 className="mt-5 tm-title">{t("apply.success.title")}</h2>
-          <div className="mt-4 inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
-            {getApplyModeLabelForMode(executionResult.applyMode)}
-          </div>
-          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600 dark:text-slate-300">
-            {message}
-          </p>
-          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+          <h2 className="tm-mt-lg tm-typo-page">{t("apply.success.title")}</h2>
+          <div className="tm-mt-md tm-status-badge">{getApplyModeLabelForMode(executionResult.applyMode)}</div>
+          <p className="tm-mt-md mx-auto max-w-xl tm-typo-body">{message}</p>
+          <div className="tm-mt-lg flex flex-col justify-center tm-gap-sm sm:flex-row">
             <Link
                 className="tm-button-secondary"
               to="/history"
@@ -138,9 +134,9 @@ export function ApplyPage() {
   }
 
   return (
-    <div className="tm-page-center">
-      <section className="w-full max-w-3xl tm-hero">
-        <div className="flex items-start gap-4">
+    <div className="tm-centered-shell">
+      <section className="tm-card-hero tm-layout-section w-full max-w-3xl">
+        <div className="flex items-start tm-gap-md">
           <div className="tm-icon-tile">
             <Loader2 className="animate-spin" size={23} aria-hidden="true" />
           </div>
@@ -148,28 +144,28 @@ export function ApplyPage() {
             <p className="tm-eyebrow">
               {getApplyModeLabelForMode(executionResult.applyMode)} {t("apply.progress.flowSuffix")}
             </p>
-            <h2 className="tm-title">{t("apply.progress.title")}</h2>
+            <h2 className="tm-typo-page">{t("apply.progress.title")}</h2>
             <p className="tm-subtitle">{t("apply.progress.subtitle")}</p>
           </div>
         </div>
 
-        <div className="mt-8 tm-panel-muted">
-          <div className="grid gap-4 sm:grid-cols-3">
+        <div className="tm-mt-lg tm-card-metadata">
+          <div className="tm-form-grid sm:grid-cols-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("apply.progress.label.currentOptimization")}</p>
-              <p className="mt-1 text-sm font-semibold text-slate-950">{optimization.title}</p>
+              <p className="tm-label">{t("apply.progress.label.currentOptimization")}</p>
+              <p className="tm-value">{optimization.title}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("apply.progress.label.applyMode")}</p>
-              <p className="mt-1 text-sm font-semibold text-slate-950">{getApplyModeLabelForMode(executionResult.applyMode)}</p>
+              <p className="tm-label">{t("apply.progress.label.applyMode")}</p>
+              <p className="tm-value">{getApplyModeLabelForMode(executionResult.applyMode)}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("apply.progress.label.currentStep")}</p>
-              <p className="mt-1 text-sm font-semibold text-slate-950">{applySteps[activeStepIndex]}</p>
+              <p className="tm-label">{t("apply.progress.label.currentStep")}</p>
+              <p className="tm-value">{applySteps[activeStepIndex]}</p>
             </div>
             <div className="sm:col-span-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("apply.progress.label.estimatedRemaining")}</p>
-              <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-950">
+              <p className="tm-label">{t("apply.progress.label.estimatedRemaining")}</p>
+              <p className="tm-value inline-flex items-center tm-gap-sm">
                 <Clock size={15} aria-hidden="true" />
                 {t("apply.progress.remainingSeconds", { seconds: estimatedRemainingSeconds })}
               </p>
@@ -177,8 +173,8 @@ export function ApplyPage() {
           </div>
         </div>
 
-        <div className="mt-7">
-          <div className="mb-3 flex items-center justify-between text-sm font-medium text-slate-600">
+        <div className="tm-mt-lg">
+          <div className="tm-progress-header">
             <span>{t("apply.progress.label.progress")}</span>
             <span>{progress}%</span>
           </div>
@@ -187,36 +183,26 @@ export function ApplyPage() {
           </div>
         </div>
 
-        <ol className="mt-8 grid gap-3">
+        <ol className="tm-mt-lg tm-step-list">
           {applySteps.map((step, index) => {
             const isDone = index < activeStepIndex;
             const isActive = index === activeStepIndex;
 
             return (
               <li
-                className={[
-                  "flex items-center gap-3 rounded-lg border px-4 py-3 transition",
-                  isDone
-                    ? "border-emerald-100 bg-white text-slate-950"
-                    : isActive
-                      ? "border-blue-200 bg-blue-50 text-slate-950"
-                      : "border-slate-200 bg-white/60 text-slate-400"
-                ].join(" ")}
+                className={
+                  isDone ? "tm-step-item tm-step-item-complete" : isActive ? "tm-step-item tm-step-item-active" : "tm-step-item tm-step-item-pending"
+                }
                 key={applyStepKeys[index]}
               >
                 <span
-                  className={[
-                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border",
-                    isDone
-                      ? "border-emerald-200 bg-emerald-500 text-white"
-                      : isActive
-                        ? "border-blue-200 bg-blue-600 text-white"
-                        : "border-slate-200 bg-slate-100 text-transparent"
-                  ].join(" ")}
+                  className={
+                    isDone ? "tm-step-marker tm-step-marker-complete" : isActive ? "tm-step-marker tm-step-marker-active" : "tm-step-marker"
+                  }
                 >
                   {isDone ? <Check size={16} aria-hidden="true" /> : isActive ? <Loader2 className="animate-spin" size={15} aria-hidden="true" /> : null}
                 </span>
-                <span className="text-sm font-medium">{step}</span>
+                <span className="tm-typo-body-emphasis">{step}</span>
               </li>
             );
           })}

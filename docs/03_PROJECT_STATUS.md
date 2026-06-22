@@ -140,6 +140,8 @@ None
 
 - DESIGN-002 Design System Foundation
 
+- DESIGN-003 Design System Adoption
+
 ---
 
 # In Progress
@@ -150,7 +152,7 @@ None
 
 # Next Development
 
-DESIGN-003 Design System Adoption
+DESIGN-004 Interaction Polish
 
 ---
 
