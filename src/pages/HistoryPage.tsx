@@ -24,16 +24,16 @@ import {
 import type { VerificationStatus } from "../core/verification/VerificationResult";
 
 const verificationStyles: Record<VerificationStatus, string> = {
-  Verified: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  Failed: "border-rose-200 bg-rose-50 text-rose-700",
-  "Pending / Not Available": "border-amber-200 bg-amber-50 text-amber-700"
+  Verified: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-950/40 dark:text-emerald-300",
+  Failed: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-950/40 dark:text-rose-300",
+  "Pending / Not Available": "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-300"
 };
 
 const recoveryStyles: Record<OptimizationRecoveryStatus, string> = {
-  "Not Started": "border-slate-200 bg-slate-100 text-slate-700",
-  Started: "border-blue-200 bg-blue-50 text-blue-700",
-  Success: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  Failed: "border-rose-200 bg-rose-50 text-rose-700"
+  "Not Started": "border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200",
+  Started: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/40 dark:bg-blue-950/40 dark:text-blue-300",
+  Success: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-950/40 dark:text-emerald-300",
+  Failed: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-950/40 dark:text-rose-300"
 };
 
 function translateRuntimeScanField(value: string, t: ReturnType<typeof useTranslation>["t"]) {
@@ -90,94 +90,94 @@ export function HistoryPage() {
             const recoveryStatus = entry.recoveryStatus ?? "Not Started";
 
             return (
-            <article className="tm-card" key={entry.id}>
-              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h3 className="text-xl font-semibold text-slate-950 dark:text-slate-100">{entry.optimizationName}</h3>
-                    <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                      {translateHistoryStatus(entry.status)}
-                    </span>
-                    <span
-                      className={[
-                        "rounded-full border px-3 py-1 text-xs font-semibold",
-                        verificationStyles[verificationStatus]
-                      ].join(" ")}
-                    >
-                      {t("history.entry.verificationPrefix")} {translateVerificationStatus(verificationStatus)}
-                    </span>
-                    <span
-                      className={[
-                        "rounded-full border px-3 py-1 text-xs font-semibold",
-                        recoveryStyles[recoveryStatus]
-                      ].join(" ")}
-                    >
-                      {t("history.entry.recoveryPrefix")} {translateRecoveryStatus(recoveryStatus)}
-                    </span>
+              <article className="tm-card" key={entry.id}>
+                <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h3 className="text-xl font-semibold text-slate-950 dark:text-slate-100">{entry.optimizationName}</h3>
+                      <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                        {translateHistoryStatus(entry.status)}
+                      </span>
+                      <span
+                        className={[
+                          "rounded-full border px-3 py-1 text-xs font-semibold",
+                          verificationStyles[verificationStatus]
+                        ].join(" ")}
+                      >
+                        {t("history.entry.verificationPrefix")} {translateVerificationStatus(verificationStatus)}
+                      </span>
+                      <span
+                        className={[
+                          "rounded-full border px-3 py-1 text-xs font-semibold",
+                          recoveryStyles[recoveryStatus]
+                        ].join(" ")}
+                      >
+                        {t("history.entry.recoveryPrefix")} {translateRecoveryStatus(recoveryStatus)}
+                      </span>
+                    </div>
+                    <p className="mt-2 tm-body">
+                      {historyError ? t("history.entry.needsReview") : translateRuntimeMessage(entry.recoveryMessage ?? entry.message)}
+                    </p>
+                    {historyError ? (
+                      <div className="mt-4">
+                        <ErrorPresentation
+                          actions={{
+                            goBackHref: "/dashboard",
+                            historyHref: "/history",
+                            retryHref:
+                              entry.recoveryStatus === "Failed"
+                                ? `/recovery?historyId=${entry.id}`
+                                : entry.verificationStatus === "Failed"
+                                  ? `/verify?id=${entry.optimizationId}&mode=${entry.recoveryStatus === "Success" ? "recovery" : "apply"}&historyId=${entry.id}`
+                                  : `/confirm/${entry.optimizationId}?from=decision`
+                          }}
+                          descriptor={historyError}
+                        />
+                      </div>
+                    ) : null}
+                    <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
+                      <div className="tm-mini-card">
+                        <dt className="tm-label">{t("history.label.applyMode")}</dt>
+                        <dd className="tm-value">
+                          {entry.applyMode ? translateApplyMode(entry.applyMode) : t("common.value.unknown")}
+                        </dd>
+                      </div>
+                      <div className="tm-mini-card">
+                        <dt className="tm-label">{t("history.label.previousState")}</dt>
+                        <dd className="tm-value">{translateOptimizationStatus(entry.previousState)}</dd>
+                      </div>
+                      <div className="tm-mini-card">
+                        <dt className="tm-label">{t("history.label.newState")}</dt>
+                        <dd className="tm-value">{translateOptimizationStatus(entry.newState)}</dd>
+                      </div>
+                      <div className="tm-mini-card">
+                        <dt className="tm-label">{t("history.label.verifiedActual")}</dt>
+                        <dd className="tm-value">{translateOptimizationStatus(entry.verificationActualState ?? "Unknown")}</dd>
+                      </div>
+                      <div className="tm-mini-card">
+                        <dt className="tm-label">{t("history.label.recoveryActual")}</dt>
+                        <dd className="tm-value">{translateOptimizationStatus(entry.recoveryActualState ?? "Unknown")}</dd>
+                      </div>
+                      <div className="tm-mini-card">
+                        <dt className="tm-label">{t("history.label.timestamp")}</dt>
+                        <dd className="tm-value">{new Date(Number(entry.timestamp) * 1000).toLocaleString()}</dd>
+                      </div>
+                      <div className="tm-mini-card">
+                        <dt className="tm-label">{t("history.label.runtimeScan")}</dt>
+                        <dd className="tm-value">
+                          {translateRuntimeScanField(
+                            RuntimeScanService.getStoredSnapshot(entry.optimizationId)?.runtimeScanStatus ??
+                              RuntimeScanService.getCapability(entry.optimizationId).scanCapability,
+                            t
+                          )}
+                        </dd>
+                      </div>
+                      <div className="tm-mini-card">
+                        <dt className="tm-label">{t("history.label.scanState")}</dt>
+                        <dd className="tm-value">{translateScanDisplayState(RuntimeScanService.getDisplayState(entry.optimizationId))}</dd>
+                      </div>
+                    </dl>
                   </div>
-                  <p className="mt-2 tm-body">
-                    {historyError ? t("history.entry.needsReview") : translateRuntimeMessage(entry.recoveryMessage ?? entry.message)}
-                  </p>
-                  {historyError ? (
-                    <div className="mt-4">
-                      <ErrorPresentation
-                        actions={{
-                          goBackHref: "/dashboard",
-                          historyHref: "/history",
-                          retryHref:
-                            entry.recoveryStatus === "Failed"
-                              ? `/recovery?historyId=${entry.id}`
-                              : entry.verificationStatus === "Failed"
-                                ? `/verify?id=${entry.optimizationId}&mode=${entry.recoveryStatus === "Success" ? "recovery" : "apply"}&historyId=${entry.id}`
-                                : `/confirm/${entry.optimizationId}?from=decision`
-                        }}
-                        descriptor={historyError}
-                      />
-                    </div>
-                  ) : null}
-                  <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-6">
-                    <div>
-                      <dt className="font-semibold text-slate-500">{t("history.label.applyMode")}</dt>
-                      <dd className="mt-1 text-slate-950">
-                        {entry.applyMode ? translateApplyMode(entry.applyMode) : t("common.value.unknown")}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="font-semibold text-slate-500">{t("history.label.previousState")}</dt>
-                      <dd className="mt-1 text-slate-950">{translateOptimizationStatus(entry.previousState)}</dd>
-                    </div>
-                    <div>
-                      <dt className="font-semibold text-slate-500">{t("history.label.newState")}</dt>
-                      <dd className="mt-1 text-slate-950">{translateOptimizationStatus(entry.newState)}</dd>
-                    </div>
-                    <div>
-                      <dt className="font-semibold text-slate-500">{t("history.label.verifiedActual")}</dt>
-                      <dd className="mt-1 text-slate-950">{translateOptimizationStatus(entry.verificationActualState ?? "Unknown")}</dd>
-                    </div>
-                    <div>
-                      <dt className="font-semibold text-slate-500">{t("history.label.recoveryActual")}</dt>
-                      <dd className="mt-1 text-slate-950">{translateOptimizationStatus(entry.recoveryActualState ?? "Unknown")}</dd>
-                    </div>
-                    <div>
-                      <dt className="font-semibold text-slate-500">{t("history.label.timestamp")}</dt>
-                      <dd className="mt-1 text-slate-950">{new Date(Number(entry.timestamp) * 1000).toLocaleString()}</dd>
-                    </div>
-                    <div>
-                      <dt className="font-semibold text-slate-500">{t("history.label.runtimeScan")}</dt>
-                      <dd className="mt-1 text-slate-950">
-                        {translateRuntimeScanField(
-                          RuntimeScanService.getStoredSnapshot(entry.optimizationId)?.runtimeScanStatus ??
-                            RuntimeScanService.getCapability(entry.optimizationId).scanCapability,
-                          t
-                        )}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="font-semibold text-slate-500">{t("history.label.scanState")}</dt>
-                      <dd className="mt-1 text-slate-950">{translateScanDisplayState(RuntimeScanService.getDisplayState(entry.optimizationId))}</dd>
-                    </div>
-                  </dl>
-                </div>
 
                 {canRecover(entry) ? (
                   <Link
@@ -188,15 +188,15 @@ export function HistoryPage() {
                   </Link>
                 ) : (
                   <button
-                    className="tm-button-primary"
+                    className="tm-button-disabled"
                     disabled
                     type="button"
                   >
                     {entry.recoveryStatus === "Success" ? t("history.action.recovered") : t("history.action.recoveryUnavailable")}
                   </button>
                 )}
-              </div>
-            </article>
+                </div>
+              </article>
             );
           })
         )}

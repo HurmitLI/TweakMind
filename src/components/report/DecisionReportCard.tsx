@@ -43,7 +43,7 @@ export function DecisionReportCard({ item, selected, onToggleSelected }: Decisio
             <input
               aria-label={t("report.card.selectAriaLabel", { title: item.title })}
               checked={selected}
-              className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800"
               onChange={() => onToggleSelected(item.id)}
               type="checkbox"
             />
@@ -76,12 +76,12 @@ export function DecisionReportCard({ item, selected, onToggleSelected }: Decisio
         </Link>
       </div>
 
-      <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+      <dl className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="tm-mini-card">
           <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.currentState")}</dt>
           <dd className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{translateScanDisplayState(item.currentState)}</dd>
         </div>
-        <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+        <div className="tm-mini-card">
           <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.risk")}</dt>
           <dd className="mt-1">
             <span className={["inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold", levelStyles[item.riskLevel]].join(" ")}>
@@ -89,31 +89,31 @@ export function DecisionReportCard({ item, selected, onToggleSelected }: Decisio
             </span>
           </dd>
         </div>
-        <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+        <div className="tm-mini-card">
           <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.expectedBenefit")}</dt>
           <dd className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{translateBenefitLevel(item.expectedBenefit)}</dd>
         </div>
-        <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+        <div className="tm-mini-card">
           <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.lastApplied")}</dt>
           <dd className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{item.lastAppliedLabel ?? t("common.value.never")}</dd>
         </div>
-        <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+        <div className="tm-mini-card">
           <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.realApply")}</dt>
           <dd className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{item.canRealApply ? t("common.value.yes") : t("common.value.no")}</dd>
         </div>
-        <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+        <div className="tm-mini-card">
           <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.verification")}</dt>
           <dd className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{item.canVerify ? t("common.value.yes") : t("common.value.no")}</dd>
         </div>
-        <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+        <div className="tm-mini-card">
           <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.recovery")}</dt>
           <dd className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{item.canRecover ? t("common.value.yes") : t("common.value.no")}</dd>
         </div>
-        <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+        <div className="tm-mini-card">
           <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.runtimeScan")}</dt>
           <dd className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{translateScanDisplayState(item.runtimeScanStatus)}</dd>
         </div>
-        <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+        <div className="tm-mini-card">
           <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.detectionConfidence")}</dt>
           <dd className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{translateConfidence(item.detectionConfidence)}</dd>
         </div>

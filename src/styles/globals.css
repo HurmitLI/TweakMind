@@ -12,11 +12,11 @@
   }
 
   .tm-hero {
-    @apply rounded-lg border border-white/70 bg-white/85 px-8 py-8 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/85;
+    @apply rounded-lg border border-white/70 bg-white/90 px-8 py-8 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/90;
   }
 
   .tm-hero-accent {
-    @apply relative overflow-hidden rounded-lg border border-white/70 bg-white/85 px-8 py-10 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/85;
+    @apply relative overflow-hidden rounded-lg border border-white/70 bg-white/90 px-8 py-10 shadow-md shadow-slate-200/60 backdrop-blur dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-slate-950/30;
   }
 
   .tm-eyebrow {
@@ -37,6 +37,18 @@
 
   .tm-panel {
     @apply rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900/95;
+  }
+
+  .tm-section-card {
+    @apply rounded-lg border border-slate-200 bg-white/95 p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900/95;
+  }
+
+  .tm-info-card {
+    @apply rounded-lg border border-slate-100 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/70;
+  }
+
+  .tm-mini-card {
+    @apply rounded-lg border border-slate-100 bg-white/80 p-3 dark:border-slate-700 dark:bg-slate-800/70;
   }
 
   .tm-panel-muted {
@@ -76,11 +88,11 @@
   }
 
   .tm-button-primary {
-    @apply inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300;
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 dark:focus:ring-offset-slate-950;
   }
 
   .tm-button-secondary {
-    @apply inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:text-white;
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:text-white dark:focus:ring-offset-slate-950;
   }
 
   .tm-button-disabled {

@@ -35,7 +35,7 @@ export function ReportFilters({
   const { t } = useTranslation();
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/90">
+    <section className="tm-section-card">
       <div className="flex flex-wrap gap-2">
         {filterOptions.map((option) => {
           const isActive = activeFilter === option.id;
@@ -63,8 +63,8 @@ export function ReportFilters({
               className={[
                 "h-8 rounded-full border px-3 text-xs font-semibold transition",
                 activeRisk === risk
-                  ? "border-amber-200 bg-amber-100 text-amber-800"
-                  : "border-slate-200 bg-slate-50 text-slate-600"
+                  ? "border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-200"
+                  : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
               ].join(" ")}
               key={risk}
               onClick={() => onRiskChange(activeRisk === risk ? undefined : risk)}
@@ -83,8 +83,8 @@ export function ReportFilters({
               className={[
                 "h-8 rounded-full border px-3 text-xs font-semibold transition",
                 activeCategory === category
-                  ? "border-blue-200 bg-blue-100 text-blue-800"
-                  : "border-slate-200 bg-slate-50 text-slate-600"
+                  ? "border-blue-200 bg-blue-100 text-blue-800 dark:border-blue-500/40 dark:bg-blue-950/40 dark:text-blue-200"
+                  : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
               ].join(" ")}
               key={category}
               onClick={() => onCategoryChange(activeCategory === category ? undefined : category)}

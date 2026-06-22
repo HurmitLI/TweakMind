@@ -182,10 +182,10 @@ export function KnowledgePage() {
                     <h3 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-100">
                       {SettingsService.resolveKnowledgeTitle(knowledge)}
                     </h3>
-                    <span className="tm-badge-small border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                    <span className="tm-badge-small border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/40 dark:bg-blue-950/40 dark:text-blue-300">
                       {translateCategory(knowledge.identity.category)}
                     </span>
-                    <span className="tm-badge-small border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                    <span className="tm-badge-small border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-950/40 dark:text-emerald-300">
                       {t("knowledge.card.statusPrefix")}{" "}
                       {translateScanDisplayState(statusById.get(knowledge.identity.id) ?? "Scan Required")}
                     </span>
@@ -203,20 +203,20 @@ export function KnowledgePage() {
                   </div>
                 </div>
 
-                <div className="grid shrink-0 gap-2 sm:grid-cols-2 lg:w-72 lg:grid-cols-2">
-                  <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                <div className="grid shrink-0 gap-2 rounded-lg border border-slate-100 bg-slate-50/70 p-3 sm:grid-cols-2 lg:w-80 lg:grid-cols-2 dark:border-slate-700 dark:bg-slate-800/70">
+                  <div className="border-l-2 border-rose-200 pl-3 dark:border-rose-500/40">
                     <p className="tm-label">{t("knowledge.card.label.risk")}</p>
                     <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{translateRiskLevel(knowledge.risks.riskLevel)}</p>
                   </div>
-                  <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="border-l-2 border-emerald-200 pl-3 dark:border-emerald-500/40">
                     <p className="tm-label">{t("knowledge.card.label.expectedBenefit")}</p>
                     <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{translateBenefitLevel(knowledge.decisionSupport.expectedBenefit)}</p>
                   </div>
-                  <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="border-l-2 border-blue-200 pl-3 dark:border-blue-500/40">
                     <p className="tm-label">{t("knowledge.card.label.priority")}</p>
                     <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{translatePriority(knowledge.identity.priority)}</p>
                   </div>
-                  <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="border-l-2 border-slate-300 pl-3 dark:border-slate-600">
                     <p className="tm-label">{t("knowledge.card.label.scan")}</p>
                     <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">
                       {translateScanCapability(RuntimeScanService.getCapability(knowledge.identity.id).scanCapability)}

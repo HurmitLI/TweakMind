@@ -30,7 +30,7 @@ export function AboutPage() {
             <p className="tm-subtitle">{t("app.description")}</p>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">{t("app.tagline")}</p>
           </div>
-          <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-emerald-500 text-slate-950">
+          <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-400 text-slate-950 shadow-sm shadow-emerald-200/60 dark:border-emerald-500/40 dark:bg-emerald-500 dark:shadow-emerald-950/20">
             <Sparkles size={30} aria-hidden="true" />
           </div>
         </div>
@@ -56,7 +56,7 @@ export function AboutPage() {
         </div>
       </dl>
 
-      <section className="tm-panel">
+      <section className="tm-section-card">
         <h3 className="tm-section-title">{t("about.alpha.title")}</h3>
         <p className="mt-2 max-w-3xl tm-body">{t("about.alpha.description")}</p>
         <Link

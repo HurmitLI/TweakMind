@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ExternalLink } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { AppInfo } from "../core/app/AppInfo";
 import { useTranslation } from "../core/localization/LanguageProvider";
@@ -76,6 +77,20 @@ function OptionButtons<T extends string>({
   );
 }
 
+function ApplicationLink({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700 transition hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
+      href={href}
+      rel="noreferrer"
+      target="_blank"
+    >
+      {label}
+      <ExternalLink size={14} aria-hidden="true" />
+    </a>
+  );
+}
+
 export function SettingsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -127,9 +142,28 @@ export function SettingsPage() {
       </PreferenceSection>
 
       <PreferenceSection description={t("settings.application.description")} title={t("settings.application.title")}>
-        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-          {AppInfo.name} {t("app.versionLabel", { version: AppInfo.version })}
-        </p>
+        <dl className="grid gap-3 md:grid-cols-2">
+          <div className="tm-mini-card">
+            <dt className="tm-label">{t("settings.application.version")}</dt>
+            <dd className="tm-value">{t("app.versionLabel", { version: AppInfo.version })}</dd>
+          </div>
+          <div className="tm-mini-card">
+            <dt className="tm-label">{t("settings.application.license")}</dt>
+            <dd className="tm-value">{AppInfo.licenseName}</dd>
+          </div>
+          <div className="tm-mini-card">
+            <dt className="tm-label">{t("settings.application.repository")}</dt>
+            <dd className="mt-2">
+              <ApplicationLink href={AppInfo.repositoryUrl} label={AppInfo.repositoryUrl.replace("https://", "")} />
+            </dd>
+          </div>
+          <div className="tm-mini-card">
+            <dt className="tm-label">{t("settings.application.issueTracker")}</dt>
+            <dd className="mt-2">
+              <ApplicationLink href={AppInfo.issueTrackerUrl} label={AppInfo.issueTrackerUrl.replace("https://", "")} />
+            </dd>
+          </div>
+        </dl>
         <Link
           className="mt-4 tm-button-secondary"
           to="/about"

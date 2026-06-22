@@ -130,6 +130,8 @@ None
 
 - ALPHA-002 Visual Consistency Pass
 
+- ALPHA-004 UI Polish
+
 ---
 
 # In Progress
@@ -140,7 +142,7 @@ None
 
 # Next Development
 
-ALPHA-003 End-to-End QA
+ALPHA-005 UX Polish
 
 ---
 

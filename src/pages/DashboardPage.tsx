@@ -54,9 +54,9 @@ export function DashboardPage() {
     <div className="tm-page">
       <section className="tm-hero-accent">
         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400" />
-        <div className="max-w-4xl">
+        <div className="max-w-5xl">
           <h2 className="tm-title-xl">{t("dashboard.hero.title")}</h2>
-          <p className="mt-4 text-xl leading-8 text-slate-700 dark:text-slate-200">{t("dashboard.hero.subtitle")}</p>
+          <p className="mt-4 max-w-4xl text-2xl font-semibold leading-9 text-slate-800 dark:text-slate-100">{t("dashboard.hero.subtitle")}</p>
           <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600 dark:text-slate-300">{t("dashboard.hero.body")}</p>
         </div>
       </section>
@@ -77,14 +77,14 @@ export function DashboardPage() {
         ))}
       </section>
 
-      <section className="tm-panel">
+      <section className="tm-section-card">
         <h3 className="tm-section-title">{t("dashboard.why.title")}</h3>
         <div className="mt-5 grid gap-4 lg:grid-cols-3">
           {highlights.map((highlight) => {
             const Icon = highlight.icon;
 
             return (
-              <article className="rounded-lg border border-slate-100 bg-slate-50/80 p-5 dark:border-slate-700 dark:bg-slate-800/70" key={highlight.title}>
+              <article className="tm-info-card" key={highlight.title}>
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-700 dark:border-blue-400/30 dark:bg-blue-950/40 dark:text-blue-300">
                   <Icon size={19} aria-hidden="true" />
                 </div>
