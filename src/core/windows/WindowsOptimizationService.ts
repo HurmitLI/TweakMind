@@ -1,35 +1,19 @@
 import type { OptimizationId, OptimizationStatus } from "../../types/optimization";
+import type {
+  ApplyExecutionResult,
+  ExecutionMode,
+  RecoveryExecutionResult
+} from "../execution/OptimizationExecutionTypes";
 import type { VerificationResult, VerificationStatus } from "../verification/VerificationResult";
 
 export type OptimizationExecutionStatus = "Success" | "Failed";
-export type OptimizationApplyMode = "real" | "mock" | "unsupported";
+export type OptimizationApplyMode = ExecutionMode;
 export type OptimizationApplyStatus = "success" | "failed";
 export type OptimizationRecoveryStatus = "Not Started" | "Started" | "Success" | "Failed";
 
-export interface OptimizationApplyResult {
-  optimizationId: OptimizationId;
-  applyMode: OptimizationApplyMode;
-  status: OptimizationApplyStatus;
-  previousState: OptimizationStatus;
-  currentState: OptimizationStatus;
-  previousStartupType?: string;
-  message?: string;
-  error: string | null;
-  timestamp: string;
-}
+export type OptimizationApplyResult = ApplyExecutionResult;
 
-export interface OptimizationRecoveryResult {
-  historyEntryId: string;
-  optimizationId: OptimizationId;
-  status: OptimizationApplyStatus;
-  previousState: OptimizationStatus;
-  expectedState: OptimizationStatus;
-  actualState: OptimizationStatus;
-  previousStartupType?: string;
-  message?: string;
-  error: string | null;
-  timestamp: string;
-}
+export type OptimizationRecoveryResult = RecoveryExecutionResult;
 
 export interface OptimizationHistoryEntry {
   id: string;

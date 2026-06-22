@@ -62,6 +62,8 @@ None
 
 - ENGINE-008 Real Windows Apply
 
+- ENGINE-009 Apply Framework Expansion
+
 ---
 
 # Completed PRODUCT
@@ -88,13 +90,11 @@ None
 
 # Next Development
 
-ENGINE-009
+DATA-002 Optimization Knowledge Expansion
 
 ---
 
 # Future Roadmap
-
-- ENGINE-009
 
 - AI-001
 

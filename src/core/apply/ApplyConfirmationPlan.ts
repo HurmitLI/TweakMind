@@ -1,6 +1,7 @@
 import { KnowledgeRepository, knowledgeToOptimizationDefinition } from "../knowledge/KnowledgeRepository";
 import { OptimizationRepository } from "../optimization/OptimizationRepository";
 import { readStoredScanResult, toRecommendationResult } from "../scan/ScanResult";
+import { OptimizationCapabilityRegistry } from "../execution/OptimizationCapabilityRegistry";
 import type { OptimizationApplyResult } from "../windows/WindowsOptimizationService";
 import type { OptimizationId, OptimizationRecommendation, OptimizationStatus } from "../../types/optimization";
 
@@ -40,7 +41,7 @@ export function getApplyConfirmationPlan(id: OptimizationId) {
         selectedByDefault: false
       };
   const currentStatus = recommendation.currentStatus ?? "Unknown";
-  const isWindowsSearch = optimization.id === "windows-search";
+  const capabilities = OptimizationCapabilityRegistry.get(optimization.id);
   const isAlreadyOptimized = recommendation.recommendation === "Already Optimized";
 
   return {
@@ -50,12 +51,12 @@ export function getApplyConfirmationPlan(id: OptimizationId) {
     currentStatus,
     targetState: targetStateFor(optimization.id, recommendation.recommendation, currentStatus),
     whatWillChange:
-      isWindowsSearch && !isAlreadyOptimized
+      capabilities.canRealApply && !isAlreadyOptimized
         ? "TweakMind will capture the current Windows Search service state, then ask the native executor to disable Windows Search."
-        : isWindowsSearch
+        : capabilities.canRealApply
           ? "Windows Search is already in the recommended state. The executor will still capture the current state before reporting the result."
           : "This optimization is not connected to real Windows Apply yet. Confirmation will not modify Windows.",
-    readinessMessage: isWindowsSearch
+    readinessMessage: capabilities.canRealApply
       ? "Real Apply is available for Windows Search only and runs through the Tauri executor, not UI code."
       : "Real Apply is not available for this optimization yet. No Windows changes will be made."
   };

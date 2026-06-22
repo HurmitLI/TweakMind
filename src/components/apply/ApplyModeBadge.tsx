@@ -1,4 +1,5 @@
 import type { OptimizationId } from "../../types/optimization";
+import { OptimizationCapabilityRegistry } from "../../core/execution/OptimizationCapabilityRegistry";
 import type { OptimizationApplyMode } from "../../core/windows/WindowsOptimizationService";
 
 type ApplyMode = OptimizationApplyMode;
@@ -14,7 +15,7 @@ const styles: Record<ApplyMode, string> = {
 };
 
 export function getApplyMode(optimizationId: OptimizationId): ApplyMode {
-  return optimizationId === "windows-search" ? "real" : "unsupported";
+  return OptimizationCapabilityRegistry.get(optimizationId).applyMode;
 }
 
 export function getApplyModeLabelForMode(mode: ApplyMode) {

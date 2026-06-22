@@ -1,5 +1,6 @@
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
+import { OptimizationCapabilityRegistry } from "../core/execution/OptimizationCapabilityRegistry";
 import { WindowsOptimizationService } from "../core/windows/WindowsOptimizationService";
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -18,7 +19,12 @@ function canRecover(entryId: string | undefined) {
 
   const entry = WindowsOptimizationService.getHistoryEntry(entryId);
 
-  if (!entry || entry.optimizationId !== "windows-search" || entry.status !== "Success" || entry.applyMode !== "real") {
+  if (
+    !entry ||
+    !OptimizationCapabilityRegistry.canRecover(entry.optimizationId) ||
+    entry.status !== "Success" ||
+    entry.applyMode !== "real"
+  ) {
     return undefined;
   }
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { getApplyModeLabelForMode } from "../components/apply/ApplyModeBadge";
+import { OptimizationCapabilityRegistry } from "../core/execution/OptimizationCapabilityRegistry";
 import {
   type OptimizationHistoryEntry,
   type OptimizationRecoveryStatus,
@@ -22,8 +23,10 @@ const recoveryStyles: Record<OptimizationRecoveryStatus, string> = {
 };
 
 function canRecover(entry: OptimizationHistoryEntry) {
+  const capabilities = OptimizationCapabilityRegistry.get(entry.optimizationId);
+
   return (
-    entry.optimizationId === "windows-search" &&
+    capabilities.canRecover &&
     entry.status === "Success" &&
     entry.applyMode === "real" &&
     entry.recoveryStatus !== "Success"

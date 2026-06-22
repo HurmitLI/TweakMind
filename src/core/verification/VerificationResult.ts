@@ -1,14 +1,4 @@
-import type { OptimizationId, OptimizationStatus } from "../../types/optimization";
+import type { VerificationExecutionResult } from "../execution/OptimizationExecutionTypes";
 
-export type VerificationStatus = "Verified" | "Failed" | "Pending / Not Available";
-
-export interface VerificationResult {
-  historyEntryId?: string;
-  optimizationId: OptimizationId;
-  status: VerificationStatus;
-  previousState: OptimizationStatus;
-  expectedState: OptimizationStatus;
-  actualState: OptimizationStatus;
-  message: string;
-  timestamp: string;
-}
+export type VerificationResult = VerificationExecutionResult;
+export type VerificationStatus = VerificationExecutionResult["status"];
