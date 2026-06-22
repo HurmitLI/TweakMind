@@ -1,26 +1,22 @@
-import { ArrowRight, BookOpen, CheckCircle2, CloudOff, History, MonitorCheck, RotateCcw, ScanLine, ShieldCheck } from "lucide-react";
+import { ArrowRight, BookOpen, CheckCircle2, CloudOff, History, MonitorCheck, RotateCcw, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const trustCards = [
   {
     title: "本地扫描",
-    description: "不会上传任何系统数据。",
-    icon: ShieldCheck
+    description: "不会上传任何系统数据。"
   },
   {
     title: "永不自动优化",
-    description: "所有修改都需要你的确认。",
-    icon: CheckCircle2
+    description: "所有修改都需要你的确认。"
   },
   {
     title: "可验证",
-    description: "应用之后重新检测真实状态。",
-    icon: ScanLine
+    description: "应用之后重新检测真实状态。"
   },
   {
     title: "可恢复",
-    description: "所有修改都支持恢复。",
-    icon: RotateCcw
+    description: "所有修改都支持恢复。"
   }
 ];
 
@@ -38,6 +34,9 @@ const supportedOptimizations = [
   "Windows Update Active Hours"
 ];
 
+const featuredOptimization = supportedOptimizations[0];
+const otherOptimizations = supportedOptimizations.slice(1);
+
 const philosophyCards = [
   "先理解，再优化。",
   "AI 提供建议，\n由你决定。",
@@ -53,119 +52,115 @@ const heroTrustIndicators = [
 
 export function DashboardPage() {
   return (
-    <div className="tm-layout-page">
+    <div className="tm-home-page">
       <section className="tm-home-hero">
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/80 to-transparent dark:via-slate-700/80" />
-        <div className="flex flex-col tm-gap-section xl:flex-row xl:items-end xl:justify-between">
-          <div className="max-w-4xl">
+        <div className="tm-home-hero-inner">
+          <div className="tm-home-hero-copy">
             <h2 className="tm-typo-hero">
               让每一次 Windows 优化，
               <br />
               都心里有数。
             </h2>
-            <div className="tm-mt-section tm-layout-stack tm-typo-body">
-              <p>扫描你的 Windows 配置。</p>
-              <p>了解每项优化意味着什么。</p>
-              <p>确认以后，再决定是否应用。</p>
-            </div>
+            <p className="tm-home-hero-lead">
+              扫描你的 Windows 配置，了解每项优化意味着什么，确认以后再决定是否应用。
+            </p>
           </div>
 
-          <div className="tm-layout-stack shrink-0 xl:w-80">
-            <Link className="tm-button-primary" to="/scan">
+          <div className="tm-home-hero-aside">
+            <Link className="tm-home-cta tm-button-primary" to="/scan">
               立即扫描 Windows
               <ArrowRight size={18} aria-hidden="true" />
             </Link>
-            <div className="tm-layout-stack-sm">
+            <ul className="tm-home-trust-strip">
               {heroTrustIndicators.map((indicator) => {
                 const Icon = indicator.icon;
 
                 return (
-                  <span className="tm-trust-indicator" key={indicator.label}>
-                    <Icon className="tm-trust-indicator-icon" size={14} aria-hidden="true" />
-                    {indicator.label}
-                  </span>
+                  <li className="tm-home-trust-item" key={indicator.label}>
+                    <Icon aria-hidden="true" size={11} />
+                    <span>{indicator.label}</span>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           </div>
         </div>
       </section>
 
-      <section className="tm-section-card-quiet">
-        <h3 className="tm-typo-section">为什么值得信任</h3>
-        <div className="tm-mt-lg tm-layout-grid md:grid-cols-2 xl:grid-cols-4">
-          {trustCards.map((card) => {
-            const Icon = card.icon;
-
-            return (
-              <article className="tm-card-metadata" key={card.title}>
-                <div className="tm-icon-tile-soft">
-                  <Icon size={18} aria-hidden="true" />
-                </div>
-                <h4 className="tm-mt-md tm-typo-body-emphasis">{card.title}</h4>
-                <p className="tm-mt-sm tm-typo-body">{card.description}</p>
-              </article>
-            );
-          })}
+      <section className="tm-home-section tm-home-section-quiet">
+        <h3 className="tm-home-section-title">为什么值得信任</h3>
+        <div className="tm-home-trust-detail">
+          {trustCards.map((card) => (
+            <article className="tm-home-trust-detail-item" key={card.title}>
+              <h4>{card.title}</h4>
+              <p>{card.description}</p>
+            </article>
+          ))}
         </div>
       </section>
 
-      <section className="tm-section-card">
-        <h3 className="tm-typo-section">已支持优化</h3>
-        <div className="tm-mt-lg tm-optimization-grid">
-          {supportedOptimizations.map((name) => (
-            <span className="tm-optimization-item" key={name}>
+      <section className="tm-home-section">
+        <h3 className="tm-home-section-title">已支持优化</h3>
+        <article className="tm-home-optimization-featured">
+          <p className="tm-home-optimization-eyebrow">重点支持</p>
+          <p className="tm-home-optimization-featured-name">{featuredOptimization}</p>
+          <p className="tm-home-optimization-featured-caption">共 {supportedOptimizations.length} 项 Windows 优化能力</p>
+        </article>
+        <ul className="tm-home-optimization-list">
+          {otherOptimizations.map((name) => (
+            <li className="tm-home-optimization-list-item" key={name}>
               {name}
-            </span>
+            </li>
           ))}
-        </div>
-        <div className="tm-mt-lg flex items-center justify-between pt-2">
-          <p className="tm-typo-caption">共11项优化</p>
+        </ul>
+        <div className="tm-home-section-footer">
           <Link className="tm-link-accent" to="/knowledge">
             查看全部 →
           </Link>
         </div>
       </section>
 
-      <section className="tm-section-card">
-        <h3 className="tm-typo-section">Quick Actions</h3>
-        <div className="tm-mt-lg tm-layout-grid xl:grid-cols-[1.4fr_1fr_1fr]">
-          <Link className="tm-card-hero tm-card-hover tm-card-accent group" to="/scan">
-            <div className="tm-icon-tile">
-              <MonitorCheck size={23} aria-hidden="true" />
+      <section className="tm-home-section">
+        <h3 className="tm-home-section-title">Quick Actions</h3>
+        <div className="tm-home-actions">
+          <Link className="tm-home-action-primary tm-card-accent" to="/scan">
+            <div className="tm-home-action-primary-icon">
+              <MonitorCheck size={22} aria-hidden="true" />
             </div>
-            <h3 className="tm-card-accent-title tm-mt-lg tm-typo-section">立即扫描 Windows</h3>
-            <span className="tm-card-accent-caption tm-mt-md inline-flex items-center tm-gap-sm tm-typo-caption">
-              立即开始
-              <ArrowRight size={16} aria-hidden="true" />
-            </span>
+            <div>
+              <h3 className="tm-home-action-primary-title">立即扫描 Windows</h3>
+              <span className="tm-home-action-primary-caption">
+                立即开始
+                <ArrowRight size={15} aria-hidden="true" />
+              </span>
+            </div>
           </Link>
 
-          <Link className="tm-card-hover" to="/knowledge">
-            <div className="tm-icon-tile-soft">
-              <BookOpen size={21} aria-hidden="true" />
+          <Link className="tm-home-action-secondary" to="/knowledge">
+            <BookOpen size={18} aria-hidden="true" />
+            <div>
+              <h3>浏览知识库</h3>
+              <p>了解每项优化的含义</p>
             </div>
-            <h3 className="tm-mt-md tm-typo-body-emphasis">浏览知识库</h3>
-            <p className="tm-mt-sm tm-typo-caption">了解每项优化的含义</p>
           </Link>
 
-          <Link className="tm-card-hover" to="/history">
-            <div className="tm-icon-tile-soft">
-              <History size={21} aria-hidden="true" />
+          <Link className="tm-home-action-secondary" to="/history">
+            <History size={18} aria-hidden="true" />
+            <div>
+              <h3>查看历史</h3>
+              <p>回顾已应用的修改</p>
             </div>
-            <h3 className="tm-mt-md tm-typo-body-emphasis">查看历史</h3>
-            <p className="tm-mt-sm tm-typo-caption">回顾已应用的修改</p>
           </Link>
         </div>
       </section>
 
-      <section className="tm-section-card-quiet">
-        <h3 className="tm-typo-section">为什么是 TweakMind</h3>
-        <div className="tm-mt-lg tm-layout-grid md:grid-cols-3">
+      <section className="tm-home-section tm-home-section-quiet">
+        <h3 className="tm-home-section-title">为什么是 TweakMind</h3>
+        <div className="tm-home-philosophy">
           {philosophyCards.map((card) => (
-            <article className="tm-card-metadata" key={card}>
-              <p className="whitespace-pre-line tm-typo-body-emphasis">{card}</p>
-            </article>
+            <blockquote className="tm-home-philosophy-item" key={card}>
+              {card}
+            </blockquote>
           ))}
         </div>
       </section>

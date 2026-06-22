@@ -144,6 +144,8 @@ None
 
 - ALPHA-003 Product Polish Sprint
 
+- HOME-003 Home Experience Polish
+
 ---
 
 # In Progress
