@@ -10,7 +10,7 @@ export function LoadingState({ title, description, layout = "inline" }: LoadingS
   const containerClass =
     layout === "centered"
       ? "flex flex-1 items-center justify-center"
-      : "rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm";
+      : "tm-panel";
 
   return (
     <div aria-busy="true" aria-live="polite" className={containerClass} role="status">
@@ -24,8 +24,8 @@ export function LoadingState({ title, description, layout = "inline" }: LoadingS
           <Loader2 className="animate-spin" size={layout === "centered" ? 24 : 20} aria-hidden="true" />
         </span>
         <div className={layout === "centered" ? "mt-4" : ""}>
-          <p className="text-base font-semibold tracking-tight text-slate-950">{title}</p>
-          {description ? <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p> : null}
+          <p className="text-base font-semibold tracking-tight text-slate-950 dark:text-slate-100">{title}</p>
+          {description ? <p className="mt-2 tm-body">{description}</p> : null}
         </div>
       </div>
     </div>

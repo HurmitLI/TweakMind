@@ -15,25 +15,25 @@ import { storePendingApplyResult } from "../core/windows/WindowsOptimizationServ
 import type { OptimizationId } from "../types/optimization";
 
 const riskStyles = {
-  Low: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  Medium: "border-amber-200 bg-amber-50 text-amber-700",
-  High: "border-rose-200 bg-rose-50 text-rose-700"
+  Low: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-950/40 dark:text-emerald-300",
+  Medium: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-300",
+  High: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-950/40 dark:text-rose-300"
 };
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white/80 p-4">
-      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</dt>
-      <dd className="mt-2 text-sm font-semibold text-slate-950">{value}</dd>
+    <div className="tm-field">
+      <dt className="tm-label">{label}</dt>
+      <dd className="tm-value">{value}</dd>
     </div>
   );
 }
 
 function ListSection({ title, items }: { title: string; items: string[] }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
-      <h3 className="text-lg font-semibold tracking-tight text-slate-950">{title}</h3>
-      <ul className="mt-4 grid gap-3 text-sm leading-6 text-slate-600">
+    <section className="tm-panel">
+      <h3 className="tm-section-title">{title}</h3>
+      <ul className="mt-4 grid gap-3 tm-body">
         {items.map((item) => (
           <li className="flex gap-3" key={item}>
             <CheckCircle2 className="mt-0.5 shrink-0 text-blue-700" size={17} aria-hidden="true" />
@@ -87,9 +87,9 @@ export function ApplyConfirmationPage() {
       : knowledge.recovery.estimatedTime;
 
   return (
-    <div className="flex flex-1 flex-col gap-6">
+    <div className="tm-page">
       <button
-        className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-blue-700"
+        className="tm-button-ghost"
         onClick={() => {
           if (window.history.length > 1) {
             navigate(-1);
@@ -104,12 +104,12 @@ export function ApplyConfirmationPage() {
         {t("common.action.cancel")}
       </button>
 
-      <section className="rounded-lg border border-white/70 bg-white/85 px-8 py-8 shadow-sm backdrop-blur">
+      <section className="tm-hero">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">{t("applyConfirm.eyebrow")}</p>
-            <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{optimization.title}</h2>
-            <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">{recommendation.reason}</p>
+            <p className="tm-eyebrow">{t("applyConfirm.eyebrow")}</p>
+            <h2 className="tm-title">{optimization.title}</h2>
+            <p className="tm-subtitle">{recommendation.reason}</p>
           </div>
           <div className="flex flex-wrap gap-3 lg:justify-end">
             <RecommendationBadge value={recommendation.recommendation} />
@@ -129,17 +129,17 @@ export function ApplyConfirmationPage() {
       </dl>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
-          <h3 className="text-lg font-semibold tracking-tight text-slate-950">{t("applyConfirm.section.whatWillChange")}</h3>
-          <p className="mt-4 text-sm leading-6 text-slate-600">{plan.whatWillChange}</p>
-          <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
+        <section className="tm-panel">
+          <h3 className="tm-section-title">{t("applyConfirm.section.whatWillChange")}</h3>
+          <p className="mt-4 tm-body">{plan.whatWillChange}</p>
+          <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900 dark:border-blue-500/40 dark:bg-blue-950/40 dark:text-blue-100">
             <div className="flex items-start gap-3">
               <Info className="mt-0.5 shrink-0" size={18} aria-hidden="true" />
               <p>{plan.readinessMessage}</p>
             </div>
           </div>
           {plan.safetyNotice ? (
-            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-100">
               <div className="flex items-start gap-3">
                 <Info className="mt-0.5 shrink-0" size={18} aria-hidden="true" />
                 <p>{plan.safetyNotice}</p>
@@ -148,13 +148,13 @@ export function ApplyConfirmationPage() {
           ) : null}
         </section>
 
-        <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
-          <h3 className="text-lg font-semibold tracking-tight text-slate-950">
+        <section className="tm-panel">
+          <h3 className="tm-section-title">
             {t("applyConfirm.section.whyRecommended", { recommendation: translateRecommendation(recommendation.recommendation).toLowerCase() })}
           </h3>
-          <p className="mt-4 text-sm leading-6 text-slate-600">{recommendation.reason}</p>
-          <div className="mt-5 flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-            <ShieldCheck className="mt-0.5 shrink-0 text-slate-700" size={18} aria-hidden="true" />
+          <p className="mt-4 tm-body">{recommendation.reason}</p>
+          <div className="mt-5 flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 tm-body dark:border-slate-700 dark:bg-slate-800">
+            <ShieldCheck className="mt-0.5 shrink-0 text-slate-700 dark:text-slate-200" size={18} aria-hidden="true" />
             <p>{knowledge?.risks.riskExplanation ?? optimization.risk.reason}</p>
           </div>
         </section>
@@ -168,17 +168,17 @@ export function ApplyConfirmationPage() {
           }
         />
 
-        <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
-          <h3 className="text-lg font-semibold tracking-tight text-slate-950">{t("applyConfirm.section.recoveryMethod")}</h3>
-          <p className="mt-4 text-sm leading-6 text-slate-600">{knowledge?.recovery.recoveryMethod ?? optimization.recovery}</p>
+        <section className="tm-panel">
+          <h3 className="tm-section-title">{t("applyConfirm.section.recoveryMethod")}</h3>
+          <p className="mt-4 tm-body">{knowledge?.recovery.recoveryMethod ?? optimization.recovery}</p>
           <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
             <div>
               <dt className="font-semibold text-slate-500">{t("applyConfirm.label.estimatedRecoveryTime")}</dt>
-              <dd className="mt-1 text-slate-950">{recoveryTimeValue}</dd>
+              <dd className="mt-1 text-slate-950 dark:text-slate-100">{recoveryTimeValue}</dd>
             </div>
             <div>
               <dt className="font-semibold text-slate-500">{t("applyConfirm.label.expectedResult")}</dt>
-              <dd className="mt-1 text-slate-950">
+              <dd className="mt-1 text-slate-950 dark:text-slate-100">
                 {knowledge?.recovery.expectedResult === "Unknown" || !knowledge?.recovery.expectedResult
                   ? optimization.expectedResult
                   : knowledge.recovery.expectedResult}
@@ -203,16 +203,16 @@ export function ApplyConfirmationPage() {
         />
       ) : null}
 
-      <footer className="flex flex-col-reverse gap-3 rounded-lg border border-slate-200 bg-white/90 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <footer className="tm-footer">
         <Link
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="tm-button-secondary"
           to={cancelTarget}
         >
           <ArrowLeft size={17} aria-hidden="true" />
           {t("common.action.cancel")}
         </Link>
         <button
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="tm-button-primary"
           disabled={isConfirming}
           onClick={confirmAndApply}
           type="button"

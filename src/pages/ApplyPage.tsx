@@ -62,14 +62,11 @@ export function ApplyPage() {
 
   if (!executionResult) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <section className="w-full max-w-3xl rounded-lg border border-amber-100 bg-white/90 p-8 text-center shadow-sm backdrop-blur">
-          <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{t("apply.guard.title")}</h2>
-          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600">{t("apply.guard.description")}</p>
-          <Link
-            className="mt-8 inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-            to={`/confirm/${optimization.id}?from=decision`}
-          >
+      <div className="tm-page-center">
+        <section className="w-full max-w-3xl rounded-lg border border-amber-100 bg-white/90 p-8 text-center shadow-sm backdrop-blur dark:border-amber-500/40 dark:bg-slate-900/90">
+          <h2 className="tm-title">{t("apply.guard.title")}</h2>
+          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600 dark:text-slate-300">{t("apply.guard.description")}</p>
+          <Link className="mt-8 tm-button-primary" to={`/confirm/${optimization.id}?from=decision`}>
             {t("apply.guard.action.openConfirmation")}
           </Link>
         </section>
@@ -83,7 +80,7 @@ export function ApplyPage() {
 
     if (!isSuccess && applyError) {
       return (
-        <div className="flex flex-1 items-center justify-center">
+        <div className="tm-page-center">
           <ErrorPresentation
             actions={{
               goBackHref: `/confirm/${executionResult.optimizationId}?from=decision`,
@@ -105,21 +102,21 @@ export function ApplyPage() {
         : t("apply.success.message.failed");
 
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <section className="w-full max-w-3xl rounded-lg border border-emerald-100 bg-white/90 p-8 text-center shadow-sm backdrop-blur">
+      <div className="tm-page-center">
+        <section className="w-full max-w-3xl rounded-lg border border-emerald-100 bg-white/90 p-8 text-center shadow-sm backdrop-blur dark:border-emerald-500/40 dark:bg-slate-900/90">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
             <Check size={28} aria-hidden="true" />
           </div>
-          <h2 className="mt-5 text-4xl font-semibold tracking-tight text-slate-950">{t("apply.success.title")}</h2>
+          <h2 className="mt-5 tm-title">{t("apply.success.title")}</h2>
           <div className="mt-4 inline-flex rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
             {getApplyModeLabelForMode(executionResult.applyMode)}
           </div>
-          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600">
+          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600 dark:text-slate-300">
             {message}
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Link
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950"
+                className="tm-button-secondary"
               to="/history"
             >
               <History size={17} aria-hidden="true" />
@@ -127,7 +124,7 @@ export function ApplyPage() {
             </Link>
             {isSuccess ? (
               <Link
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                className="tm-button-primary"
                 to={`/verify?id=${executionResult.optimizationId}`}
               >
                 <ShieldCheck size={17} aria-hidden="true" />
@@ -141,22 +138,22 @@ export function ApplyPage() {
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center">
-      <section className="w-full max-w-3xl rounded-lg border border-white/70 bg-white/90 p-8 shadow-sm backdrop-blur">
+    <div className="tm-page-center">
+      <section className="w-full max-w-3xl tm-hero">
         <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-700">
+          <div className="tm-icon-tile">
             <Loader2 className="animate-spin" size={23} aria-hidden="true" />
           </div>
           <div>
-            <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-700">
+            <p className="tm-eyebrow">
               {getApplyModeLabelForMode(executionResult.applyMode)} {t("apply.progress.flowSuffix")}
             </p>
-            <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{t("apply.progress.title")}</h2>
-            <p className="mt-4 text-lg leading-8 text-slate-600">{t("apply.progress.subtitle")}</p>
+            <h2 className="tm-title">{t("apply.progress.title")}</h2>
+            <p className="tm-subtitle">{t("apply.progress.subtitle")}</p>
           </div>
         </div>
 
-        <div className="mt-8 rounded-lg border border-slate-200 bg-slate-50/80 p-5">
+        <div className="mt-8 tm-panel-muted">
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("apply.progress.label.currentOptimization")}</p>
@@ -185,8 +182,8 @@ export function ApplyPage() {
             <span>{t("apply.progress.label.progress")}</span>
             <span>{progress}%</span>
           </div>
-          <div className="h-4 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
-            <div className="h-full rounded-full bg-blue-600 transition-all duration-300" style={{ width: `${progress}%` }} />
+          <div className="tm-progress-track">
+            <div className="tm-progress-value" style={{ width: `${progress}%` }} />
           </div>
         </div>
 

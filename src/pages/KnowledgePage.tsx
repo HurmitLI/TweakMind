@@ -107,18 +107,18 @@ export function KnowledgePage() {
   );
 
   return (
-    <div className="flex flex-1 flex-col">
-      <section className="rounded-lg border border-white/70 bg-white/80 px-8 py-8 shadow-sm backdrop-blur">
-        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">{t("knowledge.eyebrow")}</p>
-        <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{t("knowledge.title")}</h2>
-        <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">{t("knowledge.subtitle")}</p>
+    <div className="tm-page">
+      <section className="tm-hero">
+        <p className="tm-eyebrow">{t("knowledge.eyebrow")}</p>
+        <h2 className="tm-title">{t("knowledge.title")}</h2>
+        <p className="tm-subtitle">{t("knowledge.subtitle")}</p>
 
         <div className="mt-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <label className="relative block max-w-xl flex-1">
             <span className="sr-only">{t("knowledge.search.srOnly")}</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} aria-hidden="true" />
             <input
-              className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm font-medium text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+              className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm font-medium text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("knowledge.search.placeholder")}
               type="search"
@@ -133,10 +133,8 @@ export function KnowledgePage() {
               return (
                 <button
                   className={[
-                    "h-9 rounded-full border px-4 text-sm font-semibold transition",
-                    isSelected
-                      ? "border-blue-200 bg-blue-600 text-white shadow-sm"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-700"
+                    "h-9 tm-chip",
+                    isSelected ? "tm-chip-active" : ""
                   ].join(" ")}
                   key={category}
                   onClick={() => setSelectedCategory(isSelected ? null : category)}
@@ -150,7 +148,7 @@ export function KnowledgePage() {
         </div>
       </section>
 
-      <section className="mt-6 grid gap-4">
+      <section className="grid gap-4">
         {visibleKnowledge.length === 0 ? (
           <EmptyState
             actionLabel={knowledgeItems.length === 0 ? t("knowledge.empty.noEntries.action") : t("knowledge.empty.noMatch.action")}
@@ -173,61 +171,61 @@ export function KnowledgePage() {
           />
         ) : (
           visibleKnowledge.map((knowledge) => (
-          <Link
-            className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            key={knowledge.identity.id}
-            to={`/knowledge/detail?id=${knowledge.identity.id}&from=knowledge`}
-          >
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h3 className="text-xl font-semibold tracking-tight text-slate-950">
-                    {SettingsService.resolveKnowledgeTitle(knowledge)}
-                  </h3>
-                  <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                    {translateCategory(knowledge.identity.category)}
-                  </span>
-                  <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                    {t("knowledge.card.statusPrefix")}{" "}
-                    {translateScanDisplayState(statusById.get(knowledge.identity.id) ?? "Scan Required")}
-                  </span>
-                </div>
-                <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{knowledge.overview.summary}</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {knowledge.identity.tags.slice(0, 4).map((tag) => (
-                    <span
-                      className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600"
-                      key={tag}
-                    >
-                      {tag}
+            <Link
+              className="tm-card focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-950"
+              key={knowledge.identity.id}
+              to={`/knowledge/detail?id=${knowledge.identity.id}&from=knowledge`}
+            >
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h3 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-100">
+                      {SettingsService.resolveKnowledgeTitle(knowledge)}
+                    </h3>
+                    <span className="tm-badge-small border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      {translateCategory(knowledge.identity.category)}
                     </span>
-                  ))}
+                    <span className="tm-badge-small border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      {t("knowledge.card.statusPrefix")}{" "}
+                      {translateScanDisplayState(statusById.get(knowledge.identity.id) ?? "Scan Required")}
+                    </span>
+                  </div>
+                  <p className="mt-3 max-w-3xl tm-body">{knowledge.overview.summary}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {knowledge.identity.tags.slice(0, 4).map((tag) => (
+                      <span
+                        className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                        key={tag}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <div className="grid shrink-0 gap-2 sm:grid-cols-2 lg:w-72 lg:grid-cols-2">
-                <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledge.card.label.risk")}</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-950">{translateRiskLevel(knowledge.risks.riskLevel)}</p>
-                </div>
-                <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledge.card.label.expectedBenefit")}</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-950">{translateBenefitLevel(knowledge.decisionSupport.expectedBenefit)}</p>
-                </div>
-                <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledge.card.label.priority")}</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-950">{translatePriority(knowledge.identity.priority)}</p>
-                </div>
-                <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledge.card.label.scan")}</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-950">
-                    {translateScanCapability(RuntimeScanService.getCapability(knowledge.identity.id).scanCapability)}
-                  </p>
+                <div className="grid shrink-0 gap-2 sm:grid-cols-2 lg:w-72 lg:grid-cols-2">
+                  <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                    <p className="tm-label">{t("knowledge.card.label.risk")}</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{translateRiskLevel(knowledge.risks.riskLevel)}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                    <p className="tm-label">{t("knowledge.card.label.expectedBenefit")}</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{translateBenefitLevel(knowledge.decisionSupport.expectedBenefit)}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                    <p className="tm-label">{t("knowledge.card.label.priority")}</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{translatePriority(knowledge.identity.priority)}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                    <p className="tm-label">{t("knowledge.card.label.scan")}</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">
+                      {translateScanCapability(RuntimeScanService.getCapability(knowledge.identity.id).scanCapability)}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          </Link>
-        ))
+            </Link>
+          ))
         )}
       </section>
     </div>

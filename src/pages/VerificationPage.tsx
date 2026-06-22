@@ -35,9 +35,9 @@ const statusIcons = {
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white/80 p-4">
-      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</dt>
-      <dd className="mt-2 text-sm font-semibold text-slate-950">{value}</dd>
+    <div className="tm-field">
+      <dt className="tm-label">{label}</dt>
+      <dd className="tm-value">{value}</dd>
     </div>
   );
 }
@@ -93,13 +93,13 @@ export function VerificationPage() {
   const checkingLabel = t("verify.status.checking");
 
   return (
-    <div className="flex flex-1 flex-col gap-6">
-      <section className="rounded-lg border border-white/70 bg-white/85 px-8 py-8 shadow-sm backdrop-blur">
+    <div className="tm-page">
+      <section className="tm-hero">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">{t("verify.eyebrow")}</p>
-            <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{optimization.title}</h2>
-            <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">{t("verify.subtitle")}</p>
+            <p className="tm-eyebrow">{t("verify.eyebrow")}</p>
+            <h2 className="tm-title">{optimization.title}</h2>
+            <p className="tm-subtitle">{t("verify.subtitle")}</p>
           </div>
           <span className={["inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold", statusStyles[status]].join(" ")}>
             <StatusIcon className={isVerifying ? "animate-spin" : ""} size={16} aria-hidden="true" />
@@ -148,22 +148,22 @@ export function VerificationPage() {
           title={t("verify.empty.title")}
         />
       ) : (
-        <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
-          <h3 className="text-lg font-semibold tracking-tight text-slate-950">{t("verify.result.title")}</h3>
-          <p className="mt-4 text-sm leading-6 text-slate-600">{translateRuntimeMessage(result?.message)}</p>
+        <section className="tm-panel">
+          <h3 className="tm-section-title">{t("verify.result.title")}</h3>
+          <p className="mt-4 tm-body">{translateRuntimeMessage(result?.message)}</p>
           <p className="mt-4 text-sm leading-6 text-slate-500">{t("verify.result.readOnlyNote")}</p>
         </section>
       )}
 
-      <footer className="flex flex-col-reverse gap-3 rounded-lg border border-slate-200 bg-white/90 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <footer className="tm-footer">
         <Link
-          className="inline-flex h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950"
+          className="tm-button-secondary"
           to="/dashboard"
         >
           {t("common.action.returnHome")}
         </Link>
         <Link
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+          className="tm-button-primary"
           to="/history"
         >
           <History size={17} aria-hidden="true" />

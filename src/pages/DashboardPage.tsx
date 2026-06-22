@@ -51,17 +51,17 @@ export function DashboardPage() {
   ];
 
   return (
-    <div className="flex flex-1 flex-col">
-      <section className="relative overflow-hidden rounded-lg border border-white/70 bg-white/80 px-8 py-10 shadow-sm backdrop-blur">
+    <div className="tm-page">
+      <section className="tm-hero-accent">
         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400" />
         <div className="max-w-4xl">
-          <h2 className="text-5xl font-semibold tracking-tight text-slate-950">{t("dashboard.hero.title")}</h2>
-          <p className="mt-4 text-xl leading-8 text-slate-700">{t("dashboard.hero.subtitle")}</p>
-          <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">{t("dashboard.hero.body")}</p>
+          <h2 className="tm-title-xl">{t("dashboard.hero.title")}</h2>
+          <p className="mt-4 text-xl leading-8 text-slate-700 dark:text-slate-200">{t("dashboard.hero.subtitle")}</p>
+          <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600 dark:text-slate-300">{t("dashboard.hero.body")}</p>
         </div>
       </section>
 
-      <section className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-3">
+      <section className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         {dashboardCards.map((card) => (
           <DashboardCard
             actionLabel={card.actionLabel}
@@ -77,19 +77,19 @@ export function DashboardPage() {
         ))}
       </section>
 
-      <section className="mt-6 rounded-lg border border-slate-200 bg-white/90 p-6 shadow-sm backdrop-blur">
-        <h3 className="text-lg font-semibold tracking-tight text-slate-950">{t("dashboard.why.title")}</h3>
+      <section className="tm-panel">
+        <h3 className="tm-section-title">{t("dashboard.why.title")}</h3>
         <div className="mt-5 grid gap-4 lg:grid-cols-3">
           {highlights.map((highlight) => {
             const Icon = highlight.icon;
 
             return (
-              <article className="rounded-lg border border-slate-100 bg-slate-50/80 p-5" key={highlight.title}>
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-700">
+              <article className="rounded-lg border border-slate-100 bg-slate-50/80 p-5 dark:border-slate-700 dark:bg-slate-800/70" key={highlight.title}>
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-700 dark:border-blue-400/30 dark:bg-blue-950/40 dark:text-blue-300">
                   <Icon size={19} aria-hidden="true" />
                 </div>
-                <h4 className="mt-4 text-base font-semibold tracking-tight text-slate-950">{highlight.title}</h4>
-                <p className="mt-2 text-sm leading-6 text-slate-600">{highlight.description}</p>
+                <h4 className="mt-4 text-base font-semibold tracking-tight text-slate-950 dark:text-slate-100">{highlight.title}</h4>
+                <p className="mt-2 tm-body">{highlight.description}</p>
               </article>
             );
           })}

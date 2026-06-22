@@ -24,7 +24,7 @@ export function ReportSelectionPanel({ summary }: ReportSelectionPanelProps) {
   const canApply = summary.applyState === "ready" && summary.applyTargetId;
 
   return (
-    <section className="mt-6 rounded-lg border border-slate-200 bg-white/90 p-5 shadow-sm backdrop-blur">
+    <section className="tm-panel">
       <div className="grid gap-4 md:grid-cols-4">
         <div>
           <p className="text-sm font-medium text-slate-500">{t("report.selection.label.selected")}</p>
@@ -47,14 +47,14 @@ export function ReportSelectionPanel({ summary }: ReportSelectionPanelProps) {
       <div className="mt-5 flex justify-end">
         {canApply ? (
           <Link
-            className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="tm-button-primary"
             to={`/confirm/${summary.applyTargetId}?from=report`}
           >
             {t("report.selection.action.applySelected")}
           </Link>
         ) : (
           <button
-            className="inline-flex h-11 cursor-not-allowed items-center justify-center rounded-lg bg-slate-200 px-5 text-sm font-semibold text-slate-600"
+            className="tm-button-disabled"
             disabled
             type="button"
           >

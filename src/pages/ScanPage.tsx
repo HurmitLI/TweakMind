@@ -80,16 +80,16 @@ export function ScanPage() {
   );
 
   return (
-    <div className="flex flex-1 items-center justify-center">
-      <section className="w-full max-w-3xl rounded-lg border border-white/70 bg-white/85 p-8 shadow-sm backdrop-blur">
+    <div className="tm-page-center">
+      <section className="w-full max-w-3xl tm-hero">
         <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-700">
+          <div className="tm-icon-tile">
             <ShieldCheck size={23} aria-hidden="true" />
           </div>
           <div>
-            <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-700">{t("scan.eyebrow")}</p>
-            <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{t("scan.title")}</h2>
-            <p className="mt-4 text-lg leading-8 text-slate-600">{t("scan.subtitle")}</p>
+            <p className="tm-eyebrow">{t("scan.eyebrow")}</p>
+            <h2 className="tm-title">{t("scan.title")}</h2>
+            <p className="tm-subtitle">{t("scan.subtitle")}</p>
           </div>
         </div>
 
@@ -98,7 +98,7 @@ export function ScanPage() {
             <span>{t("scan.progress.label")}</span>
             <span>{progress}%</span>
           </div>
-          <div className="h-4 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+          <div className="tm-progress-track">
             <div
               className="h-full rounded-full bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-500 transition-all duration-300"
               style={{ width: `${progress}%` }}

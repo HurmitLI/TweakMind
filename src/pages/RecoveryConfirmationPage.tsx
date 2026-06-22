@@ -8,9 +8,9 @@ import { WindowsOptimizationService } from "../core/windows/WindowsOptimizationS
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white/80 p-4">
-      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</dt>
-      <dd className="mt-2 text-sm font-semibold text-slate-950">{value}</dd>
+    <div className="tm-field">
+      <dt className="tm-label">{label}</dt>
+      <dd className="tm-value">{value}</dd>
     </div>
   );
 }
@@ -41,14 +41,11 @@ export function RecoveryConfirmationPage() {
 
   if (!entry) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <section className="w-full max-w-3xl rounded-lg border border-amber-100 bg-white/90 p-8 text-center shadow-sm backdrop-blur">
-          <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{t("recoveryConfirm.unavailable.title")}</h2>
-          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600">{t("recoveryConfirm.unavailable.description")}</p>
-          <Link
-            className="mt-8 inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-            to="/history"
-          >
+      <div className="tm-page-center">
+        <section className="w-full max-w-3xl rounded-lg border border-amber-100 bg-white/90 p-8 text-center shadow-sm backdrop-blur dark:border-amber-500/40 dark:bg-slate-900/90">
+          <h2 className="tm-title">{t("recoveryConfirm.unavailable.title")}</h2>
+          <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600 dark:text-slate-300">{t("recoveryConfirm.unavailable.description")}</p>
+          <Link className="mt-8 tm-button-primary" to="/history">
             {t("common.action.openHistory")}
           </Link>
         </section>
@@ -57,22 +54,22 @@ export function RecoveryConfirmationPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6">
-      <Link className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-blue-700" to="/history">
+    <div className="tm-page">
+      <Link className="tm-button-ghost" to="/history">
         <ArrowLeft size={17} aria-hidden="true" />
         {t("common.action.cancel")}
       </Link>
 
-      <section className="rounded-lg border border-white/70 bg-white/85 px-8 py-8 shadow-sm backdrop-blur">
+      <section className="tm-hero">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">{t("recoveryConfirm.eyebrow")}</p>
-            <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{entry.optimizationName}</h2>
-            <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">
+            <p className="tm-eyebrow">{t("recoveryConfirm.eyebrow")}</p>
+            <h2 className="tm-title">{entry.optimizationName}</h2>
+            <p className="tm-subtitle">
               {t("recoveryConfirm.subtitle", { name: entry.optimizationName })}
             </p>
           </div>
-          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
+          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-950/40 dark:text-emerald-300">
             <ShieldCheck size={16} aria-hidden="true" />
             {t("recoveryConfirm.badge.realRecovery")}
           </span>
@@ -89,44 +86,44 @@ export function RecoveryConfirmationPage() {
       </dl>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
-          <h3 className="text-lg font-semibold tracking-tight text-slate-950">{t("recoveryConfirm.section.whatWillChange")}</h3>
-          <p className="mt-4 text-sm leading-6 text-slate-600">
+        <section className="tm-panel">
+          <h3 className="tm-section-title">{t("recoveryConfirm.section.whatWillChange")}</h3>
+          <p className="mt-4 tm-body">
             {t("recoveryConfirm.whatWillChange.body", { name: entry.optimizationName, state: entry.previousState })}
           </p>
         </section>
 
-        <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
-          <h3 className="text-lg font-semibold tracking-tight text-slate-950">{t("recoveryConfirm.section.recoveryMethod")}</h3>
-          <p className="mt-4 text-sm leading-6 text-slate-600">{t("recoveryConfirm.recoveryMethod.body")}</p>
+        <section className="tm-panel">
+          <h3 className="tm-section-title">{t("recoveryConfirm.section.recoveryMethod")}</h3>
+          <p className="mt-4 tm-body">{t("recoveryConfirm.recoveryMethod.body")}</p>
           {entry.optimizationId === "sysmain" ? (
-            <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+            <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-100">
               {t("recoveryConfirm.notice.sysmain")}
             </p>
           ) : null}
           {entry.optimizationId === "hags" ? (
-            <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+            <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-100">
               {t("recoveryConfirm.notice.hags")}
             </p>
           ) : null}
           {entry.optimizationId === "power-plan" ? (
-            <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+            <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-100">
               {t("recoveryConfirm.notice.powerPlan")}
             </p>
           ) : null}
         </section>
       </div>
 
-      <footer className="flex flex-col-reverse gap-3 rounded-lg border border-slate-200 bg-white/90 p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <footer className="tm-footer">
         <Link
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950"
+          className="tm-button-secondary"
           to="/history"
         >
           <ArrowLeft size={17} aria-hidden="true" />
           {t("common.action.cancel")}
         </Link>
         <Link
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+          className="tm-button-primary"
           to={`/recovery?historyId=${entry.id}`}
         >
           {t("recoveryConfirm.action.confirmRecovery")}

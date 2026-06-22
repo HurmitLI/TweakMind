@@ -31,7 +31,7 @@ export function ReportPage() {
     }[sectionId] as "report.sectionEmpty.recommended";
 
     return (
-      <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+      <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 tm-body dark:border-slate-700 dark:bg-slate-800">
         {t(messageKey)}
       </p>
     );
@@ -62,10 +62,10 @@ export function ReportPage() {
 
   if (!reportModel.hasScan) {
     return (
-      <div className="flex flex-1 flex-col gap-6">
-        <section className="rounded-lg border border-white/70 bg-white/80 px-8 py-8 shadow-sm backdrop-blur">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">{t("report.eyebrow")}</p>
-          <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{t("report.title")}</h2>
+      <div className="tm-page">
+        <section className="tm-hero">
+          <p className="tm-eyebrow">{t("report.eyebrow")}</p>
+          <h2 className="tm-title">{t("report.title")}</h2>
         </section>
         <EmptyState
           actionLabel={t("report.empty.noScan.action")}
@@ -80,12 +80,12 @@ export function ReportPage() {
   const hasVisibleItems = filteredItems.length > 0;
 
   return (
-    <div className="flex flex-1 flex-col">
-      <section className="rounded-lg border border-white/70 bg-white/80 px-8 py-8 shadow-sm backdrop-blur">
+    <div className="tm-page">
+      <section className="tm-hero">
         <div className="max-w-3xl">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">{t("report.eyebrow")}</p>
-          <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{t("report.title")}</h2>
-          <p className="mt-4 text-lg leading-8 text-slate-600">{t("report.subtitle")}</p>
+          <p className="tm-eyebrow">{t("report.eyebrow")}</p>
+          <h2 className="tm-title">{t("report.title")}</h2>
+          <p className="tm-subtitle">{t("report.subtitle")}</p>
         </div>
 
         <div className="mt-7 grid gap-4 md:grid-cols-4">
@@ -96,7 +96,7 @@ export function ReportPage() {
         </div>
       </section>
 
-      <div className="mt-6">
+      <div>
         <ReportFilters
           activeCategory={activeCategory}
           activeFilter={activeFilter}
@@ -123,7 +123,7 @@ export function ReportPage() {
           title={t("report.empty.noMatch.title")}
         />
       ) : (
-        <section className="mt-6 grid gap-4">
+        <section className="grid gap-4">
           {filteredSections.map((section) => (
             <DecisionReportSectionPanel
               emptyState={sectionEmptyState(section.id)}

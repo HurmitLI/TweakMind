@@ -35,7 +35,7 @@ export function ReportFilters({
   const { t } = useTranslation();
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white/90 p-4 shadow-sm">
+    <section className="rounded-lg border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/90">
       <div className="flex flex-wrap gap-2">
         {filterOptions.map((option) => {
           const isActive = activeFilter === option.id;
@@ -43,10 +43,8 @@ export function ReportFilters({
           return (
             <button
               className={[
-                "h-9 rounded-full border px-4 text-sm font-semibold transition",
-                isActive
-                  ? "border-blue-200 bg-blue-600 text-white"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-700"
+                "h-9 tm-chip",
+                isActive ? "tm-chip-active" : ""
               ].join(" ")}
               key={option.id}
               onClick={() => onFilterChange(option.id)}

@@ -112,15 +112,15 @@ export function KnowledgeDetailPage() {
 
   if (!knowledge) {
     return (
-      <div className="flex flex-1 flex-col gap-6">
+      <div className="tm-page">
         <Link
-          className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-blue-700"
+          className="tm-button-ghost"
           to={backTarget}
         >
           <ArrowLeft size={17} aria-hidden="true" />
           {backLabel}
         </Link>
-        <section className="rounded-lg border border-slate-200 bg-white/95 p-6 shadow-sm">
+        <section className="tm-panel">
           <ErrorPresentation
             actions={{ goBackHref: backTarget }}
             descriptor={ErrorPresentationService.fromTechnicalError(
@@ -152,9 +152,9 @@ export function KnowledgeDetailPage() {
     (scanCapability.scanCapability === "Not Supported Yet" ? "Not Supported Yet" : "Scan Required");
 
   return (
-    <div className="flex flex-1 flex-col gap-6">
+    <div className="tm-page">
       <Link
-        className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-blue-700"
+        className="tm-button-ghost"
         to={backTarget}
       >
         <ArrowLeft size={17} aria-hidden="true" />
@@ -163,9 +163,9 @@ export function KnowledgeDetailPage() {
 
       <OptimizationWorkflowStrip currentStep="Decision" />
 
-      <section className="rounded-lg border border-white/70 bg-white/85 px-8 py-8 shadow-sm backdrop-blur">
-        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">{t("knowledgeDetail.eyebrow")}</p>
-        <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{t("knowledgeDetail.title", { title: displayTitle })}</h2>
+      <section className="tm-hero">
+        <p className="tm-eyebrow">{t("knowledgeDetail.eyebrow")}</p>
+        <h2 className="tm-title">{t("knowledgeDetail.title", { title: displayTitle })}</h2>
         <div className="mt-5 flex flex-wrap gap-3">
           <RecommendationBadge value={recommendation.recommendation} />
           <span
@@ -202,17 +202,17 @@ export function KnowledgeDetailPage() {
       </DecisionSection>
 
       <dl className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-lg border border-slate-200 bg-white/80 p-4">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.expectedBenefit")}</dt>
-          <dd className="mt-2 text-sm font-semibold text-slate-950">{translateBenefitLevel(knowledge.decisionSupport.expectedBenefit)}</dd>
+        <div className="tm-field">
+          <dt className="tm-label">{t("knowledgeDetail.label.expectedBenefit")}</dt>
+          <dd className="tm-value">{translateBenefitLevel(knowledge.decisionSupport.expectedBenefit)}</dd>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white/80 p-4">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.confidence")}</dt>
-          <dd className="mt-2 text-sm font-semibold text-slate-950">{translateConfidenceLevel(knowledge.decisionSupport.confidence)}</dd>
+        <div className="tm-field">
+          <dt className="tm-label">{t("knowledgeDetail.label.confidence")}</dt>
+          <dd className="tm-value">{translateConfidenceLevel(knowledge.decisionSupport.confidence)}</dd>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white/80 p-4">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("knowledgeDetail.label.recommendation")}</dt>
-          <dd className="mt-2 text-sm font-semibold text-slate-950">{translateRecommendation(recommendation.recommendation)}</dd>
+        <div className="tm-field">
+          <dt className="tm-label">{t("knowledgeDetail.label.recommendation")}</dt>
+          <dd className="tm-value">{translateRecommendation(recommendation.recommendation)}</dd>
         </div>
       </dl>
 
@@ -310,9 +310,9 @@ export function KnowledgeDetailPage() {
         </DecisionSection>
       ) : null}
 
-      <footer className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white/90 p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+      <footer className="tm-footer lg:flex-row">
         <Link
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="tm-button-secondary"
           to={backTarget}
         >
           <ArrowLeft size={17} aria-hidden="true" />
@@ -322,7 +322,7 @@ export function KnowledgeDetailPage() {
         <div className="flex flex-col gap-3 sm:flex-row">
           {historyEntries.length > 0 ? (
             <Link
-              className="inline-flex h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="tm-button-secondary"
               to="/history"
             >
               {t("knowledgeDetail.action.viewHistory")}
@@ -331,7 +331,7 @@ export function KnowledgeDetailPage() {
 
           {canRealApply ? (
             <Link
-              className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="tm-button-primary"
               to={`/confirm/${knowledge.identity.id}?from=${applyFrom}`}
             >
               {t("knowledgeDetail.action.apply")}

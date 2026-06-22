@@ -68,14 +68,14 @@ export function HistoryPage() {
   const [history] = useState<OptimizationHistoryEntry[]>(() => WindowsOptimizationService.getHistory());
 
   return (
-    <div className="flex flex-1 flex-col">
-      <section className="rounded-lg border border-white/70 bg-white/80 px-8 py-8 shadow-sm backdrop-blur">
-        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">{t("history.eyebrow")}</p>
-        <h2 className="text-4xl font-semibold tracking-tight text-slate-950">{t("history.title")}</h2>
-        <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">{t("history.subtitle")}</p>
+    <div className="tm-page">
+      <section className="tm-hero">
+        <p className="tm-eyebrow">{t("history.eyebrow")}</p>
+        <h2 className="tm-title">{t("history.title")}</h2>
+        <p className="tm-subtitle">{t("history.subtitle")}</p>
       </section>
 
-      <section className="mt-6 grid gap-4">
+      <section className="grid gap-4">
         {history.length === 0 ? (
           <EmptyState
             actionLabel={t("history.empty.action")}
@@ -90,11 +90,11 @@ export function HistoryPage() {
             const recoveryStatus = entry.recoveryStatus ?? "Not Started";
 
             return (
-            <article className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm" key={entry.id}>
+            <article className="tm-card" key={entry.id}>
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-3">
-                    <h3 className="text-xl font-semibold text-slate-950">{entry.optimizationName}</h3>
+                    <h3 className="text-xl font-semibold text-slate-950 dark:text-slate-100">{entry.optimizationName}</h3>
                     <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
                       {translateHistoryStatus(entry.status)}
                     </span>
@@ -115,7 +115,7 @@ export function HistoryPage() {
                       {t("history.entry.recoveryPrefix")} {translateRecoveryStatus(recoveryStatus)}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                  <p className="mt-2 tm-body">
                     {historyError ? t("history.entry.needsReview") : translateRuntimeMessage(entry.recoveryMessage ?? entry.message)}
                   </p>
                   {historyError ? (
@@ -181,14 +181,14 @@ export function HistoryPage() {
 
                 {canRecover(entry) ? (
                   <Link
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                    className="tm-button-primary"
                     to={`/recover/${entry.id}`}
                   >
                     {t("history.action.restore")}
                   </Link>
                 ) : (
                   <button
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    className="tm-button-primary"
                     disabled
                     type="button"
                   >

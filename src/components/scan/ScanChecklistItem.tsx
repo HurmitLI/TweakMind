@@ -11,8 +11,8 @@ export function ScanChecklistItem({ label, complete }: ScanChecklistItemProps) {
       className={[
         "flex items-center gap-3 rounded-lg border px-4 py-3 transition duration-300",
         complete
-          ? "border-emerald-100 bg-white text-slate-950 shadow-sm"
-          : "border-slate-200 bg-white/60 text-slate-400"
+          ? "border-emerald-100 bg-white text-slate-950 shadow-sm dark:border-emerald-500/30 dark:bg-slate-800 dark:text-slate-100"
+          : "border-slate-200 bg-white/60 text-slate-400 dark:border-slate-700 dark:bg-slate-800/50"
       ].join(" ")}
     >
       <span

@@ -36,7 +36,7 @@ export function OnboardingPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 py-10 text-slate-100">
-      <div className="w-full max-w-2xl rounded-lg border border-slate-800 bg-slate-900/95 p-8 shadow-2xl backdrop-blur">
+      <div className="w-full max-w-2xl rounded-lg border border-slate-800 bg-slate-900/95 p-8 shadow-2xl shadow-slate-950/30 backdrop-blur">
         <p className="text-sm font-semibold uppercase tracking-wide text-blue-400">
           {t("onboarding.stepIndicator", { current: stepIndex + 1, total: stepTitleKeys.length })}
         </p>
@@ -80,14 +80,14 @@ export function OnboardingPage() {
             <p>{t("onboarding.final.intro")}</p>
             <div className="flex flex-col gap-3 pt-2 sm:flex-row">
               <button
-                className="inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                className="tm-button-primary"
                 onClick={() => finish("/scan")}
                 type="button"
               >
                 {t("onboarding.action.startScan")}
               </button>
               <button
-                className="inline-flex h-11 items-center justify-center rounded-lg border border-slate-700 bg-slate-950 px-5 text-sm font-semibold text-slate-100 transition hover:border-slate-500"
+                className="tm-button-secondary border-slate-700 bg-slate-950 text-slate-100 hover:border-slate-500"
                 onClick={() => finish("/knowledge")}
                 type="button"
               >
@@ -114,7 +114,7 @@ export function OnboardingPage() {
               {t("onboarding.action.skip")}
             </button>
             <button
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700"
+              className="tm-button-primary"
               onClick={() => setStepIndex((current) => current + 1)}
               type="button"
             >

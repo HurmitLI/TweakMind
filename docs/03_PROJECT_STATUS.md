@@ -126,6 +126,12 @@ None
 
 ---
 
+# Completed ALPHA
+
+- ALPHA-002 Visual Consistency Pass
+
+---
+
 # In Progress
 
 None
@@ -134,7 +140,7 @@ None
 
 # Next Development
 
-ALPHA-002 Visual Consistency Pass
+ALPHA-003 End-to-End QA
 
 ---
 

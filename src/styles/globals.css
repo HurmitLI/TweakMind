@@ -2,6 +2,124 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  .tm-page {
+    @apply flex flex-1 flex-col gap-6;
+  }
+
+  .tm-page-center {
+    @apply flex flex-1 items-center justify-center;
+  }
+
+  .tm-hero {
+    @apply rounded-lg border border-white/70 bg-white/85 px-8 py-8 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/85;
+  }
+
+  .tm-hero-accent {
+    @apply relative overflow-hidden rounded-lg border border-white/70 bg-white/85 px-8 py-10 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/85;
+  }
+
+  .tm-eyebrow {
+    @apply mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300;
+  }
+
+  .tm-title {
+    @apply text-4xl font-semibold tracking-tight text-slate-950 dark:text-slate-100;
+  }
+
+  .tm-title-xl {
+    @apply text-5xl font-semibold tracking-tight text-slate-950 dark:text-slate-100;
+  }
+
+  .tm-subtitle {
+    @apply mt-4 max-w-3xl text-lg leading-8 text-slate-600 dark:text-slate-300;
+  }
+
+  .tm-panel {
+    @apply rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900/95;
+  }
+
+  .tm-panel-muted {
+    @apply rounded-lg border border-slate-200 bg-slate-50/80 p-5 dark:border-slate-700 dark:bg-slate-800/70;
+  }
+
+  .tm-card {
+    @apply rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/95 dark:hover:border-blue-400/50;
+  }
+
+  .tm-field {
+    @apply rounded-lg border border-slate-200 bg-white/80 p-4 dark:border-slate-700 dark:bg-slate-900/80;
+  }
+
+  .tm-label {
+    @apply text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400;
+  }
+
+  .tm-value {
+    @apply mt-2 text-sm font-semibold text-slate-950 dark:text-slate-100;
+  }
+
+  .tm-section-title {
+    @apply text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-100;
+  }
+
+  .tm-body {
+    @apply text-sm leading-6 text-slate-600 dark:text-slate-300;
+  }
+
+  .tm-caption {
+    @apply text-xs font-medium text-slate-500 dark:text-slate-400;
+  }
+
+  .tm-footer {
+    @apply flex flex-col-reverse gap-3 rounded-lg border border-slate-200 bg-white/90 p-5 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/90 sm:flex-row sm:items-center sm:justify-between;
+  }
+
+  .tm-button-primary {
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300;
+  }
+
+  .tm-button-secondary {
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:text-white;
+  }
+
+  .tm-button-disabled {
+    @apply inline-flex h-11 cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-slate-200 px-5 text-sm font-semibold text-slate-600 dark:bg-slate-700 dark:text-slate-300;
+  }
+
+  .tm-button-ghost {
+    @apply inline-flex w-fit items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-blue-700 dark:text-slate-300 dark:hover:text-blue-300;
+  }
+
+  .tm-chip {
+    @apply rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-400 dark:hover:text-blue-300;
+  }
+
+  .tm-chip-active {
+    @apply border-blue-200 bg-blue-600 text-white shadow-sm hover:border-blue-200 hover:text-white dark:border-blue-400 dark:bg-blue-600 dark:text-white;
+  }
+
+  .tm-badge {
+    @apply inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold;
+  }
+
+  .tm-badge-small {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold;
+  }
+
+  .tm-icon-tile {
+    @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-700 dark:border-blue-400/30 dark:bg-blue-950/40 dark:text-blue-300;
+  }
+
+  .tm-progress-track {
+    @apply h-4 overflow-hidden rounded-full border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800;
+  }
+
+  .tm-progress-value {
+    @apply h-full rounded-full bg-blue-600 transition-all duration-300;
+  }
+}
+
 :root {
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

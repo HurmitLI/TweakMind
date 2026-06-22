@@ -36,9 +36,9 @@ function PreferenceSection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900/95">
-      <h3 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-100">{title}</h3>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">{description}</p>
+    <section className="tm-panel">
+      <h3 className="tm-section-title">{title}</h3>
+      <p className="mt-2 max-w-2xl tm-body">{description}</p>
       <div className="mt-4">{children}</div>
     </section>
   );
@@ -61,10 +61,8 @@ function OptionButtons<T extends string>({
         return (
           <button
             className={[
-              "h-9 rounded-full border px-4 text-sm font-semibold transition",
-              isSelected
-                ? "border-blue-200 bg-blue-600 text-white shadow-sm"
-                : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-400 dark:hover:text-blue-300"
+              "h-9 tm-chip",
+              isSelected ? "tm-chip-active" : ""
             ].join(" ")}
             key={option.value}
             onClick={() => onChange(option.value)}
@@ -84,11 +82,11 @@ export function SettingsPage() {
   const { settings, updateSettings } = useSettings();
 
   return (
-    <div className="flex flex-1 flex-col gap-6">
-      <section className="rounded-lg border border-white/70 bg-white/85 px-8 py-8 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/85">
-        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">{t("settings.eyebrow")}</p>
-        <h2 className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-slate-100">{t("settings.title")}</h2>
-        <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300">{t("settings.subtitle")}</p>
+    <div className="tm-page">
+      <section className="tm-hero">
+        <p className="tm-eyebrow">{t("settings.eyebrow")}</p>
+        <h2 className="tm-title">{t("settings.title")}</h2>
+        <p className="tm-subtitle">{t("settings.subtitle")}</p>
       </section>
 
       <PreferenceSection description={t("settings.language.description")} title={t("settings.language.title")}>
@@ -117,7 +115,7 @@ export function SettingsPage() {
 
       <PreferenceSection description={t("settings.onboarding.description")} title={t("settings.onboarding.title")}>
         <button
-          className="inline-flex h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-400 dark:hover:text-blue-300"
+          className="tm-button-secondary"
           onClick={() => {
             OnboardingService.reset();
             navigate("/onboarding");
@@ -133,7 +131,7 @@ export function SettingsPage() {
           {AppInfo.name} {t("app.versionLabel", { version: AppInfo.version })}
         </p>
         <Link
-          className="mt-4 inline-flex h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-400 dark:hover:text-blue-300"
+          className="mt-4 tm-button-secondary"
           to="/about"
         >
           {t("settings.application.action")}
