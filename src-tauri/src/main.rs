@@ -24,6 +24,20 @@ struct ApplyResult {
     timestamp: String,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RecoveryResult {
+    optimization_id: String,
+    status: String,
+    previous_state: String,
+    expected_state: String,
+    actual_state: String,
+    previous_startup_type: String,
+    message: String,
+    error: Option<String>,
+    timestamp: String,
+}
+
 fn now_timestamp() -> String {
     match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
         Ok(duration) => duration.as_secs().to_string(),
@@ -56,6 +70,28 @@ fn apply_result(
         status: status.to_string(),
         previous_state: previous_state.to_string(),
         current_state: current_state.to_string(),
+        previous_startup_type: previous_startup_type.to_string(),
+        message,
+        error,
+        timestamp: now_timestamp(),
+    }
+}
+
+fn recovery_result(
+    status: &str,
+    previous_state: &str,
+    expected_state: &str,
+    actual_state: &str,
+    previous_startup_type: &str,
+    message: String,
+    error: Option<String>,
+) -> RecoveryResult {
+    RecoveryResult {
+        optimization_id: "windows-search".to_string(),
+        status: status.to_string(),
+        previous_state: previous_state.to_string(),
+        expected_state: expected_state.to_string(),
+        actual_state: actual_state.to_string(),
         previous_startup_type: previous_startup_type.to_string(),
         message,
         error,
@@ -292,18 +328,21 @@ mod windows_detect {
 
 #[cfg(target_os = "windows")]
 mod windows_apply {
-    use super::{apply_result, ApplyResult};
+    use super::{apply_result, recovery_result, ApplyResult, RecoveryResult};
     use std::ffi::OsStr;
     use std::iter::once;
     use std::os::windows::ffi::OsStrExt;
     use std::ptr::{null, null_mut};
+    use std::thread::sleep;
+    use std::time::Duration;
     use windows_sys::Win32::Foundation::{ERROR_ACCESS_DENIED, ERROR_INSUFFICIENT_BUFFER};
     use windows_sys::Win32::System::Services::{
         ChangeServiceConfigW, CloseServiceHandle, ControlService, OpenSCManagerW, OpenServiceW,
         QueryServiceConfigW, QueryServiceStatusEx, SC_HANDLE, SC_MANAGER_CONNECT,
-        SC_STATUS_PROCESS_INFO, SERVICE_CHANGE_CONFIG, SERVICE_CONTROL_STOP, SERVICE_DISABLED,
-        SERVICE_NO_CHANGE, SERVICE_QUERY_CONFIG, SERVICE_QUERY_STATUS, SERVICE_RUNNING,
-        SERVICE_STOP, SERVICE_STOPPED, SERVICE_STATUS, SERVICE_STATUS_PROCESS, QUERY_SERVICE_CONFIGW,
+        SC_STATUS_PROCESS_INFO, SERVICE_AUTO_START, SERVICE_CHANGE_CONFIG, SERVICE_CONTROL_STOP,
+        SERVICE_DEMAND_START, SERVICE_DISABLED, SERVICE_NO_CHANGE, SERVICE_QUERY_CONFIG,
+        SERVICE_QUERY_STATUS, SERVICE_RUNNING, SERVICE_START, SERVICE_STOP, SERVICE_STOPPED,
+        SERVICE_STATUS, SERVICE_STATUS_PROCESS, StartServiceW, QUERY_SERVICE_CONFIGW,
     };
 
     struct ServiceHandle(SC_HANDLE);
@@ -333,6 +372,17 @@ mod windows_apply {
             3 => "Manual".to_string(),
             4 => "Disabled".to_string(),
             _ => "Unknown".to_string(),
+        }
+    }
+
+    fn startup_type_code(value: &str, expected_state: &str) -> u32 {
+        match value {
+            "Automatic" => SERVICE_AUTO_START,
+            "Manual" => SERVICE_DEMAND_START,
+            "Disabled" => SERVICE_DISABLED,
+            _ if expected_state == "Running" => SERVICE_AUTO_START,
+            _ if expected_state == "Disabled" => SERVICE_DISABLED,
+            _ => SERVICE_DEMAND_START,
         }
     }
 
@@ -403,6 +453,22 @@ mod windows_apply {
             state: state_name(status.dwCurrentState, &startup_type),
             startup_type,
         })
+    }
+
+    fn wait_for_state(service: SC_HANDLE, expected_state: &str) -> Option<ServiceSnapshot> {
+        for _ in 0..20 {
+            if let Ok(snapshot) = query_snapshot(service) {
+                if snapshot.state == expected_state
+                    || (expected_state == "Stopped" && snapshot.state != "Running" && snapshot.startup_type != "Disabled")
+                {
+                    return Some(snapshot);
+                }
+            }
+
+            sleep(Duration::from_millis(250));
+        }
+
+        query_snapshot(service).ok()
     }
 
     pub fn windows_search() -> ApplyResult {
@@ -512,11 +578,134 @@ mod windows_apply {
             None,
         )
     }
+
+    pub fn restore_windows_search(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+        let service_name = wide("WSearch");
+        let manager = unsafe { OpenSCManagerW(null(), null(), SC_MANAGER_CONNECT) };
+
+        if manager.is_null() {
+            let code = last_error();
+            return recovery_result(
+                "failed",
+                &previous_state,
+                &previous_state,
+                "Unknown",
+                &previous_startup_type,
+                "Unable to open Service Control Manager.".to_string(),
+                Some(format!("OpenSCManagerW failed with Windows error {code}.")),
+            );
+        }
+
+        let manager = ServiceHandle(manager);
+        let service = unsafe {
+            OpenServiceW(
+                manager.0,
+                service_name.as_ptr(),
+                SERVICE_QUERY_STATUS
+                    | SERVICE_QUERY_CONFIG
+                    | SERVICE_CHANGE_CONFIG
+                    | SERVICE_START
+                    | SERVICE_STOP,
+            )
+        };
+
+        if service.is_null() {
+            let code = last_error();
+            let friendly = if code == ERROR_ACCESS_DENIED {
+                "Administrator permission is required to restore Windows Search.".to_string()
+            } else {
+                "Unable to open Windows Search service for recovery.".to_string()
+            };
+
+            return recovery_result(
+                "failed",
+                &previous_state,
+                &previous_state,
+                "Unknown",
+                &previous_startup_type,
+                friendly,
+                Some(format!("OpenServiceW failed with Windows error {code}.")),
+            );
+        }
+
+        let service = ServiceHandle(service);
+        let startup_type = startup_type_code(&previous_startup_type, &previous_state);
+        let ok = unsafe {
+            ChangeServiceConfigW(
+                service.0,
+                SERVICE_NO_CHANGE,
+                startup_type,
+                SERVICE_NO_CHANGE,
+                null(),
+                null(),
+                null_mut(),
+                null(),
+                null(),
+                null(),
+                null(),
+            )
+        };
+
+        if ok == 0 {
+            let actual = query_snapshot(service.0)
+                .map(|snapshot| snapshot.state)
+                .unwrap_or_else(|_| "Unknown".to_string());
+            let code = last_error();
+            return recovery_result(
+                "failed",
+                &previous_state,
+                &previous_state,
+                &actual,
+                &previous_startup_type,
+                "Windows Search recovery was not applied.".to_string(),
+                Some(format!("ChangeServiceConfigW failed with Windows error {code}.")),
+            );
+        }
+
+        if previous_state == "Running" {
+            unsafe {
+                StartServiceW(service.0, 0, null());
+            }
+        } else if previous_state == "Stopped" || previous_state == "Disabled" {
+            let current = query_snapshot(service.0).ok();
+            if current.as_ref().is_some_and(|snapshot| snapshot.state == "Running") {
+                let mut service_status: SERVICE_STATUS = unsafe { std::mem::zeroed() };
+                unsafe {
+                    ControlService(service.0, SERVICE_CONTROL_STOP, &mut service_status);
+                }
+            }
+        }
+
+        let after = wait_for_state(service.0, &previous_state).unwrap_or(ServiceSnapshot {
+            state: "Unknown".to_string(),
+            startup_type: previous_startup_type.clone(),
+        });
+        let success = after.state == previous_state
+            || (previous_state == "Stopped" && after.state != "Running" && after.startup_type != "Disabled");
+
+        recovery_result(
+            if success { "success" } else { "failed" },
+            &previous_state,
+            &previous_state,
+            &after.state,
+            &previous_startup_type,
+            if success {
+                "Windows Search was restored to the saved previous state.".to_string()
+            } else {
+                format!("Windows Search recovery expected {previous_state}, but detected {}.", after.state)
+            },
+            if success {
+                None
+            } else {
+                Some("Recovered state did not match the saved previous state.".to_string())
+            },
+        )
+    }
 }
 
 #[cfg(not(target_os = "windows"))]
 mod windows_apply {
-    use super::{apply_result, ApplyResult};
+    use super::{apply_result, recovery_result, ApplyResult, RecoveryResult};
 
     pub fn windows_search() -> ApplyResult {
         apply_result(
@@ -525,6 +714,18 @@ mod windows_apply {
             "Unknown",
             "Unknown",
             "Windows Search Apply is only available on Windows.".to_string(),
+            Some("Unsupported operating system.".to_string()),
+        )
+    }
+
+    pub fn restore_windows_search(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+        recovery_result(
+            "failed",
+            &previous_state,
+            &previous_state,
+            "Unknown",
+            &previous_startup_type,
+            "Windows Search Recovery is only available on Windows.".to_string(),
             Some("Unsupported operating system.".to_string()),
         )
     }
@@ -580,6 +781,11 @@ fn apply_windows_search() -> ApplyResult {
     windows_apply::windows_search()
 }
 
+#[tauri::command]
+fn restore_windows_search(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+    windows_apply::restore_windows_search(previous_state, previous_startup_type)
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -587,7 +793,8 @@ fn main() {
             detect_game_mode,
             detect_core_isolation,
             detect_delivery_optimization,
-            apply_windows_search
+            apply_windows_search,
+            restore_windows_search
         ])
         .run(tauri::generate_context!())
         .expect("failed to run TweakMind");

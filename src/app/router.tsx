@@ -7,6 +7,8 @@ import { DecisionPage } from "../pages/DecisionPage";
 import { HistoryPage } from "../pages/HistoryPage";
 import { KnowledgePage } from "../pages/KnowledgePage";
 import { ReportPage } from "../pages/ReportPage";
+import { RecoveryConfirmationPage } from "../pages/RecoveryConfirmationPage";
+import { RecoveryPage } from "../pages/RecoveryPage";
 import { ScanPage } from "../pages/ScanPage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { VerificationPage } from "../pages/VerificationPage";
@@ -51,6 +53,14 @@ export const router = createBrowserRouter([
       {
         path: "verify",
         element: <VerificationPage />
+      },
+      {
+        path: "recover/:historyId",
+        element: <RecoveryConfirmationPage />
+      },
+      {
+        path: "recovery",
+        element: <RecoveryPage />
       },
       {
         path: "history",

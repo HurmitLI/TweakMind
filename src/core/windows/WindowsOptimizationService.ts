@@ -4,6 +4,7 @@ import type { VerificationResult, VerificationStatus } from "../verification/Ver
 export type OptimizationExecutionStatus = "Success" | "Failed";
 export type OptimizationApplyMode = "real" | "mock" | "unsupported";
 export type OptimizationApplyStatus = "success" | "failed";
+export type OptimizationRecoveryStatus = "Not Started" | "Started" | "Success" | "Failed";
 
 export interface OptimizationApplyResult {
   optimizationId: OptimizationId;
@@ -11,6 +12,19 @@ export interface OptimizationApplyResult {
   status: OptimizationApplyStatus;
   previousState: OptimizationStatus;
   currentState: OptimizationStatus;
+  previousStartupType?: string;
+  message?: string;
+  error: string | null;
+  timestamp: string;
+}
+
+export interface OptimizationRecoveryResult {
+  historyEntryId: string;
+  optimizationId: OptimizationId;
+  status: OptimizationApplyStatus;
+  previousState: OptimizationStatus;
+  expectedState: OptimizationStatus;
+  actualState: OptimizationStatus;
   previousStartupType?: string;
   message?: string;
   error: string | null;
@@ -33,12 +47,19 @@ export interface OptimizationHistoryEntry {
   verificationExpectedState?: OptimizationStatus;
   verificationActualState?: OptimizationStatus;
   verificationTimestamp?: string;
+  recoveryStatus?: OptimizationRecoveryStatus;
+  recoveryStartedAt?: string;
+  recoveryCompletedAt?: string;
+  recoveryExpectedState?: OptimizationStatus;
+  recoveryActualState?: OptimizationStatus;
+  recoveryMessage?: string;
 }
 
 export type OptimizationExecutionResult = OptimizationHistoryEntry;
 
 export const optimizationHistoryStorageKey = "tweakmind:optimization-history";
 export const pendingApplyResultStorageKey = "tweakmind:pending-apply-result";
+export const pendingRecoveryResultStorageKey = "tweakmind:pending-recovery-result";
 
 function readHistory(): OptimizationHistoryEntry[] {
   try {
@@ -58,6 +79,10 @@ export class WindowsOptimizationService {
     return readHistory();
   }
 
+  static getHistoryEntry(id: string): OptimizationHistoryEntry | undefined {
+    return readHistory().find((entry) => entry.id === id);
+  }
+
   static recordHistory(entry: OptimizationHistoryEntry) {
     writeHistory([entry, ...readHistory()]);
   }
@@ -66,7 +91,11 @@ export class WindowsOptimizationService {
     const history = readHistory();
     let updated = false;
     const nextHistory = history.map((entry) => {
-      if (updated || entry.optimizationId !== result.optimizationId || entry.status !== "Success") {
+      if (
+        updated ||
+        (result.historyEntryId ? entry.id !== result.historyEntryId : entry.optimizationId !== result.optimizationId) ||
+        entry.status !== "Success"
+      ) {
         return entry;
       }
 
@@ -81,6 +110,38 @@ export class WindowsOptimizationService {
     });
 
     writeHistory(nextHistory);
+  }
+
+  static recordRecoveryStarted(entryId: string) {
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    writeHistory(
+      readHistory().map((entry) =>
+        entry.id === entryId
+          ? {
+              ...entry,
+              recoveryStatus: "Started",
+              recoveryStartedAt: timestamp
+            }
+          : entry
+      )
+    );
+  }
+
+  static recordRecoveryResult(result: OptimizationRecoveryResult) {
+    writeHistory(
+      readHistory().map((entry) =>
+        entry.id === result.historyEntryId
+          ? {
+              ...entry,
+              recoveryStatus: result.status === "success" ? "Success" : "Failed",
+              recoveryCompletedAt: result.timestamp,
+              recoveryExpectedState: result.expectedState,
+              recoveryActualState: result.actualState,
+              recoveryMessage: result.message ?? result.error ?? "Recovery finished."
+            }
+          : entry
+      )
+    );
   }
 }
 
@@ -98,6 +159,25 @@ export function readPendingApplyResult(optimizationId: OptimizationId): Optimiza
 
     const result = JSON.parse(stored) as OptimizationApplyResult;
     return result.optimizationId === optimizationId ? result : null;
+  } catch {
+    return null;
+  }
+}
+
+export function storePendingRecoveryResult(result: OptimizationRecoveryResult) {
+  window.sessionStorage.setItem(pendingRecoveryResultStorageKey, JSON.stringify(result));
+}
+
+export function readPendingRecoveryResult(historyEntryId: string): OptimizationRecoveryResult | null {
+  try {
+    const stored = window.sessionStorage.getItem(pendingRecoveryResultStorageKey);
+
+    if (!stored) {
+      return null;
+    }
+
+    const result = JSON.parse(stored) as OptimizationRecoveryResult;
+    return result.historyEntryId === historyEntryId ? result : null;
   } catch {
     return null;
   }

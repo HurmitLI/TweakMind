@@ -3,6 +3,7 @@ import type { OptimizationId, OptimizationStatus } from "../../types/optimizatio
 export type VerificationStatus = "Verified" | "Failed" | "Pending / Not Available";
 
 export interface VerificationResult {
+  historyEntryId?: string;
   optimizationId: OptimizationId;
   status: VerificationStatus;
   previousState: OptimizationStatus;

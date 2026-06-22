@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { getApplyModeLabelForMode } from "../components/apply/ApplyModeBadge";
 import {
   type OptimizationHistoryEntry,
+  type OptimizationRecoveryStatus,
   WindowsOptimizationService
 } from "../core/windows/WindowsOptimizationService";
 import type { VerificationStatus } from "../core/verification/VerificationResult";
@@ -11,6 +13,22 @@ const verificationStyles: Record<VerificationStatus, string> = {
   Failed: "border-rose-200 bg-rose-50 text-rose-700",
   "Pending / Not Available": "border-amber-200 bg-amber-50 text-amber-700"
 };
+
+const recoveryStyles: Record<OptimizationRecoveryStatus, string> = {
+  "Not Started": "border-slate-200 bg-slate-100 text-slate-700",
+  Started: "border-blue-200 bg-blue-50 text-blue-700",
+  Success: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  Failed: "border-rose-200 bg-rose-50 text-rose-700"
+};
+
+function canRecover(entry: OptimizationHistoryEntry) {
+  return (
+    entry.optimizationId === "windows-search" &&
+    entry.status === "Success" &&
+    entry.applyMode === "real" &&
+    entry.recoveryStatus !== "Success"
+  );
+}
 
 export function HistoryPage() {
   const [history] = useState<OptimizationHistoryEntry[]>(() => WindowsOptimizationService.getHistory());
@@ -48,8 +66,16 @@ export function HistoryPage() {
                     >
                       Verification: {entry.verificationStatus ?? "Pending / Not Available"}
                     </span>
+                    <span
+                      className={[
+                        "rounded-full border px-3 py-1 text-xs font-semibold",
+                        recoveryStyles[entry.recoveryStatus ?? "Not Started"]
+                      ].join(" ")}
+                    >
+                      Recovery: {entry.recoveryStatus ?? "Not Started"}
+                    </span>
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">{entry.message}</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{entry.recoveryMessage ?? entry.message}</p>
                   <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-6">
                     <div>
                       <dt className="font-semibold text-slate-500">Apply mode</dt>
@@ -70,19 +96,32 @@ export function HistoryPage() {
                       <dd className="mt-1 text-slate-950">{entry.verificationActualState ?? "Unknown"}</dd>
                     </div>
                     <div>
+                      <dt className="font-semibold text-slate-500">Recovery actual</dt>
+                      <dd className="mt-1 text-slate-950">{entry.recoveryActualState ?? "Unknown"}</dd>
+                    </div>
+                    <div>
                       <dt className="font-semibold text-slate-500">Timestamp</dt>
                       <dd className="mt-1 text-slate-950">{new Date(Number(entry.timestamp) * 1000).toLocaleString()}</dd>
                     </div>
                   </dl>
                 </div>
 
-                <button
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                  disabled
-                  type="button"
-                >
-                  Restore Coming Soon
-                </button>
+                {canRecover(entry) ? (
+                  <Link
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                    to={`/recover/${entry.id}`}
+                  >
+                    Restore
+                  </Link>
+                ) : (
+                  <button
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    disabled
+                    type="button"
+                  >
+                    {entry.recoveryStatus === "Success" ? "Recovered" : "Recovery Unavailable"}
+                  </button>
+                )}
               </div>
             </article>
           ))

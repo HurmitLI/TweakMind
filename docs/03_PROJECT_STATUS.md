@@ -76,6 +76,8 @@ None
 
 - PRODUCT-005 Verification Center
 
+- PRODUCT-006 Recovery Center
+
 ---
 
 # In Progress
@@ -86,13 +88,11 @@ None
 
 # Next Development
 
-PRODUCT-006 Recovery Center
+ENGINE-009
 
 ---
 
 # Future Roadmap
-
-- PRODUCT-006
 
 - ENGINE-009
 

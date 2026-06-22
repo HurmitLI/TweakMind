@@ -31,6 +31,8 @@ export function VerificationPage() {
   const [searchParams] = useSearchParams();
   const defaultOptimization = OptimizationRepository.getDefault();
   const requestedOptimizationId = (searchParams.get("id") as OptimizationId | null) ?? defaultOptimization.id;
+  const mode = searchParams.get("mode") === "recovery" ? "recovery" : "apply";
+  const historyEntryId = searchParams.get("historyId") ?? undefined;
   const optimization = OptimizationRepository.getById(requestedOptimizationId) ?? defaultOptimization;
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [isVerifying, setIsVerifying] = useState(true);
@@ -39,7 +41,7 @@ export function VerificationPage() {
     let isMounted = true;
 
     setIsVerifying(true);
-    void VerificationService.verify(optimization.id).then((verificationResult) => {
+    void VerificationService.verify(optimization.id, { mode, historyEntryId }).then((verificationResult) => {
       if (!isMounted) {
         return;
       }
@@ -51,7 +53,7 @@ export function VerificationPage() {
     return () => {
       isMounted = false;
     };
-  }, [optimization.id]);
+  }, [historyEntryId, mode, optimization.id]);
 
   const status = result?.status ?? "Pending / Not Available";
   const StatusIcon = isVerifying ? Loader2 : statusIcons[status];
@@ -76,7 +78,7 @@ export function VerificationPage() {
 
       <dl className="grid gap-4 md:grid-cols-3">
         <Field label="Previous state" value={result?.previousState ?? "Unknown"} />
-        <Field label="Expected state" value={result?.expectedState ?? "Disabled"} />
+        <Field label="Expected state" value={result?.expectedState ?? (mode === "recovery" ? "Unknown" : "Disabled")} />
         <Field label="Actual detected state" value={isVerifying ? "Checking..." : result?.actualState ?? "Unknown"} />
       </dl>
 
