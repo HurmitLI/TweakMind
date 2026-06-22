@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { Gamepad2, Globe, Search, Shield, Sparkles, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { EmptyState } from "../components/common/EmptyState";
@@ -8,9 +8,7 @@ import { useTranslation } from "../core/localization/LanguageProvider";
 import {
   translateBenefitLevel,
   translateCategory,
-  translatePriority,
   translateRiskLevel,
-  translateScanCapability,
   translateScanDisplayState
 } from "../core/localization/localizationHelpers";
 import { RuntimeScanService } from "../core/scan/RuntimeScanService";
@@ -20,6 +18,15 @@ import type { OptimizationCategory } from "../types/optimization";
 
 const categoryFilters = ["Performance", "Gaming", "Privacy", "Security", "Windows"] as const;
 type CategoryFilter = (typeof categoryFilters)[number];
+
+const categoryIcons: Record<OptimizationCategory, typeof Zap> = {
+  Performance: Zap,
+  Gaming: Gamepad2,
+  Privacy: Shield,
+  Security: Shield,
+  Network: Globe,
+  Windows: Sparkles
+};
 
 const categoryFilterKeys: Record<CategoryFilter, "knowledge.filter.performance" | "knowledge.filter.gaming" | "knowledge.filter.privacy" | "knowledge.filter.security" | "knowledge.filter.windows"> = {
   Performance: "knowledge.filter.performance",
@@ -170,62 +177,54 @@ export function KnowledgePage() {
             title={knowledgeItems.length === 0 ? t("knowledge.empty.noEntries.title") : t("knowledge.empty.noMatch.title")}
           />
         ) : (
-          visibleKnowledge.map((knowledge) => (
+          visibleKnowledge.map((knowledge) => {
+            const CategoryIcon = categoryIcons[knowledge.identity.category];
+            const displayState = statusById.get(knowledge.identity.id) ?? "Scan Required";
+
+            return (
             <Link
-              className="tm-card focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-950"
+              className="tm-knowledge-card"
               key={knowledge.identity.id}
               to={`/knowledge/detail?id=${knowledge.identity.id}&from=knowledge`}
             >
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h3 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-100">
-                      {SettingsService.resolveKnowledgeTitle(knowledge)}
-                    </h3>
-                    <span className="tm-badge-small border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/40 dark:bg-blue-950/40 dark:text-blue-300">
-                      {translateCategory(knowledge.identity.category)}
-                    </span>
-                    <span className="tm-badge-small border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-950/40 dark:text-emerald-300">
-                      {t("knowledge.card.statusPrefix")}{" "}
-                      {translateScanDisplayState(statusById.get(knowledge.identity.id) ?? "Scan Required")}
-                    </span>
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+                <div className="flex min-w-0 flex-1 gap-4">
+                  <div className="tm-icon-tile h-11 w-11">
+                    <CategoryIcon size={20} aria-hidden="true" />
                   </div>
-                  <p className="mt-3 max-w-3xl tm-body">{knowledge.overview.summary}</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {knowledge.identity.tags.slice(0, 4).map((tag) => (
-                      <span
-                        className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                        key={tag}
-                      >
-                        {tag}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-100">
+                        {SettingsService.resolveKnowledgeTitle(knowledge)}
+                      </h3>
+                      <span className="tm-badge-small border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/40 dark:bg-blue-950/40 dark:text-blue-300">
+                        {translateCategory(knowledge.identity.category)}
                       </span>
-                    ))}
+                    </div>
+                    <p className="mt-2 line-clamp-2 tm-body">{knowledge.overview.summary}</p>
                   </div>
                 </div>
 
-                <div className="grid shrink-0 gap-2 rounded-lg border border-slate-100 bg-slate-50/70 p-3 sm:grid-cols-2 lg:w-80 lg:grid-cols-2 dark:border-slate-700 dark:bg-slate-800/70">
-                  <div className="border-l-2 border-rose-200 pl-3 dark:border-rose-500/40">
-                    <p className="tm-label">{t("knowledge.card.label.risk")}</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{translateRiskLevel(knowledge.risks.riskLevel)}</p>
-                  </div>
-                  <div className="border-l-2 border-emerald-200 pl-3 dark:border-emerald-500/40">
-                    <p className="tm-label">{t("knowledge.card.label.expectedBenefit")}</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{translateBenefitLevel(knowledge.decisionSupport.expectedBenefit)}</p>
-                  </div>
-                  <div className="border-l-2 border-blue-200 pl-3 dark:border-blue-500/40">
-                    <p className="tm-label">{t("knowledge.card.label.priority")}</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{translatePriority(knowledge.identity.priority)}</p>
-                  </div>
-                  <div className="border-l-2 border-slate-300 pl-3 dark:border-slate-600">
+                <div className="tm-knowledge-meta">
+                  <div className="tm-knowledge-meta-item">
                     <p className="tm-label">{t("knowledge.card.label.scan")}</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">
-                      {translateScanCapability(RuntimeScanService.getCapability(knowledge.identity.id).scanCapability)}
+                    <p className="text-sm font-semibold text-slate-950 dark:text-slate-100">
+                      {translateScanDisplayState(displayState)}
                     </p>
+                  </div>
+                  <div className="tm-knowledge-meta-item">
+                    <p className="tm-label">{t("knowledge.card.label.risk")}</p>
+                    <p className="text-sm font-semibold text-slate-950 dark:text-slate-100">{translateRiskLevel(knowledge.risks.riskLevel)}</p>
+                  </div>
+                  <div className="tm-knowledge-meta-item">
+                    <p className="tm-label">{t("knowledge.card.label.expectedBenefit")}</p>
+                    <p className="text-sm font-semibold text-slate-950 dark:text-slate-100">{translateBenefitLevel(knowledge.decisionSupport.expectedBenefit)}</p>
                   </div>
                 </div>
               </div>
             </Link>
-          ))
+            );
+          })
         )}
       </section>
     </div>

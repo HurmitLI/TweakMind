@@ -30,13 +30,24 @@ interface DecisionReportCardProps {
   item: DecisionReportItem;
   selected: boolean;
   onToggleSelected: (id: DecisionReportItem["id"]) => void;
+  emphasis?: "strong" | "default" | "quiet";
 }
 
-export function DecisionReportCard({ item, selected, onToggleSelected }: DecisionReportCardProps) {
+export function DecisionReportCard({ item, selected, onToggleSelected, emphasis = "default" }: DecisionReportCardProps) {
   const { t } = useTranslation();
+  const isQuiet = emphasis === "quiet";
 
   return (
-    <article className="tm-card">
+    <article
+      className={[
+        "rounded-lg border p-5 transition",
+        emphasis === "strong"
+          ? "border-emerald-200 bg-white shadow-sm dark:border-emerald-500/30 dark:bg-slate-900/95"
+          : isQuiet
+            ? "border-slate-200/80 bg-slate-50/60 dark:border-slate-700/80 dark:bg-slate-900/80"
+            : "border-slate-200 bg-white/95 shadow-sm dark:border-slate-700 dark:bg-slate-900/95"
+      ].join(" ")}
+    >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-3">
@@ -49,7 +60,9 @@ export function DecisionReportCard({ item, selected, onToggleSelected }: Decisio
             />
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="tm-section-title">{item.title}</h3>
+                <h3 className={emphasis === "strong" ? "text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-100" : "tm-section-title"}>
+                  {item.title}
+                </h3>
                 <span
                   className={[
                     "rounded-full border px-2.5 py-0.5 text-xs font-semibold",
@@ -59,16 +72,23 @@ export function DecisionReportCard({ item, selected, onToggleSelected }: Decisio
                   {translateRecommendation(item.recommendation)}
                 </span>
               </div>
-              <p className="mt-2 tm-body">{item.reason}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                <span className="font-semibold text-slate-700 dark:text-slate-200">{t("report.card.ifIgnoredPrefix")}</span> {item.ignoreConsequence}
-              </p>
+              <p className={["mt-2", isQuiet ? "tm-body-compact text-slate-500" : "tm-body"].join(" ")}>{item.reason}</p>
+              {!isQuiet ? (
+                <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">{t("report.card.ifIgnoredPrefix")}</span> {item.ignoreConsequence}
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
 
         <Link
-          className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          className={[
+            "inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-4 text-sm font-semibold shadow-sm transition",
+            isQuiet
+              ? "border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+              : "border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:text-blue-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          ].join(" ")}
           to={`/decision?id=${item.id}&from=report`}
         >
           {t("report.card.action.details")}
@@ -76,46 +96,34 @@ export function DecisionReportCard({ item, selected, onToggleSelected }: Decisio
         </Link>
       </div>
 
-      <dl className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <div className="tm-mini-card">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.currentState")}</dt>
-          <dd className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{translateScanDisplayState(item.currentState)}</dd>
+      <dl className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-slate-100 pt-4 text-sm dark:border-slate-800">
+        <div className="tm-report-metric-inline">
+          <dt className="text-slate-500 dark:text-slate-400">{t("report.card.label.currentState")}</dt>
+          <dd className="tm-report-metric-value">{translateScanDisplayState(item.currentState)}</dd>
         </div>
-        <div className="tm-mini-card">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.risk")}</dt>
-          <dd className="mt-1">
+        <div className="tm-report-metric-inline">
+          <dt className="text-slate-500 dark:text-slate-400">{t("report.card.label.risk")}</dt>
+          <dd>
             <span className={["inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold", levelStyles[item.riskLevel]].join(" ")}>
               {translateRiskLevel(item.riskLevel)}
             </span>
           </dd>
         </div>
-        <div className="tm-mini-card">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.expectedBenefit")}</dt>
-          <dd className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{translateBenefitLevel(item.expectedBenefit)}</dd>
+        <div className="tm-report-metric-inline">
+          <dt className="text-slate-500 dark:text-slate-400">{t("report.card.label.expectedBenefit")}</dt>
+          <dd className="tm-report-metric-value">{translateBenefitLevel(item.expectedBenefit)}</dd>
         </div>
-        <div className="tm-mini-card">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.lastApplied")}</dt>
-          <dd className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{item.lastAppliedLabel ?? t("common.value.never")}</dd>
+        <div className="tm-report-metric-inline">
+          <dt className="text-slate-500 dark:text-slate-400">{t("report.card.label.realApply")}</dt>
+          <dd className="tm-report-metric-value">{item.canRealApply ? t("common.value.yes") : t("common.value.no")}</dd>
         </div>
-        <div className="tm-mini-card">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.realApply")}</dt>
-          <dd className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{item.canRealApply ? t("common.value.yes") : t("common.value.no")}</dd>
+        <div className="tm-report-metric-inline">
+          <dt className="text-slate-500 dark:text-slate-400">{t("report.card.label.recovery")}</dt>
+          <dd className="tm-report-metric-value">{item.canRecover ? t("common.value.yes") : t("common.value.no")}</dd>
         </div>
-        <div className="tm-mini-card">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.verification")}</dt>
-          <dd className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{item.canVerify ? t("common.value.yes") : t("common.value.no")}</dd>
-        </div>
-        <div className="tm-mini-card">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.recovery")}</dt>
-          <dd className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{item.canRecover ? t("common.value.yes") : t("common.value.no")}</dd>
-        </div>
-        <div className="tm-mini-card">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.runtimeScan")}</dt>
-          <dd className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{translateScanDisplayState(item.runtimeScanStatus)}</dd>
-        </div>
-        <div className="tm-mini-card">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("report.card.label.detectionConfidence")}</dt>
-          <dd className="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-100">{translateConfidence(item.detectionConfidence)}</dd>
+        <div className="tm-report-metric-inline">
+          <dt className="text-slate-500 dark:text-slate-400">{t("report.card.label.detectionConfidence")}</dt>
+          <dd className="tm-report-metric-value">{translateConfidence(item.detectionConfidence)}</dd>
         </div>
       </dl>
     </article>

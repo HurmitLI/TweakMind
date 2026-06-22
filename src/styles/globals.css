@@ -4,7 +4,7 @@
 
 @layer components {
   .tm-page {
-    @apply flex flex-1 flex-col gap-6;
+    @apply flex flex-1 flex-col gap-7;
   }
 
   .tm-page-center {
@@ -12,11 +12,11 @@
   }
 
   .tm-hero {
-    @apply rounded-lg border border-white/70 bg-white/90 px-8 py-8 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/90;
+    @apply rounded-lg border border-white/70 bg-white/90 px-8 py-10 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/95;
   }
 
   .tm-hero-accent {
-    @apply relative overflow-hidden rounded-lg border border-white/70 bg-white/90 px-8 py-10 shadow-md shadow-slate-200/60 backdrop-blur dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-slate-950/30;
+    @apply relative overflow-hidden rounded-lg border border-white/70 bg-white/90 px-8 py-12 shadow-md shadow-slate-200/60 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-slate-950/30;
   }
 
   .tm-eyebrow {
@@ -43,8 +43,12 @@
     @apply rounded-lg border border-slate-200 bg-white/95 p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900/95;
   }
 
+  .tm-about-card {
+    @apply rounded-lg border border-slate-200 bg-white/95 p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900/95;
+  }
+
   .tm-info-card {
-    @apply rounded-lg border border-slate-100 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/70;
+    @apply rounded-lg border border-slate-100 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/80;
   }
 
   .tm-mini-card {
@@ -57,6 +61,18 @@
 
   .tm-card {
     @apply rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/95 dark:hover:border-blue-400/50;
+  }
+
+  .tm-knowledge-card {
+    @apply block rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:border-slate-700 dark:bg-slate-900/95 dark:hover:border-blue-400/50 dark:focus:ring-offset-slate-900;
+  }
+
+  .tm-knowledge-meta {
+    @apply flex shrink-0 flex-col gap-3 border-t border-slate-100 pt-4 lg:w-52 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0 dark:border-slate-700;
+  }
+
+  .tm-knowledge-meta-item {
+    @apply flex items-center justify-between gap-3 lg:flex-col lg:items-start lg:gap-1;
   }
 
   .tm-field {
@@ -76,6 +92,10 @@
   }
 
   .tm-body {
+    @apply text-[0.9375rem] leading-7 text-slate-600 dark:text-slate-300;
+  }
+
+  .tm-body-compact {
     @apply text-sm leading-6 text-slate-600 dark:text-slate-300;
   }
 
@@ -129,6 +149,26 @@
 
   .tm-progress-value {
     @apply h-full rounded-full bg-blue-600 transition-all duration-300;
+  }
+
+  .tm-report-section-recommended {
+    @apply border-emerald-200 bg-emerald-50/40 shadow-md shadow-emerald-100/50 dark:border-emerald-500/30 dark:bg-emerald-950/20 dark:shadow-emerald-950/10;
+  }
+
+  .tm-report-section-quiet {
+    @apply border-slate-200/80 bg-slate-50/50 opacity-95 dark:border-slate-700/80 dark:bg-slate-900/80;
+  }
+
+  .tm-report-metrics {
+    @apply mt-6 flex flex-wrap gap-x-6 gap-y-2 border-t border-slate-100 pt-5 text-sm dark:border-slate-800;
+  }
+
+  .tm-report-metric-inline {
+    @apply inline-flex items-center gap-2 text-slate-600 dark:text-slate-400;
+  }
+
+  .tm-report-metric-value {
+    @apply font-semibold text-slate-800 dark:text-slate-200;
   }
 }
 

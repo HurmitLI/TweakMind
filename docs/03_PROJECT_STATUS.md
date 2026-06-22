@@ -134,6 +134,8 @@ None
 
 - HOME-002 Home Redesign
 
+- DESIGN-001 Alpha Design Polish Pass
+
 ---
 
 # In Progress
@@ -144,7 +146,7 @@ None
 
 # Next Development
 
-KNOWLEDGE-002 Knowledge UX Redesign
+DESIGN-002 Knowledge Card Content Polish
 
 ---
 

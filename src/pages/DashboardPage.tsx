@@ -47,7 +47,7 @@ const philosophyCards = [
 export function DashboardPage() {
   return (
     <div className="tm-page gap-5">
-      <section className="relative overflow-hidden rounded-lg border border-blue-100 bg-white/95 px-8 py-10 shadow-xl shadow-blue-100/60 dark:border-blue-500/30 dark:bg-slate-900/95 dark:shadow-blue-950/20">
+      <section className="relative overflow-hidden rounded-lg border border-blue-100 bg-white/95 px-8 py-14 shadow-xl shadow-blue-100/60 dark:border-blue-500/30 dark:bg-slate-900/95 dark:shadow-blue-950/20">
         <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-600 via-cyan-400 to-emerald-400" />
         <div className="flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-4xl">
@@ -65,16 +65,16 @@ export function DashboardPage() {
 
           <div className="flex shrink-0 flex-col gap-4 xl:w-80">
             <Link
-              className="inline-flex h-14 items-center justify-center gap-2 rounded-lg bg-blue-600 px-7 text-base font-semibold text-white shadow-lg shadow-blue-600/25 transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-950"
+              className="inline-flex h-16 items-center justify-center gap-2.5 rounded-lg bg-blue-600 px-8 text-lg font-semibold text-white shadow-xl shadow-blue-600/35 ring-1 ring-blue-500/20 transition hover:bg-blue-700 hover:shadow-blue-600/40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
               to="/scan"
             >
               立即扫描 Windows
-              <ArrowRight size={19} aria-hidden="true" />
+              <ArrowRight size={20} aria-hidden="true" />
             </Link>
             <div className="flex flex-wrap gap-2">
-              {["约30秒", "本地扫描", "不会自动修改", "支持恢复"].map((tag) => (
+              {["本地扫描", "不上传数据", "不自动修改", "支持恢复"].map((tag) => (
                 <span
-                  className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:border-blue-500/40 dark:bg-blue-950/40 dark:text-blue-200"
+                  className="rounded-full border border-blue-200 bg-blue-50 px-3.5 py-1.5 text-xs font-semibold tracking-wide text-blue-800 dark:border-blue-400/50 dark:bg-blue-950/50 dark:text-blue-100"
                   key={tag}
                 >
                   {tag}

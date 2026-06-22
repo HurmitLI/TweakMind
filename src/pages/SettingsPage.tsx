@@ -141,23 +141,33 @@ export function SettingsPage() {
         </button>
       </PreferenceSection>
 
-      <PreferenceSection description={t("settings.application.description")} title={t("settings.application.title")}>
-        <dl className="grid gap-3 md:grid-cols-2">
-          <div className="tm-mini-card">
+      <section className="tm-about-card">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h3 className="tm-section-title">{t("settings.application.title")}</h3>
+            <p className="mt-2 max-w-2xl tm-body">{t("settings.application.description")}</p>
+          </div>
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-400 text-slate-950 shadow-sm shadow-emerald-200/60 dark:border-emerald-500/40 dark:bg-emerald-500 dark:shadow-emerald-950/20">
+            <ExternalLink size={24} aria-hidden="true" />
+          </div>
+        </div>
+
+        <dl className="mt-6 grid gap-4 md:grid-cols-2">
+          <div className="tm-field">
             <dt className="tm-label">{t("settings.application.version")}</dt>
             <dd className="tm-value">{t("app.versionLabel", { version: AppInfo.version })}</dd>
           </div>
-          <div className="tm-mini-card">
+          <div className="tm-field">
             <dt className="tm-label">{t("settings.application.license")}</dt>
             <dd className="tm-value">{AppInfo.licenseName}</dd>
           </div>
-          <div className="tm-mini-card">
+          <div className="tm-field">
             <dt className="tm-label">{t("settings.application.repository")}</dt>
             <dd className="mt-2">
               <ApplicationLink href={AppInfo.repositoryUrl} label={AppInfo.repositoryUrl.replace("https://", "")} />
             </dd>
           </div>
-          <div className="tm-mini-card">
+          <div className="tm-field">
             <dt className="tm-label">{t("settings.application.issueTracker")}</dt>
             <dd className="mt-2">
               <ApplicationLink href={AppInfo.issueTrackerUrl} label={AppInfo.issueTrackerUrl.replace("https://", "")} />
@@ -165,12 +175,12 @@ export function SettingsPage() {
           </div>
         </dl>
         <Link
-          className="mt-4 tm-button-secondary"
+          className="mt-5 tm-button-secondary"
           to="/about"
         >
           {t("settings.application.action")}
         </Link>
-      </PreferenceSection>
+      </section>
     </div>
   );
 }

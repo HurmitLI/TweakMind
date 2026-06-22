@@ -1,9 +1,7 @@
-import { Activity, AlertTriangle, Clock3, ListChecks } from "lucide-react";
 import { useMemo, useState } from "react";
 import { EmptyState } from "../components/common/EmptyState";
 import { DecisionReportSectionPanel } from "../components/report/DecisionReportSectionPanel";
 import { ReportFilters } from "../components/report/ReportFilters";
-import { ReportMetric } from "../components/report/ReportMetric";
 import { ReportSelectionPanel } from "../components/report/ReportSelectionPanel";
 import { useTranslation } from "../core/localization/LanguageProvider";
 import { DecisionReportService } from "../core/report/DecisionReportService";
@@ -88,11 +86,23 @@ export function ReportPage() {
           <p className="tm-subtitle">{t("report.subtitle")}</p>
         </div>
 
-        <div className="mt-7 grid gap-4 md:grid-cols-4">
-          <ReportMetric icon={ListChecks} label={t("report.metric.totalRecommendations")} value={String(scanResult?.recommendationSummary.total ?? 0)} />
-          <ReportMetric icon={Activity} label={t("report.metric.estimatedTotalImpact")} value={scanResult?.estimatedImpact ?? t("report.metric.defaultImpact")} />
-          <ReportMetric icon={AlertTriangle} label={t("report.metric.estimatedTotalRisk")} value={scanResult?.estimatedRisk ?? t("report.metric.defaultRisk")} />
-          <ReportMetric icon={Clock3} label={t("report.metric.estimatedExecutionTime")} value={scanResult?.executionEstimate ?? t("report.metric.defaultExecutionTime")} />
+        <div className="tm-report-metrics">
+          <span className="tm-report-metric-inline">
+            {t("report.metric.totalRecommendations")}:
+            <span className="tm-report-metric-value">{scanResult?.recommendationSummary.total ?? 0}</span>
+          </span>
+          <span className="tm-report-metric-inline">
+            {t("report.metric.estimatedTotalImpact")}:
+            <span className="tm-report-metric-value">{scanResult?.estimatedImpact ?? t("report.metric.defaultImpact")}</span>
+          </span>
+          <span className="tm-report-metric-inline">
+            {t("report.metric.estimatedTotalRisk")}:
+            <span className="tm-report-metric-value">{scanResult?.estimatedRisk ?? t("report.metric.defaultRisk")}</span>
+          </span>
+          <span className="tm-report-metric-inline">
+            {t("report.metric.estimatedExecutionTime")}:
+            <span className="tm-report-metric-value">{scanResult?.executionEstimate ?? t("report.metric.defaultExecutionTime")}</span>
+          </span>
         </div>
       </section>
 

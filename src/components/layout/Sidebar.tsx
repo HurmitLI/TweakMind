@@ -15,14 +15,14 @@ export function Sidebar() {
   const { t } = useTranslation();
 
   return (
-    <aside className="flex w-72 shrink-0 flex-col border-r border-slate-800 bg-slate-950 px-5 py-6 shadow-2xl shadow-slate-950/20">
-      <div className="mb-8 flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-400 text-slate-950 shadow-sm shadow-emerald-950/20">
-          <Sparkles size={22} aria-hidden="true" />
+    <aside className="flex w-72 shrink-0 flex-col border-r border-slate-700/60 bg-[#1a2332] px-6 py-7 shadow-2xl shadow-slate-950/30">
+      <div className="mb-10 flex items-center gap-4">
+        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-400 text-slate-950 shadow-md shadow-emerald-950/25">
+          <Sparkles size={26} aria-hidden="true" />
         </div>
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">{AppInfo.name}</h1>
-          <p className="text-sm text-slate-400">{t("app.tagline")}</p>
+        <div className="min-w-0">
+          <h1 className="text-[1.35rem] font-semibold tracking-tight text-slate-50">{AppInfo.name}</h1>
+          <p className="mt-0.5 text-sm leading-5 text-slate-400">{t("app.tagline")}</p>
         </div>
       </div>
 
@@ -37,7 +37,7 @@ export function Sidebar() {
                   "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition",
                   isActive
                     ? "bg-white text-slate-950 shadow-sm"
-                    : "text-slate-300 hover:bg-slate-900 hover:text-white"
+                    : "text-slate-300 hover:bg-slate-800/70 hover:text-white"
                 ].join(" ")
               }
               key={item.to}
@@ -50,14 +50,14 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="mt-auto border-t border-slate-800 pt-5">
+      <div className="mt-auto border-t border-slate-700/60 pt-5">
         <NavLink
           className={({ isActive }) =>
             [
               "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition",
               isActive
                 ? "bg-white text-slate-950 shadow-sm"
-                : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                : "text-slate-400 hover:bg-slate-800/70 hover:text-white"
             ].join(" ")
           }
           to="/about"
