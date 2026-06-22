@@ -132,6 +132,8 @@ None
 
 - ALPHA-004 UI Polish
 
+- HOME-002 Home Redesign
+
 ---
 
 # In Progress
@@ -142,7 +144,7 @@ None
 
 # Next Development
 
-ALPHA-005 UX Polish
+KNOWLEDGE-002 Knowledge UX Redesign
 
 ---
 
