@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
+import { ApplyConfirmationPage } from "../pages/ApplyConfirmationPage";
 import { ApplyPage } from "../pages/ApplyPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { DecisionPage } from "../pages/DecisionPage";
@@ -37,6 +38,10 @@ export const router = createBrowserRouter([
       {
         path: "decision",
         element: <DecisionPage />
+      },
+      {
+        path: "confirm/:optimizationId",
+        element: <ApplyConfirmationPage />
       },
       {
         path: "apply",

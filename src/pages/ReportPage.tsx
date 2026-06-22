@@ -9,6 +9,7 @@ import { readStoredScanResult, toRecommendationResult } from "../core/scan/ScanR
 export function ReportPage() {
   const scanResult = useMemo(() => readStoredScanResult(), []);
   const optimizationResults = scanResult?.optimizationResults ?? [];
+  const selectedOptimizationId = optimizationResults.find((result) => result.selectedByDefault)?.id;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -47,7 +48,10 @@ export function ReportPage() {
         ))}
       </section>
 
-      <ReportActionPanel selectedCount={scanResult?.recommendationSummary.selectedByDefault ?? 0} />
+      <ReportActionPanel
+        confirmationOptimizationId={selectedOptimizationId}
+        selectedCount={scanResult?.recommendationSummary.selectedByDefault ?? 0}
+      />
     </div>
   );
 }

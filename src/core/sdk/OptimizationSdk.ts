@@ -1,6 +1,5 @@
 import type {
   OptimizationDefinition,
-  OptimizationId,
   OptimizationRecommendation,
   OptimizationStatus
 } from "../../types/optimization";
