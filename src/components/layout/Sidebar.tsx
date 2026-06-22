@@ -15,14 +15,14 @@ export function Sidebar() {
   const { t } = useTranslation();
 
   return (
-    <aside className="flex w-72 shrink-0 flex-col border-r border-slate-700/60 bg-[#1a2332] px-6 py-7 shadow-2xl shadow-slate-950/30">
+    <aside className="tm-sidebar flex w-72 shrink-0 flex-col border-r border-slate-700/60 px-6 py-7 shadow-2xl shadow-slate-950/30">
       <div className="mb-10 flex items-center gap-4">
         <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-400 text-slate-950 shadow-md shadow-emerald-950/25">
           <Sparkles size={26} aria-hidden="true" />
         </div>
         <div className="min-w-0">
-          <h1 className="text-[1.35rem] font-semibold tracking-tight text-slate-50">{AppInfo.name}</h1>
-          <p className="mt-0.5 text-sm leading-5 text-slate-400">{t("app.tagline")}</p>
+          <h1 className="tm-sidebar-brand tm-typo-body-emphasis">{AppInfo.name}</h1>
+          <p className="tm-mt-md tm-typo-caption">{t("app.tagline")}</p>
         </div>
       </div>
 

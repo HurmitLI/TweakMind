@@ -138,6 +138,8 @@ None
 
 - DESIGN-001 Review Pass 1
 
+- DESIGN-002 Design System Foundation
+
 ---
 
 # In Progress
@@ -148,7 +150,7 @@ None
 
 # Next Development
 
-DESIGN-001 Review Pass 2
+DESIGN-003 Design System Adoption
 
 ---
 

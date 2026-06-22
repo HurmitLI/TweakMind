@@ -194,7 +194,7 @@ export function KnowledgePage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <h3 className="text-[1.0625rem] font-semibold tracking-tight text-slate-950 dark:text-slate-100">
+                      <h3 className="tm-typo-body-emphasis">
                         {SettingsService.resolveKnowledgeTitle(knowledge)}
                       </h3>
                       <span className="tm-badge-small">

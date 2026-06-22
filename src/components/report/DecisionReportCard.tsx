@@ -39,13 +39,12 @@ function itemClass(emphasis: DecisionReportCardProps["emphasis"]) {
     return "tm-report-item-quiet";
   }
 
-  return "py-4";
+  return "tm-report-item-passive";
 }
 
 export function DecisionReportCard({ item, selected, onToggleSelected, emphasis = "default" }: DecisionReportCardProps) {
   const { t } = useTranslation();
   const isQuiet = emphasis === "quiet";
-  const isPassive = emphasis === "passive";
 
   return (
     <article className={itemClass(emphasis)}>
@@ -64,25 +63,24 @@ export function DecisionReportCard({ item, selected, onToggleSelected, emphasis 
                 <h3
                   className={
                     emphasis === "strong"
-                      ? "text-base font-semibold tracking-tight text-slate-950 dark:text-slate-100"
+                      ? "tm-typo-body-emphasis"
                       : isQuiet
-                        ? "text-sm font-medium text-slate-500 dark:text-slate-500"
-                        : "text-sm font-medium text-slate-700 dark:text-slate-300"
+                        ? "tm-typo-caption"
+                        : "tm-typo-body-emphasis"
                   }
                 >
                   {item.title}
                 </h3>
-                <span className={["text-xs font-medium", recommendationStyles[item.recommendation]].join(" ")}>
+                <span className={["tm-typo-caption font-medium", recommendationStyles[item.recommendation]].join(" ")}>
                   {translateRecommendation(item.recommendation)}
                 </span>
               </div>
-              <p className={["mt-2", isQuiet ? "text-sm leading-6 text-slate-400" : "tm-body-secondary"].join(" ")}>
+              <p className={["mt-2", isQuiet ? "tm-typo-caption" : "tm-typo-body-secondary"].join(" ")}>
                 {item.reason}
               </p>
               {emphasis === "strong" ? (
-                <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                  <span className="font-medium text-slate-600 dark:text-slate-300">{t("report.card.ifIgnoredPrefix")}</span>{" "}
-                  {item.ignoreConsequence}
+                <p className="tm-mt-md tm-typo-body-secondary">
+                  <span className="tm-typo-body-emphasis">{t("report.card.ifIgnoredPrefix")}</span> {item.ignoreConsequence}
                 </p>
               ) : null}
             </div>
@@ -90,23 +88,12 @@ export function DecisionReportCard({ item, selected, onToggleSelected, emphasis 
         </div>
 
         {!isQuiet ? (
-          <Link
-            className={[
-              "inline-flex h-9 shrink-0 items-center justify-center gap-1 text-sm font-medium transition",
-              isPassive
-                ? "text-slate-500 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
-                : "text-slate-600 hover:text-blue-700 dark:text-slate-400 dark:hover:text-blue-300"
-            ].join(" ")}
-            to={`/decision?id=${item.id}&from=report`}
-          >
+          <Link className="tm-button-ghost shrink-0" to={`/decision?id=${item.id}&from=report`}>
             {t("report.card.action.details")}
             <ChevronRight size={15} aria-hidden="true" />
           </Link>
         ) : (
-          <Link
-            className="inline-flex h-9 shrink-0 items-center justify-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-500 dark:text-slate-500"
-            to={`/decision?id=${item.id}&from=report`}
-          >
+          <Link className="tm-button-ghost shrink-0 tm-typo-caption" to={`/decision?id=${item.id}&from=report`}>
             {t("report.card.action.details")}
             <ChevronRight size={14} aria-hidden="true" />
           </Link>

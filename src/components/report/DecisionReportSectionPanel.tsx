@@ -28,18 +28,18 @@ function sectionPanelClass(sectionId: DecisionReportSectionId) {
 
 function sectionTitleClass(sectionId: DecisionReportSectionId) {
   if (sectionId === "recommended") {
-    return "text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-100";
+    return "tm-typo-section-title";
   }
 
   if (sectionId === "keep-current") {
-    return "text-base font-medium tracking-tight text-slate-600 dark:text-slate-400";
+    return "tm-typo-body-emphasis";
   }
 
   if (sectionId === "unavailable") {
-    return "text-sm font-medium tracking-tight text-slate-500 dark:text-slate-500";
+    return "tm-typo-caption";
   }
 
-  return "tm-section-title";
+  return "tm-typo-section-title";
 }
 
 function cardEmphasis(sectionId: DecisionReportSectionId): "strong" | "default" | "passive" | "quiet" {
@@ -66,7 +66,6 @@ export function DecisionReportSectionPanel({
 }: DecisionReportSectionPanelProps) {
   const { t } = useTranslation();
   const isQuiet = section.id === "unavailable";
-  const isPassive = section.id === "keep-current";
 
   return (
     <details
@@ -80,7 +79,7 @@ export function DecisionReportSectionPanel({
             <p
               className={[
                 "mt-1.5",
-                isQuiet ? "text-sm leading-6 text-slate-400" : isPassive ? "tm-body-secondary" : "tm-body-secondary"
+                isQuiet ? "tm-typo-caption" : "tm-typo-body-secondary"
               ].join(" ")}
             >
               {section.description}
@@ -88,8 +87,8 @@ export function DecisionReportSectionPanel({
           </div>
           <span
             className={[
-              "text-xs font-medium tabular-nums",
-              section.id === "recommended" ? "text-emerald-700 dark:text-emerald-300" : "text-slate-400 dark:text-slate-500"
+              "tm-typo-caption font-medium tabular-nums",
+              section.id === "recommended" ? "text-emerald-700 dark:text-emerald-300" : ""
             ].join(" ")}
           >
             {section.items.length}
