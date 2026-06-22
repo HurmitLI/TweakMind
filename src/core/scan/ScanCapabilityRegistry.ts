@@ -68,7 +68,7 @@ const capabilities: ScanCapabilityDefinition[] = [
     optimizationId: "power-plan",
     title: "Power Plan",
     scanCapability: "Native Detection",
-    detectionMethod: "Registry HKLM active power scheme GUID",
+    detectionMethod: "Windows PowerGetActiveScheme native API (Balanced, High Performance, Ultimate Performance, Power Saver)",
     nativeCommand: "detect_power_plan",
     detectionConfidenceWhenDetected: "Medium"
   },

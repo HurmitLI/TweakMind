@@ -113,6 +113,12 @@ export function RecoveryConfirmationPage() {
               be required.
             </p>
           ) : null}
+          {entry.optimizationId === "power-plan" ? (
+            <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+              Restoring the saved power plan returns Windows to the previous energy/performance balance. Different
+              workloads benefit from different plans, and TweakMind does not guarantee performance improvements.
+            </p>
+          ) : null}
         </section>
       </div>
 

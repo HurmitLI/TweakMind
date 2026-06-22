@@ -102,6 +102,196 @@ fn recovery_result(
 }
 
 #[cfg(target_os = "windows")]
+mod power_plan_ops {
+    use std::ffi::OsStr;
+    use std::iter::once;
+    use std::os::windows::ffi::OsStrExt;
+    use std::ptr::null_mut;
+    use windows_sys::Win32::Foundation::{ERROR_SUCCESS, LocalFree};
+    use windows_sys::Win32::System::Power::{PowerGetActiveScheme, PowerSetActiveScheme};
+    use windows_sys::Win32::System::Registry::{RegCloseKey, RegOpenKeyExW, HKEY_LOCAL_MACHINE, KEY_READ};
+    use windows_sys::core::GUID;
+
+    fn wide(value: &str) -> Vec<u16> {
+        OsStr::new(value).encode_wide().chain(once(0)).collect()
+    }
+
+    pub struct PowerPlanSnapshot {
+        pub state: String,
+        pub label: String,
+        pub guid_raw: String,
+        pub message: String,
+    }
+
+    const BALANCED_GUID: &str = "381b4222-f694-41f0-9685-ff1bb1920fa1";
+    const HIGH_PERFORMANCE_GUID: &str = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c";
+    const POWER_SAVER_GUID: &str = "a1841308-3541-4fab-bc81-f69e7f89651";
+    const ULTIMATE_GUID: &str = "e9a42b02-d5df-448d-aa00-03f14749ebe6";
+
+    pub fn recommended_high_performance_guid() -> &'static str {
+        HIGH_PERFORMANCE_GUID
+    }
+
+    fn normalize_guid(value: &str) -> String {
+        value.trim().trim_matches('{').trim_matches('}').to_lowercase()
+    }
+
+    fn guid_from_str(value: &str) -> Option<GUID> {
+        let normalized = normalize_guid(value);
+        let parts: Vec<&str> = normalized.split('-').collect();
+        if parts.len() != 5 || parts[0].len() != 8 || parts[1].len() != 4 || parts[2].len() != 4 || parts[3].len() != 4 || parts[4].len() != 12 {
+            return None;
+        }
+
+        let data1 = u32::from_str_radix(parts[0], 16).ok()?;
+        let data2 = u16::from_str_radix(parts[1], 16).ok()?;
+        let data3 = u16::from_str_radix(parts[2], 16).ok()?;
+        let mut combined = String::from(parts[3]);
+        combined.push_str(parts[4]);
+        let bytes = (0..8)
+            .map(|index| u8::from_str_radix(&combined[index * 2..index * 2 + 2], 16))
+            .collect::<Result<Vec<_>, _>>()
+            .ok()?;
+        let mut data4 = [0u8; 8];
+        data4.copy_from_slice(&bytes);
+
+        Some(GUID {
+            data1,
+            data2,
+            data3,
+            data4,
+        })
+    }
+
+    fn guid_to_string(guid: &GUID) -> String {
+        format!(
+            "{:08x}-{:04x}-{:04x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+            guid.data1,
+            guid.data2,
+            guid.data3,
+            guid.data4[0],
+            guid.data4[1],
+            guid.data4[2],
+            guid.data4[3],
+            guid.data4[4],
+            guid.data4[5],
+            guid.data4[6],
+            guid.data4[7]
+        )
+    }
+
+    pub fn guid_to_raw(guid: &GUID) -> String {
+        format!("GUID:{{{}}}", guid_to_string(guid))
+    }
+
+    pub fn parse_guid_raw(value: &str) -> Option<GUID> {
+        value
+            .strip_prefix("GUID:")
+            .and_then(|raw| guid_from_str(raw))
+    }
+
+    pub fn classify_guid(value: &str) -> (String, String, String) {
+        match normalize_guid(value).as_str() {
+            BALANCED_GUID => (
+                "Default".to_string(),
+                "Balanced".to_string(),
+                "Balanced power plan detected.".to_string(),
+            ),
+            HIGH_PERFORMANCE_GUID => (
+                "Enabled".to_string(),
+                "High Performance".to_string(),
+                "High performance power plan detected.".to_string(),
+            ),
+            POWER_SAVER_GUID => (
+                "Disabled".to_string(),
+                "Power Saver".to_string(),
+                "Power saver plan detected.".to_string(),
+            ),
+            ULTIMATE_GUID => (
+                "Enabled".to_string(),
+                "Ultimate Performance".to_string(),
+                "Ultimate performance power plan detected.".to_string(),
+            ),
+            _ => (
+                "Unknown".to_string(),
+                "Unknown".to_string(),
+                format!("Active power scheme GUID: {value}"),
+            ),
+        }
+    }
+
+    pub fn query_active_power_plan() -> Result<PowerPlanSnapshot, String> {
+        let mut guid_ptr: *mut GUID = null_mut();
+        let status = unsafe { PowerGetActiveScheme(null_mut(), &mut guid_ptr) };
+
+        if status != ERROR_SUCCESS {
+            return Err(format!("PowerGetActiveScheme failed with Windows error {status}."));
+        }
+
+        if guid_ptr.is_null() {
+            return Err("PowerGetActiveScheme returned a null active scheme.".to_string());
+        }
+
+        let guid = unsafe { *guid_ptr };
+        unsafe {
+            LocalFree(guid_ptr as _);
+        }
+
+        let guid_string = guid_to_string(&guid);
+        let (state, label, message) = classify_guid(&guid_string);
+
+        Ok(PowerPlanSnapshot {
+            state,
+            label,
+            guid_raw: guid_to_raw(&guid),
+            message,
+        })
+    }
+
+    pub fn scheme_exists(guid: &GUID) -> bool {
+        let guid_string = guid_to_string(guid);
+        let path = format!("SYSTEM\\CurrentControlSet\\Control\\Power\\User\\PowerSchemes\\{{{guid_string}}}");
+        let path_wide = wide(&path);
+        let mut key = null_mut();
+        let status = unsafe { RegOpenKeyExW(HKEY_LOCAL_MACHINE, path_wide.as_ptr(), 0, KEY_READ, &mut key) };
+
+        if status == ERROR_SUCCESS {
+            unsafe {
+                RegCloseKey(key);
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn set_active_power_plan(guid: &GUID) -> Result<(), String> {
+        let status = unsafe { PowerSetActiveScheme(null_mut(), guid) };
+
+        if status != ERROR_SUCCESS {
+            return Err(format!("PowerSetActiveScheme failed with Windows error {status}."));
+        }
+
+        Ok(())
+    }
+
+    pub fn high_performance_available() -> bool {
+        guid_from_str(HIGH_PERFORMANCE_GUID)
+            .map(|guid| scheme_exists(&guid))
+            .unwrap_or(false)
+    }
+
+    pub fn is_high_performance(snapshot: &PowerPlanSnapshot) -> bool {
+        normalize_guid(
+            snapshot
+                .guid_raw
+                .strip_prefix("GUID:")
+                .unwrap_or(snapshot.guid_raw.as_str()),
+        ) == HIGH_PERFORMANCE_GUID
+    }
+}
+
+#[cfg(target_os = "windows")]
 mod windows_detect {
     use super::{detection_result, DetectionResult};
     use std::ffi::OsStr;
@@ -328,20 +518,10 @@ mod windows_detect {
         }
     }
 
-    fn power_plan_state(guid: &str) -> (&'static str, String) {
-        let normalized = guid.trim().trim_matches('{').trim_matches('}').to_lowercase();
-
-        match normalized.as_str() {
-            "381b4222-f694-41f0-9685-ff1bb1920fa1" => {
-                ("Default", "Balanced power plan detected.".to_string())
-            }
-            "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c" => {
-                ("Enabled", "High performance power plan detected.".to_string())
-            }
-            "a1841308-3541-4fab-bc81-f69e7f89651" => {
-                ("Disabled", "Power saver plan detected.".to_string())
-            }
-            _ => ("Unknown", format!("Active power scheme GUID: {guid}")),
+    pub fn power_plan() -> DetectionResult {
+        match super::power_plan_ops::query_active_power_plan() {
+            Ok(snapshot) => detection_result(true, &snapshot.state, snapshot.message),
+            Err(message) => detection_result(false, "Unknown", message),
         }
     }
 
@@ -419,25 +599,6 @@ mod windows_detect {
             Ok(Some(2)) => detection_result(true, "Disabled", "HAGS state detected.".to_string()),
             Ok(Some(_)) => detection_result(true, "Unknown", "HAGS registry value is not recognized.".to_string()),
             Ok(None) => detection_result(true, "Unknown", "HAGS registry value is not present.".to_string()),
-            Err(message) => detection_result(false, "Unknown", message),
-        }
-    }
-
-    pub fn power_plan() -> DetectionResult {
-        match read_string(
-            HKEY_LOCAL_MACHINE,
-            "SYSTEM\\CurrentControlSet\\Control\\Power\\User\\PowerSchemes",
-            "ActivePowerScheme",
-        ) {
-            Ok(Some(guid)) => {
-                let (state, message) = power_plan_state(&guid);
-                detection_result(true, state, message)
-            }
-            Ok(None) => detection_result(
-                true,
-                "Unknown",
-                "Active power scheme registry value is not present.".to_string(),
-            ),
             Err(message) => detection_result(false, "Unknown", message),
         }
     }
@@ -1445,6 +1606,179 @@ mod windows_apply {
         )
     }
 
+    pub fn power_plan() -> ApplyResult {
+        let before = match super::power_plan_ops::query_active_power_plan() {
+            Ok(snapshot) => snapshot,
+            Err(message) => {
+                return apply_result(
+                    "power-plan",
+                    "failed",
+                    "Unknown",
+                    "Unknown",
+                    "Unknown",
+                    message.clone(),
+                    Some(message),
+                );
+            }
+        };
+
+        if !super::power_plan_ops::high_performance_available() {
+            return apply_result(
+                "power-plan",
+                "failed",
+                &before.state,
+                &before.state,
+                &before.guid_raw,
+                "High performance power plan is not available on this system. Ultimate Performance was not created."
+                    .to_string(),
+                Some(
+                    "High performance power plan is not available on this system. TweakMind does not create Ultimate Performance automatically."
+                        .to_string(),
+                ),
+            );
+        }
+
+        let target_guid = match super::power_plan_ops::parse_guid_raw(&format!(
+            "GUID:{{{}}}",
+            super::power_plan_ops::recommended_high_performance_guid()
+        )) {
+            Some(guid) => guid,
+            None => {
+                return apply_result(
+                    "power-plan",
+                    "failed",
+                    &before.state,
+                    &before.state,
+                    &before.guid_raw,
+                    "High performance power plan GUID is invalid.".to_string(),
+                    Some("High performance power plan GUID is invalid.".to_string()),
+                );
+            }
+        };
+
+        if let Err(message) = super::power_plan_ops::set_active_power_plan(&target_guid) {
+            return apply_result(
+                "power-plan",
+                "failed",
+                &before.state,
+                &before.state,
+                &before.guid_raw,
+                "Power plan was not changed.".to_string(),
+                Some(message),
+            );
+        }
+
+        let after = super::power_plan_ops::query_active_power_plan().unwrap_or(super::power_plan_ops::PowerPlanSnapshot {
+            state: "Enabled".to_string(),
+            label: "High Performance".to_string(),
+            guid_raw: format!(
+                "GUID:{{{}}}",
+                super::power_plan_ops::recommended_high_performance_guid()
+            ),
+            message: "High performance power plan detected.".to_string(),
+        });
+        let success = super::power_plan_ops::is_high_performance(&after);
+
+        apply_result(
+            "power-plan",
+            if success { "success" } else { "failed" },
+            &before.state,
+            &after.state,
+            &before.guid_raw,
+            if success {
+                "Power plan was switched to High performance through the native Tauri executor.".to_string()
+            } else {
+                format!(
+                    "Power plan apply expected High performance, but detected {}.",
+                    after.label
+                )
+            },
+            if success {
+                None
+            } else {
+                Some("Applied power plan did not produce the expected detected state.".to_string())
+            },
+        )
+    }
+
+    pub fn restore_power_plan(previous_state: String, previous_guid_raw: String) -> RecoveryResult {
+        let target_guid = match super::power_plan_ops::parse_guid_raw(&previous_guid_raw) {
+            Some(guid) => guid,
+            None => {
+                return recovery_result(
+                    "power-plan",
+                    "failed",
+                    &previous_state,
+                    &previous_state,
+                    "Unknown",
+                    &previous_guid_raw,
+                    "Power plan recovery was not applied.".to_string(),
+                    Some("Saved power plan GUID is not restorable.".to_string()),
+                );
+            }
+        };
+
+        if !super::power_plan_ops::scheme_exists(&target_guid) {
+            return recovery_result(
+                "power-plan",
+                "failed",
+                &previous_state,
+                &previous_state,
+                "Unknown",
+                &previous_guid_raw,
+                "The saved power plan is no longer available on this system.".to_string(),
+                Some("The saved power plan is no longer available on this system.".to_string()),
+            );
+        }
+
+        if let Err(message) = super::power_plan_ops::set_active_power_plan(&target_guid) {
+            let actual = super::power_plan_ops::query_active_power_plan()
+                .map(|snapshot| snapshot.state)
+                .unwrap_or_else(|_| "Unknown".to_string());
+
+            return recovery_result(
+                "power-plan",
+                "failed",
+                &previous_state,
+                &previous_state,
+                &actual,
+                &previous_guid_raw,
+                "Power plan recovery was not applied.".to_string(),
+                Some(message),
+            );
+        }
+
+        let after = super::power_plan_ops::query_active_power_plan().unwrap_or(super::power_plan_ops::PowerPlanSnapshot {
+            state: "Unknown".to_string(),
+            label: "Unknown".to_string(),
+            guid_raw: previous_guid_raw.clone(),
+            message: "Active power plan could not be confirmed after recovery.".to_string(),
+        });
+        let success = after.state == previous_state;
+
+        recovery_result(
+            "power-plan",
+            if success { "success" } else { "failed" },
+            &previous_state,
+            &previous_state,
+            &after.state,
+            &previous_guid_raw,
+            if success {
+                "Power plan was restored to the saved previous state.".to_string()
+            } else {
+                format!(
+                    "Power plan recovery expected {previous_state}, but detected {} ({}).",
+                    after.state, after.label
+                )
+            },
+            if success {
+                None
+            } else {
+                Some("Recovered power plan did not match the saved previous state.".to_string())
+            },
+        )
+    }
+
     pub fn game_mode() -> ApplyResult {
         let before = match query_game_mode_snapshot() {
             Ok(snapshot) => snapshot,
@@ -2108,6 +2442,31 @@ mod windows_apply {
             Some("Unsupported operating system.".to_string()),
         )
     }
+
+    pub fn power_plan() -> ApplyResult {
+        apply_result(
+            "power-plan",
+            "failed",
+            "Unknown",
+            "Unknown",
+            "Unknown",
+            "Power Plan Apply is only available on Windows.".to_string(),
+            Some("Unsupported operating system.".to_string()),
+        )
+    }
+
+    pub fn restore_power_plan(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+        recovery_result(
+            "power-plan",
+            "failed",
+            &previous_state,
+            &previous_state,
+            "Unknown",
+            &previous_startup_type,
+            "Power Plan Recovery is only available on Windows.".to_string(),
+            Some("Unsupported operating system.".to_string()),
+        )
+    }
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -2269,6 +2628,16 @@ fn restore_hags(previous_state: String, previous_startup_type: String) -> Recove
     windows_apply::restore_hags(previous_state, previous_startup_type)
 }
 
+#[tauri::command]
+fn apply_power_plan() -> ApplyResult {
+    windows_apply::power_plan()
+}
+
+#[tauri::command]
+fn restore_power_plan(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+    windows_apply::restore_power_plan(previous_state, previous_startup_type)
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -2293,7 +2662,9 @@ fn main() {
             apply_sysmain,
             restore_sysmain,
             apply_hags,
-            restore_hags
+            restore_hags,
+            apply_power_plan,
+            restore_power_plan
         ])
         .run(tauri::generate_context!())
         .expect("failed to run TweakMind");

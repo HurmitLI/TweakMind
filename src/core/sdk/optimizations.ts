@@ -271,6 +271,16 @@ export const optimizationSdkModules: OptimizationSdkModule[] = [
     detector: createCapabilityAwareDetector("power-plan", definitions["power-plan"].title),
     evaluator: {
       evaluate(context) {
+        const status = normalizeOptimizationStatus(context.detectedStatus);
+
+        if (status === "Enabled") {
+          return createEvaluation(context, "Already Optimized", status);
+        }
+
+        if (status === "Default") {
+          return createEvaluation(context, "Recommended", status);
+        }
+
         return createOptionalEvaluator(context);
       }
     },

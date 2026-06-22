@@ -20,7 +20,8 @@ export function getTargetStateForOptimization(
     "core-isolation": "Enabled",
     "delivery-optimization": "Disabled",
     sysmain: "Disabled",
-    hags: "Enabled"
+    hags: "Enabled",
+    "power-plan": "Enabled"
   };
 
   return targetStates[id] ?? "Unknown";
@@ -53,7 +54,9 @@ export function getApplyConfirmationPlan(id: OptimizationId) {
     sysmain:
       "Disabling SysMain may reduce app launch prefetching and change memory behavior. TweakMind does not guarantee FPS or performance gains. Review the trade-offs before applying rather than disabling blindly.",
     hags:
-      "HAGS behavior depends on your GPU driver, Windows version, and individual games. TweakMind does not guarantee FPS improvements. Review the trade-offs before enabling or disabling rather than changing the setting blindly."
+      "HAGS behavior depends on your GPU driver, Windows version, and individual games. TweakMind does not guarantee FPS improvements. Review the trade-offs before enabling or disabling rather than changing the setting blindly.",
+    "power-plan":
+      "Different workloads benefit from different power plans. High performance may increase energy use, heat, or fan noise. TweakMind does not guarantee performance improvements and does not create Ultimate Performance automatically."
   };
 
   return {
