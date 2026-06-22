@@ -1,5 +1,6 @@
-import { useNavigate } from "react-router-dom";
 import type { ReactNode } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { AppInfo } from "../core/app/AppInfo";
 import { OnboardingService } from "../core/onboarding/OnboardingService";
 import { useSettings } from "../core/settings/SettingsProvider";
 import type { AppLanguage, AppTheme, TerminologyMode } from "../core/settings/SettingsService";
@@ -130,6 +131,21 @@ export function SettingsPage() {
         >
           Show onboarding again
         </button>
+      </PreferenceSection>
+
+      <PreferenceSection
+        description="View release information, licensing, and project links for this Alpha build."
+        title="Application"
+      >
+        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          {AppInfo.name} {AppInfo.versionLabel}
+        </p>
+        <Link
+          className="mt-4 inline-flex h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-400 dark:hover:text-blue-300"
+          to="/about"
+        >
+          View About
+        </Link>
       </PreferenceSection>
     </div>
   );

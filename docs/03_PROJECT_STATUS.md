@@ -116,6 +116,12 @@ None
 
 ---
 
+# Completed RELEASE
+
+- RELEASE-001 Alpha Release Preparation
+
+---
+
 # In Progress
 
 None
@@ -124,7 +130,7 @@ None
 
 # Next Development
 
-RELEASE-001 Alpha Release Preparation
+ALPHA-001 Internal Testing
 
 ---
 

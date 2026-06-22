@@ -1,7 +1,9 @@
 import { AlertTriangle, CheckCircle2, Clock, History, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { EmptyState } from "../components/common/EmptyState";
 import { ErrorPresentation } from "../components/error/ErrorPresentation";
+import { LoadingState } from "../components/common/LoadingState";
 import { getTargetStateForOptimization } from "../core/apply/ApplyConfirmationPlan";
 import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
@@ -94,7 +96,12 @@ export function VerificationPage() {
         <Field label="Detection confidence" value={runtimeScan?.detectionConfidence ?? "None"} />
       </dl>
 
-      {verificationError && !isVerifying ? (
+      {isVerifying ? (
+        <LoadingState
+          description={`Reading the current ${optimization.title} state...`}
+          title="Checking verification"
+        />
+      ) : verificationError ? (
         <ErrorPresentation
           actions={{
             goBackHref: "/dashboard",
@@ -103,12 +110,17 @@ export function VerificationPage() {
           }}
           descriptor={verificationError}
         />
+      ) : status === "Pending / Not Available" ? (
+        <EmptyState
+          actionLabel="Open History"
+          actionTo="/history"
+          description={result?.message ?? "Verification is not available for this optimization yet."}
+          title="Verification not available yet"
+        />
       ) : (
         <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">
           <h3 className="text-lg font-semibold tracking-tight text-slate-950">Verification Result</h3>
-          <p className="mt-4 text-sm leading-6 text-slate-600">
-            {isVerifying ? `Reading the current ${optimization.title} state...` : result?.message}
-          </p>
+          <p className="mt-4 text-sm leading-6 text-slate-600">{result?.message}</p>
           <p className="mt-4 text-sm leading-6 text-slate-500">
             Verification is read-only. It does not modify Windows settings.
           </p>

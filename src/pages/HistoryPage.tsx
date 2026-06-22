@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { EmptyState } from "../components/common/EmptyState";
 import { ErrorPresentation } from "../components/error/ErrorPresentation";
 import { getApplyModeLabelForMode } from "../components/apply/ApplyModeBadge";
 import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
@@ -42,7 +43,7 @@ export function HistoryPage() {
   return (
     <div className="flex flex-1 flex-col">
       <section className="rounded-lg border border-white/70 bg-white/80 px-8 py-8 shadow-sm backdrop-blur">
-        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">Recovery</p>
+        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">History</p>
         <h2 className="text-4xl font-semibold tracking-tight text-slate-950">History</h2>
         <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">
           Review previous optimizations and restore them if necessary.
@@ -51,9 +52,12 @@ export function HistoryPage() {
 
       <section className="mt-6 grid gap-4">
         {history.length === 0 ? (
-          <div className="rounded-lg border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
-            No optimizations have been applied yet.
-          </div>
+          <EmptyState
+            actionLabel="Start analysis"
+            actionTo="/scan"
+            description="When you apply an optimization, TweakMind records the previous state, result, and recovery options here."
+            title="No optimization history yet"
+          />
         ) : (
           history.map((entry) => {
             const historyError = ErrorPresentationService.forHistoryEntry(entry);

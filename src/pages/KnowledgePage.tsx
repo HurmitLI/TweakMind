@@ -1,6 +1,7 @@
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { EmptyState } from "../components/common/EmptyState";
 import { KnowledgeRepository } from "../core/knowledge/KnowledgeRepository";
 import { hasPrivacyRelevance } from "../core/knowledge/knowledgeSchemaHelpers";
 import { RuntimeScanService } from "../core/scan/RuntimeScanService";
@@ -134,7 +135,28 @@ export function KnowledgePage() {
       </section>
 
       <section className="mt-6 grid gap-4">
-        {visibleKnowledge.map((knowledge) => (
+        {visibleKnowledge.length === 0 ? (
+          <EmptyState
+            actionLabel={knowledgeItems.length === 0 ? "Return Home" : "Clear filters"}
+            actionTo={knowledgeItems.length === 0 ? "/dashboard" : undefined}
+            description={
+              knowledgeItems.length === 0
+                ? "Supported optimization knowledge will appear here as it becomes available."
+                : "No optimizations matched your search or category filter. Try another keyword or clear the filter."
+            }
+            icon={Search}
+            onAction={
+              knowledgeItems.length === 0
+                ? undefined
+                : () => {
+                    setQuery("");
+                    setSelectedCategory(null);
+                  }
+            }
+            title={knowledgeItems.length === 0 ? "No knowledge entries yet" : "No matching optimizations"}
+          />
+        ) : (
+          visibleKnowledge.map((knowledge) => (
           <Link
             className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             key={knowledge.identity.id}
@@ -186,7 +208,8 @@ export function KnowledgePage() {
               </div>
             </div>
           </Link>
-        ))}
+        ))
+        )}
       </section>
     </div>
   );

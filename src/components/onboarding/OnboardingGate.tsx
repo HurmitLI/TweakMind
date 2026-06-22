@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { LoadingState } from "../common/LoadingState";
 import { OnboardingService } from "../../core/onboarding/OnboardingService";
 
 export function OnboardingGate() {
@@ -13,7 +14,7 @@ export function OnboardingGate() {
   }, [location.pathname, navigate]);
 
   if (!OnboardingService.isComplete()) {
-    return null;
+    return <LoadingState description="Preparing your first-run experience..." layout="centered" title="Loading TweakMind" />;
   }
 
   return <Outlet />;

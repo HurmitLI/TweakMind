@@ -1,6 +1,6 @@
 import { Activity, AlertTriangle, Clock3, ListChecks } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { EmptyState } from "../components/common/EmptyState";
 import { DecisionReportSectionPanel } from "../components/report/DecisionReportSectionPanel";
 import { ReportFilters } from "../components/report/ReportFilters";
 import { ReportMetric } from "../components/report/ReportMetric";
@@ -74,20 +74,17 @@ export function ReportPage() {
 
   if (!reportModel.hasScan) {
     return (
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col gap-6">
         <section className="rounded-lg border border-white/70 bg-white/80 px-8 py-8 shadow-sm backdrop-blur">
           <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-blue-700">Decision workspace</p>
           <h2 className="text-4xl font-semibold tracking-tight text-slate-950">Decision Report</h2>
-          <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">
-            Run a scan first so TweakMind can compare recommendations and current states before you decide what to apply.
-          </p>
-          <Link
-            className="mt-6 inline-flex h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-            to="/scan"
-          >
-            Go to Scan
-          </Link>
         </section>
+        <EmptyState
+          actionLabel="Start analysis"
+          actionTo="/scan"
+          description="Run a scan first so TweakMind can compare recommendations and current states before you decide what to apply."
+          title="No decision report yet"
+        />
       </div>
     );
   }
@@ -133,9 +130,12 @@ export function ReportPage() {
       </div>
 
       {!hasVisibleItems ? (
-        <section className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900">
-          No optimizations matched the current filters. Try another filter or run a new scan if your system state changed.
-        </section>
+        <EmptyState
+          actionLabel="Start new analysis"
+          actionTo="/scan"
+          description="No optimizations matched the current filters. Try another filter or run a new scan if your system state changed."
+          title="No matching recommendations"
+        />
       ) : (
         <section className="mt-6 grid gap-4">
           {filteredSections.map((section) => (

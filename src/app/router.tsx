@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
 import { OnboardingGate } from "../components/onboarding/OnboardingGate";
+import { AboutPage } from "../pages/AboutPage";
 import { ApplyConfirmationPage } from "../pages/ApplyConfirmationPage";
 import { ApplyPage } from "../pages/ApplyPage";
 import { DashboardPage } from "../pages/DashboardPage";
@@ -83,6 +84,10 @@ export const router = createBrowserRouter([
           {
             path: "settings",
             element: <SettingsPage />
+          },
+          {
+            path: "about",
+            element: <AboutPage />
           }
         ]
       }

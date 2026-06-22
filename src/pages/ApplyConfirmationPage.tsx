@@ -2,6 +2,7 @@ import { ArrowLeft, CheckCircle2, Info, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ApplyModeBadge, getApplyModeLabel } from "../components/apply/ApplyModeBadge";
+import { LoadingState } from "../components/common/LoadingState";
 import { ErrorPresentation } from "../components/error/ErrorPresentation";
 import { RecommendationBadge } from "../components/decision/RecommendationBadge";
 import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
@@ -187,6 +188,10 @@ export function ApplyConfirmationPage() {
           </dl>
         </section>
       </div>
+
+      {isConfirming ? (
+        <LoadingState description="Capturing state and preparing the apply workflow..." title="Preparing apply" />
+      ) : null}
 
       {applyError ? (
         <ErrorPresentation
