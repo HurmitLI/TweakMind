@@ -7,6 +7,7 @@ import type {
   OptimizationStatus
 } from "../../types/optimization";
 import type { KnowledgePriority } from "../knowledge/KnowledgeDefinition";
+import type { DetectionConfidence, RuntimeScanStatus } from "../scan/RuntimeScanModel";
 
 export type DecisionReportSectionId = "recommended" | "optional" | "keep-current" | "unavailable";
 
@@ -26,6 +27,10 @@ export interface DecisionReportItem {
   canVerify: boolean;
   canRecover: boolean;
   scanAvailable: boolean;
+  runtimeScanStatus: RuntimeScanStatus;
+  detectionMethod: string;
+  detectionConfidence: DetectionConfidence;
+  scanUnavailableReason?: string;
   section: DecisionReportSectionId;
   ignoreConsequence: string;
   estimatedMinutes: number;

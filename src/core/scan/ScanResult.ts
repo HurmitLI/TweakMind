@@ -1,5 +1,6 @@
 import type { OptimizationDefinition, OptimizationId, OptimizationRecommendation, OptimizationStatus } from "../../types/optimization";
 import type { RecommendationResult } from "../recommendation/RecommendationResult";
+import type { RuntimeScanSnapshot } from "./RuntimeScanModel";
 
 export interface OptimizationScanResult {
   id: OptimizationId;
@@ -10,6 +11,7 @@ export interface OptimizationScanResult {
   reason: string;
   selectable: boolean;
   selectedByDefault: boolean;
+  runtimeScan: RuntimeScanSnapshot;
 }
 
 export interface RecommendationSummary {

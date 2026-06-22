@@ -113,7 +113,7 @@ mod windows_detect {
     };
     use windows_sys::Win32::System::Registry::{
         RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER,
-        HKEY_LOCAL_MACHINE, KEY_READ, REG_DWORD,
+        HKEY_LOCAL_MACHINE, KEY_READ, REG_DWORD, REG_SZ,
     };
     use windows_sys::Win32::System::Services::{
         CloseServiceHandle, OpenSCManagerW, OpenServiceW, QueryServiceConfigW,
@@ -199,9 +199,66 @@ mod windows_detect {
         Ok(Some(data))
     }
 
-    pub fn windows_search() -> DetectionResult {
+    fn read_string(root: HKEY, path: &str, value: &str) -> Result<Option<String>, String> {
+        let key = match open_registry_key(root, path) {
+            Ok(key) => key,
+            Err(message) if message.ends_with("Windows error 2.") => return Ok(None),
+            Err(message) => return Err(message),
+        };
+
+        let value_name = wide(value);
+        let mut data_type = 0u32;
+        let mut data_size = 0u32;
+        let status = unsafe {
+            RegQueryValueExW(
+                key.0,
+                value_name.as_ptr(),
+                null_mut(),
+                &mut data_type,
+                null_mut(),
+                &mut data_size,
+            )
+        };
+
+        if status == ERROR_FILE_NOT_FOUND {
+            return Ok(None);
+        }
+
+        if status != ERROR_SUCCESS && status != ERROR_INSUFFICIENT_BUFFER {
+            return Err(error_message("Read registry value size", status));
+        }
+
+        let mut buffer = vec![0u16; (data_size as usize / 2).max(1) + 1];
+        let status = unsafe {
+            RegQueryValueExW(
+                key.0,
+                value_name.as_ptr(),
+                null_mut(),
+                &mut data_type,
+                buffer.as_mut_ptr() as *mut u8,
+                &mut data_size,
+            )
+        };
+
+        if status == ERROR_FILE_NOT_FOUND {
+            return Ok(None);
+        }
+
+        if status != ERROR_SUCCESS {
+            return Err(error_message("Read registry value", status));
+        }
+
+        if data_type != REG_SZ {
+            return Ok(None);
+        }
+
+        let text = String::from_utf16_lossy(&buffer);
+        Ok(Some(text.trim_end_matches('\0').trim().to_string()))
+    }
+
+    fn detect_service_optimization(service_name: &str, label: &str, success_message: &str) -> DetectionResult {
         let result = (|| -> Result<String, String> {
-            let service_name = wide("WSearch");
+            let service_name = wide(service_name);
             let manager = unsafe { OpenSCManagerW(null(), null(), SC_MANAGER_CONNECT) };
 
             if manager.is_null() {
@@ -218,7 +275,7 @@ mod windows_detect {
             };
 
             if service.is_null() {
-                return Err("Unable to open Windows Search service.".to_string());
+                return Err(format!("Unable to open {label} service."));
             }
 
             let service = ServiceHandle(service);
@@ -254,7 +311,7 @@ mod windows_detect {
             };
 
             if ok == 0 {
-                return Err("Unable to query Windows Search service status.".to_string());
+                return Err(format!("Unable to query {label} service status."));
             }
 
             Ok(match status.dwCurrentState {
@@ -266,9 +323,34 @@ mod windows_detect {
         })();
 
         match result {
-            Ok(state) => detection_result(true, &state, "Windows Search state detected.".to_string()),
+            Ok(state) => detection_result(true, &state, success_message.to_string()),
             Err(message) => detection_result(false, "Unknown", message),
         }
+    }
+
+    fn power_plan_state(guid: &str) -> (&'static str, String) {
+        let normalized = guid.trim().trim_matches('{').trim_matches('}').to_lowercase();
+
+        match normalized.as_str() {
+            "381b4222-f694-41f0-9685-ff1bb1920fa1" => {
+                ("Default", "Balanced power plan detected.".to_string())
+            }
+            "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c" => {
+                ("Enabled", "High performance power plan detected.".to_string())
+            }
+            "a1841308-3541-4fab-bc81-f69e7f89651" => {
+                ("Disabled", "Power saver plan detected.".to_string())
+            }
+            _ => ("Unknown", format!("Active power scheme GUID: {guid}")),
+        }
+    }
+
+    pub fn windows_search() -> DetectionResult {
+        detect_service_optimization("WSearch", "Windows Search", "Windows Search state detected.")
+    }
+
+    pub fn sysmain() -> DetectionResult {
+        detect_service_optimization("SysMain", "SysMain", "SysMain state detected.")
     }
 
     pub fn game_mode() -> DetectionResult {
@@ -323,6 +405,119 @@ mod windows_detect {
                 detection_result(true, "Enabled", "Delivery Optimization state detected.".to_string())
             }
             Ok(None) => detection_result(true, "Unknown", "Delivery Optimization registry value is not present.".to_string()),
+            Err(message) => detection_result(false, "Unknown", message),
+        }
+    }
+
+    pub fn hags() -> DetectionResult {
+        match read_dword(
+            HKEY_LOCAL_MACHINE,
+            "SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers",
+            "HwSchMode",
+        ) {
+            Ok(Some(1)) => detection_result(true, "Enabled", "HAGS state detected.".to_string()),
+            Ok(Some(2)) => detection_result(true, "Disabled", "HAGS state detected.".to_string()),
+            Ok(Some(_)) => detection_result(true, "Unknown", "HAGS registry value is not recognized.".to_string()),
+            Ok(None) => detection_result(true, "Unknown", "HAGS registry value is not present.".to_string()),
+            Err(message) => detection_result(false, "Unknown", message),
+        }
+    }
+
+    pub fn power_plan() -> DetectionResult {
+        match read_string(
+            HKEY_LOCAL_MACHINE,
+            "SYSTEM\\CurrentControlSet\\Control\\Power\\User\\PowerSchemes",
+            "ActivePowerScheme",
+        ) {
+            Ok(Some(guid)) => {
+                let (state, message) = power_plan_state(&guid);
+                detection_result(true, state, message)
+            }
+            Ok(None) => detection_result(
+                true,
+                "Unknown",
+                "Active power scheme registry value is not present.".to_string(),
+            ),
+            Err(message) => detection_result(false, "Unknown", message),
+        }
+    }
+
+    pub fn visual_effects() -> DetectionResult {
+        match read_dword(
+            HKEY_CURRENT_USER,
+            "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects",
+            "VisualFXSetting",
+        ) {
+            Ok(Some(0)) => detection_result(true, "Default", "Visual effects set to let Windows decide.".to_string()),
+            Ok(Some(1)) => detection_result(true, "Enabled", "Visual effects set for best appearance.".to_string()),
+            Ok(Some(2)) => detection_result(true, "Disabled", "Visual effects set for best performance.".to_string()),
+            Ok(Some(3)) => detection_result(true, "Unknown", "Custom visual effects setting detected.".to_string()),
+            Ok(Some(_)) => detection_result(true, "Unknown", "Visual effects registry value is not recognized.".to_string()),
+            Ok(None) => detection_result(true, "Unknown", "Visual effects registry value is not present.".to_string()),
+            Err(message) => detection_result(false, "Unknown", message),
+        }
+    }
+
+    pub fn active_hours() -> DetectionResult {
+        let start = read_dword(
+            HKEY_LOCAL_MACHINE,
+            "SOFTWARE\\Microsoft\\WindowsUpdate\\UX\\Settings",
+            "ActiveHoursStart",
+        );
+        let end = read_dword(
+            HKEY_LOCAL_MACHINE,
+            "SOFTWARE\\Microsoft\\WindowsUpdate\\UX\\Settings",
+            "ActiveHoursEnd",
+        );
+
+        match (start, end) {
+            (Ok(Some(start_value)), Ok(Some(end_value))) if start_value > 0 || end_value > 0 => {
+                detection_result(
+                    true,
+                    "Enabled",
+                    format!("Active hours detected ({start_value}-{end_value})."),
+                )
+            }
+            (Ok(None), Ok(None)) => detection_result(
+                true,
+                "Default",
+                "Active hours are not configured.".to_string(),
+            ),
+            (Ok(_), Ok(_)) => detection_result(
+                true,
+                "Unknown",
+                "Active hours registry values are present but not recognized.".to_string(),
+            ),
+            (Err(message), _) | (_, Err(message)) => detection_result(false, "Unknown", message),
+        }
+    }
+
+    pub fn background_apps() -> DetectionResult {
+        match read_dword(
+            HKEY_CURRENT_USER,
+            "Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications",
+            "GlobalUserDisabled",
+        ) {
+            Ok(Some(1)) => detection_result(
+                true,
+                "Disabled",
+                "Global background apps are disabled.".to_string(),
+            ),
+            Ok(Some(0)) => detection_result(
+                true,
+                "Enabled",
+                "Global background apps are allowed.".to_string(),
+            ),
+            Ok(Some(_)) => detection_result(
+                true,
+                "Unknown",
+                "Background apps registry value is not recognized.".to_string(),
+            ),
+            Ok(None) => detection_result(
+                true,
+                "Unknown",
+                "Background apps registry value is not present.".to_string(),
+            ),
             Err(message) => detection_result(false, "Unknown", message),
         }
     }
@@ -1622,6 +1817,30 @@ mod windows_detect {
     pub fn delivery_optimization() -> DetectionResult {
         unsupported("Delivery Optimization")
     }
+
+    pub fn sysmain() -> DetectionResult {
+        unsupported("SysMain")
+    }
+
+    pub fn hags() -> DetectionResult {
+        unsupported("HAGS")
+    }
+
+    pub fn power_plan() -> DetectionResult {
+        unsupported("Power Plan")
+    }
+
+    pub fn visual_effects() -> DetectionResult {
+        unsupported("Visual Effects")
+    }
+
+    pub fn active_hours() -> DetectionResult {
+        unsupported("Windows Update Active Hours")
+    }
+
+    pub fn background_apps() -> DetectionResult {
+        unsupported("Background Apps")
+    }
 }
 
 #[tauri::command]
@@ -1642,6 +1861,36 @@ fn detect_core_isolation() -> DetectionResult {
 #[tauri::command]
 fn detect_delivery_optimization() -> DetectionResult {
     windows_detect::delivery_optimization()
+}
+
+#[tauri::command]
+fn detect_sysmain() -> DetectionResult {
+    windows_detect::sysmain()
+}
+
+#[tauri::command]
+fn detect_hags() -> DetectionResult {
+    windows_detect::hags()
+}
+
+#[tauri::command]
+fn detect_power_plan() -> DetectionResult {
+    windows_detect::power_plan()
+}
+
+#[tauri::command]
+fn detect_visual_effects() -> DetectionResult {
+    windows_detect::visual_effects()
+}
+
+#[tauri::command]
+fn detect_active_hours() -> DetectionResult {
+    windows_detect::active_hours()
+}
+
+#[tauri::command]
+fn detect_background_apps() -> DetectionResult {
+    windows_detect::background_apps()
 }
 
 #[tauri::command]
@@ -1691,6 +1940,12 @@ fn main() {
             detect_game_mode,
             detect_core_isolation,
             detect_delivery_optimization,
+            detect_sysmain,
+            detect_hags,
+            detect_power_plan,
+            detect_visual_effects,
+            detect_active_hours,
+            detect_background_apps,
             apply_windows_search,
             restore_windows_search,
             apply_game_mode,

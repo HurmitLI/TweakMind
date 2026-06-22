@@ -9,6 +9,7 @@ import { RecommendationBadge } from "../components/decision/RecommendationBadge"
 import { OptimizationCapabilityRegistry } from "../core/execution/OptimizationCapabilityRegistry";
 import { KnowledgeRepository } from "../core/knowledge/KnowledgeRepository";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
+import { RuntimeScanService } from "../core/scan/RuntimeScanService";
 import { readStoredScanResult, toRecommendationResult } from "../core/scan/ScanResult";
 import { WindowsOptimizationService } from "../core/windows/WindowsOptimizationService";
 import type { OptimizationId } from "../types/optimization";
@@ -45,13 +46,8 @@ function ChecklistSection({ title, items, variant }: { title: string; items: str
   );
 }
 
-function resolveCurrentScanState(scanResult: ReturnType<typeof readStoredScanResult>, optimizationId: OptimizationId) {
-  if (!scanResult) {
-    return "Scan Required";
-  }
-
-  const optimizationResult = scanResult.optimizationResults.find((result) => result.id === optimizationId);
-  return optimizationResult?.normalizedStatus ?? "Unknown";
+function resolveCurrentScanState(optimizationId: OptimizationId) {
+  return RuntimeScanService.getDisplayState(optimizationId);
 }
 
 export function KnowledgeDetailPage() {
@@ -74,7 +70,9 @@ export function KnowledgeDetailPage() {
         selectable: false,
         selectedByDefault: false
       };
-  const currentScanState = resolveCurrentScanState(scanResult, requestedOptimizationId);
+  const currentScanState = resolveCurrentScanState(requestedOptimizationId);
+  const runtimeScan = RuntimeScanService.getStoredSnapshot(requestedOptimizationId);
+  const scanCapability = RuntimeScanService.getCapability(requestedOptimizationId);
   const canRealApply = OptimizationCapabilityRegistry.canRealApply(requestedOptimizationId);
   const historyEntries = useMemo(
     () => WindowsOptimizationService.getHistory().filter((entry) => entry.optimizationId === requestedOptimizationId),
@@ -196,6 +194,43 @@ export function KnowledgeDetailPage() {
             <div>
               <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Estimated recovery time</dt>
               <dd className="mt-2 text-sm leading-6 text-slate-700">{recoveryTime}</dd>
+            </div>
+          ) : null}
+        </dl>
+      </DecisionSection>
+
+      <DecisionSection title="Runtime scan">
+        <dl className="grid gap-4 md:grid-cols-2">
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Scan capability</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-950">{scanCapability.scanCapability}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Detection method</dt>
+            <dd className="mt-2 text-sm leading-6 text-slate-700">{scanCapability.detectionMethod}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Runtime scan status</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-950">
+              {runtimeScan?.runtimeScanStatus ?? (scanCapability.scanCapability === "Not Supported Yet" ? "Not Supported Yet" : "Scan Required")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current runtime state</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-950">{currentScanState}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Detection confidence</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-950">
+              {runtimeScan?.detectionConfidence ?? (scanCapability.scanCapability === "Not Supported Yet" ? "None" : "None")}
+            </dd>
+          </div>
+          {runtimeScan?.unavailableReason || scanCapability.unavailableReason ? (
+            <div className="md:col-span-2">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reason when unavailable</dt>
+              <dd className="mt-2 text-sm leading-6 text-slate-700">
+                {runtimeScan?.unavailableReason ?? scanCapability.unavailableReason}
+              </dd>
             </div>
           ) : null}
         </dl>

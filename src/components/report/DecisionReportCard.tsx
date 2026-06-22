@@ -104,8 +104,12 @@ export function DecisionReportCard({ item, selected, onToggleSelected }: Decisio
           <dd className="mt-1 text-sm font-semibold text-slate-950">{availabilityLabel(item.canRecover)}</dd>
         </div>
         <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Category</dt>
-          <dd className="mt-1 text-sm font-semibold text-slate-950">{item.category}</dd>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Runtime scan</dt>
+          <dd className="mt-1 text-sm font-semibold text-slate-950">{item.runtimeScanStatus}</dd>
+        </div>
+        <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Detection confidence</dt>
+          <dd className="mt-1 text-sm font-semibold text-slate-950">{item.detectionConfidence}</dd>
         </div>
       </dl>
     </article>

@@ -3,6 +3,7 @@ import { createEngineResult } from "../engine/OptimizationEngine";
 import type { OptimizationEngineResult } from "../engine/OptimizationEngine";
 import { detectWithNativeCommand } from "../engine/NativeDetection";
 import { KnowledgeRepository, knowledgeToOptimizationDefinition } from "../knowledge/KnowledgeRepository";
+import { ScanCapabilityRegistry } from "../scan/ScanCapabilityRegistry";
 import type {
   OptimizationEvaluation,
   OptimizationEvaluationContext,
@@ -52,6 +53,50 @@ function createUnavailableDetector(label: string) {
   };
 }
 
+function createCapabilityAwareDetector(id: OptimizationId, label: string) {
+  const capability = ScanCapabilityRegistry.get(id);
+
+  if (capability.scanCapability === "Not Supported Yet") {
+    return {
+      detect(): Promise<OptimizationEngineResult> {
+        return Promise.resolve(
+          createEngineResult({
+            status: "Failed",
+            success: false,
+            previousState: "Unknown",
+            currentState: "Unknown",
+            message: capability.unavailableReason ?? `${label} scan is not supported yet.`
+          })
+        );
+      }
+    };
+  }
+
+  if (capability.nativeCommand) {
+    return createNativeDetector(capability.nativeCommand, label);
+  }
+
+  return createUnavailableDetector(label);
+}
+
+function createServiceEvaluator(context: OptimizationEvaluationContext): OptimizationEvaluation {
+  const status = normalizeOptimizationStatus(context.detectedStatus);
+
+  if (status === "Disabled") {
+    return createEvaluation(context, "Already Optimized", status);
+  }
+
+  if (status === "Enabled" || status === "Running" || status === "Stopped") {
+    return createEvaluation(context, "Recommended", status);
+  }
+
+  return createEvaluation(context, "Optional", "Unknown");
+}
+
+function createOptionalEvaluator(context: OptimizationEvaluationContext): OptimizationEvaluation {
+  return createEvaluation(context, "Optional", normalizeOptimizationStatus(context.detectedStatus));
+}
+
 function createMockExecutor(definition: OptimizationDefinition, previousState: OptimizationStatus, currentState: OptimizationStatus) {
   return {
     apply(): Promise<OptimizationEngineResult> {
@@ -95,7 +140,7 @@ const definitions = Object.fromEntries(
 export const optimizationSdkModules: OptimizationSdkModule[] = [
   {
     definition: definitions["windows-search"],
-    detector: createNativeDetector("detect_windows_search", definitions["windows-search"].title),
+    detector: createCapabilityAwareDetector("windows-search", definitions["windows-search"].title),
     evaluator: {
       evaluate(context) {
         const status = normalizeOptimizationStatus(context.detectedStatus);
@@ -116,7 +161,7 @@ export const optimizationSdkModules: OptimizationSdkModule[] = [
   },
   {
     definition: definitions["game-mode"],
-    detector: createNativeDetector("detect_game_mode", definitions["game-mode"].title),
+    detector: createCapabilityAwareDetector("game-mode", definitions["game-mode"].title),
     evaluator: {
       evaluate(context) {
         const status = normalizeOptimizationStatus(context.detectedStatus);
@@ -137,7 +182,7 @@ export const optimizationSdkModules: OptimizationSdkModule[] = [
   },
   {
     definition: definitions["core-isolation"],
-    detector: createNativeDetector("detect_core_isolation", definitions["core-isolation"].title),
+    detector: createCapabilityAwareDetector("core-isolation", definitions["core-isolation"].title),
     evaluator: {
       evaluate(context) {
         const status = normalizeOptimizationStatus(context.detectedStatus);
@@ -158,32 +203,103 @@ export const optimizationSdkModules: OptimizationSdkModule[] = [
   },
   {
     definition: definitions["delivery-optimization"],
-    detector: createNativeDetector("detect_delivery_optimization", definitions["delivery-optimization"].title),
+    detector: createCapabilityAwareDetector("delivery-optimization", definitions["delivery-optimization"].title),
     evaluator: {
       evaluate(context) {
-        return createEvaluation(context, "Optional", normalizeOptimizationStatus(context.detectedStatus));
+        return createOptionalEvaluator(context);
       }
     },
     executor: createMockExecutor(definitions["delivery-optimization"], "Unknown", "Unknown"),
     recovery: createMockRecovery(definitions["delivery-optimization"], "Unknown")
   },
-  ...([
-    "sysmain",
-    "hags",
-    "background-apps",
-    "startup-apps",
-    "power-plan",
-    "windows-update-active-hours",
-    "visual-effects"
-  ] as const).map((id): OptimizationSdkModule => ({
-    definition: definitions[id],
-    detector: createUnavailableDetector(definitions[id].title),
+  {
+    definition: definitions.sysmain,
+    detector: createCapabilityAwareDetector("sysmain", definitions.sysmain.title),
     evaluator: {
       evaluate(context) {
-        return createEvaluation(context, "Optional", "Unknown");
+        return createServiceEvaluator(context);
       }
     },
-    executor: createMockExecutor(definitions[id], "Unknown", "Unknown"),
-    recovery: createMockRecovery(definitions[id], "Unknown")
-  }))
+    executor: createMockExecutor(definitions.sysmain, "Unknown", "Unknown"),
+    recovery: createMockRecovery(definitions.sysmain, "Unknown")
+  },
+  {
+    definition: definitions.hags,
+    detector: createCapabilityAwareDetector("hags", definitions.hags.title),
+    evaluator: {
+      evaluate(context) {
+        const status = normalizeOptimizationStatus(context.detectedStatus);
+
+        if (status === "Enabled") {
+          return createEvaluation(context, "Keep Enabled", status);
+        }
+
+        if (status === "Disabled") {
+          return createEvaluation(context, "Recommended", status);
+        }
+
+        return createOptionalEvaluator(context);
+      }
+    },
+    executor: createMockExecutor(definitions.hags, "Unknown", "Unknown"),
+    recovery: createMockRecovery(definitions.hags, "Unknown")
+  },
+  {
+    definition: definitions["background-apps"],
+    detector: createCapabilityAwareDetector("background-apps", definitions["background-apps"].title),
+    evaluator: {
+      evaluate(context) {
+        return createOptionalEvaluator(context);
+      }
+    },
+    executor: createMockExecutor(definitions["background-apps"], "Unknown", "Unknown"),
+    recovery: createMockRecovery(definitions["background-apps"], "Unknown")
+  },
+  {
+    definition: definitions["startup-apps"],
+    detector: createCapabilityAwareDetector("startup-apps", definitions["startup-apps"].title),
+    evaluator: {
+      evaluate(context) {
+        return createOptionalEvaluator(context);
+      }
+    },
+    executor: createMockExecutor(definitions["startup-apps"], "Unknown", "Unknown"),
+    recovery: createMockRecovery(definitions["startup-apps"], "Unknown")
+  },
+  {
+    definition: definitions["power-plan"],
+    detector: createCapabilityAwareDetector("power-plan", definitions["power-plan"].title),
+    evaluator: {
+      evaluate(context) {
+        return createOptionalEvaluator(context);
+      }
+    },
+    executor: createMockExecutor(definitions["power-plan"], "Unknown", "Unknown"),
+    recovery: createMockRecovery(definitions["power-plan"], "Unknown")
+  },
+  {
+    definition: definitions["windows-update-active-hours"],
+    detector: createCapabilityAwareDetector(
+      "windows-update-active-hours",
+      definitions["windows-update-active-hours"].title
+    ),
+    evaluator: {
+      evaluate(context) {
+        return createOptionalEvaluator(context);
+      }
+    },
+    executor: createMockExecutor(definitions["windows-update-active-hours"], "Unknown", "Unknown"),
+    recovery: createMockRecovery(definitions["windows-update-active-hours"], "Unknown")
+  },
+  {
+    definition: definitions["visual-effects"],
+    detector: createCapabilityAwareDetector("visual-effects", definitions["visual-effects"].title),
+    evaluator: {
+      evaluate(context) {
+        return createOptionalEvaluator(context);
+      }
+    },
+    executor: createMockExecutor(definitions["visual-effects"], "Unknown", "Unknown"),
+    recovery: createMockRecovery(definitions["visual-effects"], "Unknown")
+  }
 ];

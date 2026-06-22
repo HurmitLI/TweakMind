@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { getApplyModeLabelForMode } from "../components/apply/ApplyModeBadge";
 import { OptimizationCapabilityRegistry } from "../core/execution/OptimizationCapabilityRegistry";
+import { RuntimeScanService } from "../core/scan/RuntimeScanService";
 import {
   type OptimizationHistoryEntry,
   type OptimizationRecoveryStatus,
@@ -105,6 +106,17 @@ export function HistoryPage() {
                     <div>
                       <dt className="font-semibold text-slate-500">Timestamp</dt>
                       <dd className="mt-1 text-slate-950">{new Date(Number(entry.timestamp) * 1000).toLocaleString()}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-slate-500">Runtime scan</dt>
+                      <dd className="mt-1 text-slate-950">
+                        {RuntimeScanService.getStoredSnapshot(entry.optimizationId)?.runtimeScanStatus ??
+                          RuntimeScanService.getCapability(entry.optimizationId).scanCapability}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-slate-500">Scan state</dt>
+                      <dd className="mt-1 text-slate-950">{RuntimeScanService.getDisplayState(entry.optimizationId)}</dd>
                     </div>
                   </dl>
                 </div>

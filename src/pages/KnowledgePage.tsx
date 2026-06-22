@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { KnowledgeRepository } from "../core/knowledge/KnowledgeRepository";
 import { hasPrivacyRelevance } from "../core/knowledge/knowledgeSchemaHelpers";
-import { readStoredScanResult } from "../core/scan/ScanResult";
+import { RuntimeScanService } from "../core/scan/RuntimeScanService";
 import type { OptimizationCategory } from "../types/optimization";
 
 const categoryFilters = ["Performance", "Gaming", "Privacy", "Security", "Windows"] as const;
@@ -61,10 +61,12 @@ export function KnowledgePage() {
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter | null>(null);
   const knowledgeItems = useMemo(() => KnowledgeRepository.getAll(), []);
-  const scanResult = useMemo(() => readStoredScanResult(), []);
   const statusById = useMemo(
-    () => new Map(scanResult?.optimizationResults.map((result) => [result.id, result.normalizedStatus]) ?? []),
-    [scanResult]
+    () =>
+      new Map(
+        knowledgeItems.map((knowledge) => [knowledge.identity.id, RuntimeScanService.getDisplayState(knowledge.identity.id)])
+      ),
+    [knowledgeItems]
   );
   const visibleKnowledge = useMemo(
     () =>
@@ -136,7 +138,7 @@ export function KnowledgePage() {
                     {knowledge.identity.category}
                   </span>
                   <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                    Status: {statusById.get(knowledge.identity.id) ?? "Not Available"}
+                    Status: {statusById.get(knowledge.identity.id) ?? "Scan Required"}
                   </span>
                 </div>
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{knowledge.overview.summary}</p>
@@ -167,7 +169,7 @@ export function KnowledgePage() {
                 </div>
                 <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Scan</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-950">{knowledge.currentStatus.scanAvailability}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950">{RuntimeScanService.getCapability(knowledge.identity.id).scanCapability}</p>
                 </div>
               </div>
             </div>

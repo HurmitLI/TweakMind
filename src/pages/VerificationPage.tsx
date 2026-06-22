@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { getTargetStateForOptimization } from "../core/apply/ApplyConfirmationPlan";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
+import { RuntimeScanService } from "../core/scan/RuntimeScanService";
 import { VerificationService } from "../core/verification/VerificationService";
 import type { VerificationResult, VerificationStatus } from "../core/verification/VerificationResult";
 import type { OptimizationId } from "../types/optimization";
@@ -36,6 +37,8 @@ export function VerificationPage() {
   const historyEntryId = searchParams.get("historyId") ?? undefined;
   const optimization = OptimizationRepository.getById(requestedOptimizationId) ?? defaultOptimization;
   const expectedApplyState = getTargetStateForOptimization(optimization.id, optimization.recommendation, "Unknown");
+  const runtimeScan = RuntimeScanService.getStoredSnapshot(optimization.id);
+  const scanCapability = RuntimeScanService.getCapability(optimization.id);
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [isVerifying, setIsVerifying] = useState(true);
 
@@ -82,6 +85,9 @@ export function VerificationPage() {
         <Field label="Previous state" value={result?.previousState ?? "Unknown"} />
         <Field label="Expected state" value={result?.expectedState ?? (mode === "recovery" ? "Unknown" : expectedApplyState)} />
         <Field label="Actual detected state" value={isVerifying ? "Checking..." : result?.actualState ?? "Unknown"} />
+        <Field label="Runtime scan status" value={runtimeScan?.runtimeScanStatus ?? scanCapability.scanCapability} />
+        <Field label="Scan capability" value={scanCapability.scanCapability} />
+        <Field label="Detection confidence" value={runtimeScan?.detectionConfidence ?? "None"} />
       </dl>
 
       <section className="rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm">

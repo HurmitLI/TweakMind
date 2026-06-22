@@ -2,6 +2,7 @@ import { OptimizationSdkRegistry } from "../sdk/OptimizationSdkRegistry";
 import { normalizeOptimizationStatus } from "../sdk/OptimizationSdk";
 import type { MockDeviceType } from "../recommendation/RecommendationResult";
 import { OptimizationPluginManager } from "../plugins/OptimizationPluginManager";
+import { RuntimeScanService } from "./RuntimeScanService";
 import type { OptimizationScanResult, RecommendationSummary, ScanResult } from "./ScanResult";
 import { storeScanResult } from "./ScanResult";
 
@@ -63,7 +64,8 @@ export class ScanManager {
         recommendation: evaluation.recommendation,
         reason: evaluation.reason,
         selectable: evaluation.selectable,
-        selectedByDefault: evaluation.selectedByDefault
+        selectedByDefault: evaluation.selectedByDefault,
+        runtimeScan: RuntimeScanService.buildFromDetection(module.definition.id, detectionResult)
       });
 
       options.onProgress?.({

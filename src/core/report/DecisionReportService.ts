@@ -2,13 +2,16 @@ import type {
   OptimizationBenefitLevel,
   OptimizationCategory,
   OptimizationRecommendation,
-  OptimizationRiskLevel
+  OptimizationRiskLevel,
+  OptimizationStatus
 } from "../../types/optimization";
 import { OptimizationCapabilityRegistry } from "../execution/OptimizationCapabilityRegistry";
 import type { KnowledgePriority } from "../knowledge/KnowledgeDefinition";
 import { KnowledgeRepository } from "../knowledge/KnowledgeRepository";
-import { scanAvailabilityFor } from "../knowledge/knowledgeSchemaHelpers";
+import type { RuntimeScanStatus } from "../scan/RuntimeScanModel";
+import { RuntimeScanService } from "../scan/RuntimeScanService";
 import type { OptimizationScanResult, ScanResult } from "../scan/ScanResult";
+import { formatRuntimeScanLabel } from "../scan/RuntimeScanModel";
 import { WindowsOptimizationService } from "../windows/WindowsOptimizationService";
 import type {
   DecisionReportApplyState,
@@ -73,9 +76,9 @@ function parseEstimatedMinutes(value: string | undefined): number {
 
 function classifySection(
   recommendation: OptimizationRecommendation,
-  scanAvailable: boolean
+  runtimeScanStatus: RuntimeScanStatus
 ): DecisionReportSectionId {
-  if (!scanAvailable) {
+  if (runtimeScanStatus === "Not Supported Yet") {
     return "unavailable";
   }
 
@@ -102,11 +105,16 @@ function buildItem(result: OptimizationScanResult): DecisionReportItem | null {
   }
 
   const capabilities = OptimizationCapabilityRegistry.get(result.id);
-  const scanAvailable = scanAvailabilityFor(result.id) === "Available";
+  const runtimeScan = RuntimeScanService.readRuntimeFromResult(result);
+  const scanAvailable = runtimeScan.runtimeScanStatus !== "Not Supported Yet";
   const history = WindowsOptimizationService.getHistory().find((entry) => entry.optimizationId === result.id);
   const lastAppliedLabel = history
     ? new Date(Number(history.timestamp) * 1000).toLocaleString()
     : undefined;
+  const currentState =
+    runtimeScan.runtimeScanStatus === "Detected"
+      ? runtimeScan.currentRuntimeState
+      : (formatRuntimeScanLabel(runtimeScan) as OptimizationStatus);
 
   return {
     id: result.id,
@@ -114,7 +122,7 @@ function buildItem(result: OptimizationScanResult): DecisionReportItem | null {
     category: knowledge.identity.category,
     recommendation: result.recommendation,
     reason: result.reason,
-    currentState: result.normalizedStatus,
+    currentState,
     riskLevel: knowledge.risks.riskLevel,
     expectedBenefit: knowledge.decisionSupport.expectedBenefit,
     priority: knowledge.identity.priority,
@@ -122,7 +130,11 @@ function buildItem(result: OptimizationScanResult): DecisionReportItem | null {
     canVerify: capabilities.canVerify,
     canRecover: capabilities.canRecover,
     scanAvailable,
-    section: classifySection(result.recommendation, scanAvailable),
+    runtimeScanStatus: runtimeScan.runtimeScanStatus,
+    detectionMethod: runtimeScan.detectionMethod,
+    detectionConfidence: runtimeScan.detectionConfidence,
+    scanUnavailableReason: runtimeScan.unavailableReason,
+    section: classifySection(result.recommendation, runtimeScan.runtimeScanStatus),
     ignoreConsequence: knowledge.tradeOffs.cons[0] ?? knowledge.decisionSupport.decisionNotes,
     estimatedMinutes: parseEstimatedMinutes(
       knowledge.recovery.estimatedTime === "Unknown" ? undefined : knowledge.recovery.estimatedTime

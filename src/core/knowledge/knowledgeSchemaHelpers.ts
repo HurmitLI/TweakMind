@@ -1,15 +1,15 @@
 import type { OptimizationId } from "../../types/optimization";
+import { ScanCapabilityRegistry } from "../scan/ScanCapabilityRegistry";
 import type { KnowledgeBenefits, KnowledgeImpactLevel, KnowledgeScanAvailability } from "./KnowledgeDefinition";
 
-const scannedOptimizations = new Set<OptimizationId>([
-  "windows-search",
-  "game-mode",
-  "core-isolation",
-  "delivery-optimization"
-]);
-
 export function scanAvailabilityFor(id: OptimizationId): KnowledgeScanAvailability {
-  return scannedOptimizations.has(id) ? "Available" : "Not Available";
+  const capability = ScanCapabilityRegistry.get(id);
+
+  if (capability.scanCapability === "Native Detection") {
+    return "Available";
+  }
+
+  return "Not Available";
 }
 
 export function hasPrivacyRelevance(benefits: KnowledgeBenefits): boolean {
