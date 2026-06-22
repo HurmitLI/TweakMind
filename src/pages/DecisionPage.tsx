@@ -5,6 +5,7 @@ import { BulletListSection } from "../components/decision/BulletListSection";
 import { DecisionSection } from "../components/decision/DecisionSection";
 import { RecommendationBadge } from "../components/decision/RecommendationBadge";
 import { RecoveryPanel } from "../components/decision/RecoveryPanel";
+import { KnowledgeRepository, knowledgeToOptimizationDefinition } from "../core/knowledge/KnowledgeRepository";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
 import { readStoredScanResult, toRecommendationResult } from "../core/scan/ScanResult";
 import type { OptimizationId } from "../types/optimization";
@@ -46,7 +47,12 @@ export function DecisionPage() {
   const defaultOptimization = OptimizationRepository.getDefault();
   const requestedOptimizationId = (searchParams.get("id") as OptimizationId | null) ?? defaultOptimization.id;
   const optimizationResult = scanResult?.optimizationResults.find((result) => result.id === requestedOptimizationId);
-  const optimization = optimizationResult?.definition ?? OptimizationRepository.getById(requestedOptimizationId) ?? defaultOptimization;
+  const knowledge = KnowledgeRepository.getById(requestedOptimizationId);
+  const optimization =
+    (knowledge ? knowledgeToOptimizationDefinition(knowledge) : undefined) ??
+    optimizationResult?.definition ??
+    OptimizationRepository.getById(requestedOptimizationId) ??
+    defaultOptimization;
   const recommendation = optimizationResult ? toRecommendationResult(optimizationResult) : null;
   const currentStatus = recommendation?.currentStatus ?? "Unknown";
 

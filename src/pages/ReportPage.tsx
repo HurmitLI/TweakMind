@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { OptimizationCard } from "../components/report/OptimizationCard";
 import { ReportActionPanel } from "../components/report/ReportActionPanel";
 import { ReportMetric } from "../components/report/ReportMetric";
+import { KnowledgeRepository, knowledgeToOptimizationDefinition } from "../core/knowledge/KnowledgeRepository";
 import { readStoredScanResult, toRecommendationResult } from "../core/scan/ScanResult";
 
 export function ReportPage() {
@@ -30,12 +31,19 @@ export function ReportPage() {
 
       <section className="mt-6 grid gap-4">
         {optimizationResults.map((result, index) => (
-          <OptimizationCard
-            defaultOpen={index === 0}
-            key={result.id}
-            optimization={result.definition}
-            recommendation={toRecommendationResult(result)}
-          />
+          (() => {
+            const knowledge = KnowledgeRepository.getById(result.id);
+            const optimization = knowledge ? knowledgeToOptimizationDefinition(knowledge) : result.definition;
+
+            return (
+              <OptimizationCard
+                defaultOpen={index === 0}
+                key={result.id}
+                optimization={optimization}
+                recommendation={toRecommendationResult(result)}
+              />
+            );
+          })()
         ))}
       </section>
 
