@@ -1,5 +1,5 @@
 import type { OptimizationId } from "../../types/optimization";
-import { OptimizationExecutionRegistry } from "../execution/OptimizationExecutionRegistry";
+import { OptimizationPluginManager } from "../plugins/OptimizationPluginManager";
 import { WindowsOptimizationService } from "../windows/WindowsOptimizationService";
 import type { VerificationResult } from "./VerificationResult";
 
@@ -12,11 +12,10 @@ interface VerificationOptions {
 
 export class VerificationService {
   static async verify(optimizationId: OptimizationId, options: VerificationOptions = {}): Promise<VerificationResult> {
-    const target = OptimizationExecutionRegistry.get(optimizationId);
-    const result =
-      options.mode === "recovery"
-        ? await target.verifyRecovery(options.historyEntryId ?? "")
-        : await target.verifyApply();
+    const result = await OptimizationPluginManager.verify(optimizationId, {
+      historyEntryId: options.historyEntryId,
+      verificationMode: options.mode ?? "apply"
+    });
 
     WindowsOptimizationService.recordVerification(result);
     return result;

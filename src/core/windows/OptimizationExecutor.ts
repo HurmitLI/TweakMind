@@ -1,6 +1,6 @@
 import type { OptimizationId } from "../../types/optimization";
-import { OptimizationExecutionRegistry } from "../execution/OptimizationExecutionRegistry";
 import { OptimizationRepository } from "../optimization/OptimizationRepository";
+import { OptimizationPluginManager } from "../plugins/OptimizationPluginManager";
 import {
   type OptimizationApplyResult,
   type OptimizationHistoryEntry,
@@ -26,8 +26,7 @@ function toApplyHistoryEntry(result: OptimizationApplyResult): OptimizationHisto
 
 export class OptimizationExecutor {
   static async apply(optimizationId: OptimizationId): Promise<OptimizationApplyResult> {
-    const target = OptimizationExecutionRegistry.get(optimizationId);
-    const result = await target.apply();
+    const result = await OptimizationPluginManager.apply(optimizationId);
 
     if (result.status === "success") {
       WindowsOptimizationService.recordHistory(toApplyHistoryEntry(result));
@@ -37,8 +36,9 @@ export class OptimizationExecutor {
   }
 
   static async restore(entry: OptimizationHistoryEntry): Promise<OptimizationRecoveryResult> {
-    const target = OptimizationExecutionRegistry.get(entry.optimizationId);
-    const result = await target.recover(entry.id);
+    const result = await OptimizationPluginManager.recover(entry.optimizationId, {
+      historyEntryId: entry.id
+    });
 
     WindowsOptimizationService.recordRecoveryResult(result);
     return result;

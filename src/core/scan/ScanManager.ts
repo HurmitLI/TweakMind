@@ -1,6 +1,7 @@
 import { OptimizationSdkRegistry } from "../sdk/OptimizationSdkRegistry";
 import { normalizeOptimizationStatus } from "../sdk/OptimizationSdk";
 import type { MockDeviceType } from "../recommendation/RecommendationResult";
+import { OptimizationPluginManager } from "../plugins/OptimizationPluginManager";
 import type { OptimizationScanResult, RecommendationSummary, ScanResult } from "./ScanResult";
 import { storeScanResult } from "./ScanResult";
 
@@ -44,7 +45,9 @@ export class ScanManager {
     });
 
     for (const module of modules) {
-      const detectionResult = await module.detector.detect();
+      const detectionResult = await OptimizationPluginManager.scan(module.definition.id, {
+        scan: () => module.detector.detect()
+      });
       const normalizedStatus = normalizeOptimizationStatus(detectionResult.currentState);
       const evaluation = module.evaluator.evaluate({
         definition: module.definition,

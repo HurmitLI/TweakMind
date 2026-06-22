@@ -66,6 +66,8 @@ None
 
 - DATA-002 Optimization Knowledge Expansion
 
+- ENGINE-010 Optimization Plugin SDK
+
 ---
 
 # Completed PRODUCT
@@ -92,7 +94,7 @@ None
 
 # Next Development
 
-ENGINE-010 Game Mode Real Apply
+ENGINE-011 Game Mode Real Apply
 
 ---
 
