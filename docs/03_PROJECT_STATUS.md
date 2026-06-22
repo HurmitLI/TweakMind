@@ -146,6 +146,8 @@ None
 
 - HOME-003 Home Experience Polish
 
+- HOME-004 Home Layout Reset
+
 ---
 
 # In Progress
@@ -156,7 +158,7 @@ None
 
 # Next Development
 
-DESIGN-004 Interaction Polish
+HOME-004 Review
 
 ---
 

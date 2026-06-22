@@ -1,22 +1,26 @@
-import { ArrowRight, BookOpen, CheckCircle2, CloudOff, History, MonitorCheck, RotateCcw, ShieldCheck } from "lucide-react";
+import { ArrowRight, CheckCircle2, CloudOff, RotateCcw, ScanLine, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const trustCards = [
+const trustPrinciples = [
   {
     title: "本地扫描",
-    description: "不会上传任何系统数据。"
+    description: "不会上传任何系统数据。",
+    icon: ShieldCheck
   },
   {
     title: "永不自动优化",
-    description: "所有修改都需要你的确认。"
+    description: "所有修改都需要你的确认。",
+    icon: CheckCircle2
   },
   {
     title: "可验证",
-    description: "应用之后重新检测真实状态。"
+    description: "应用之后重新检测真实状态。",
+    icon: ScanLine
   },
   {
     title: "可恢复",
-    description: "所有修改都支持恢复。"
+    description: "所有修改都支持恢复。",
+    icon: RotateCcw
   }
 ];
 
@@ -26,144 +30,132 @@ const supportedOptimizations = [
   "Core Isolation",
   "Delivery Optimization",
   "SysMain",
-  "Power Plan",
   "HAGS",
+  "Power Plan",
   "Background Apps",
   "Startup Apps",
   "Visual Effects",
   "Windows Update Active Hours"
 ];
 
-const featuredOptimization = supportedOptimizations[0];
-const otherOptimizations = supportedOptimizations.slice(1);
-
-const philosophyCards = [
-  "先理解，再优化。",
-  "AI 提供建议，\n由你决定。",
-  "每一次修改，\n都可以恢复。"
+const philosophyBlocks = [
+  {
+    title: "先理解，再优化。",
+    description: "避免不知道改了什么的盲目优化。"
+  },
+  {
+    title: "AI 提供建议，由你决定。",
+    description: "TweakMind 可以推荐，但不会替你做决定。"
+  },
+  {
+    title: "每一次修改，都可以恢复。",
+    description: "优化不是不可逆操作，历史记录会保存恢复线索。"
+  }
 ];
 
-const heroTrustIndicators = [
+const heroTrustRow = [
   { label: "本地扫描", icon: ShieldCheck },
   { label: "不上传数据", icon: CloudOff },
-  { label: "不自动修改", icon: CheckCircle2 },
+  { label: "不会自动修改", icon: CheckCircle2 },
   { label: "支持恢复", icon: RotateCcw }
 ];
 
 export function DashboardPage() {
   return (
-    <div className="tm-home-page">
-      <section className="tm-home-hero">
-        <div className="tm-home-hero-inner">
-          <div className="tm-home-hero-copy">
-            <h2 className="tm-typo-hero">
+    <div className="tm-home-shell">
+      <div className="tm-home-grid">
+        <section className="tm-home-hero tm-home-panel">
+          <div className="tm-home-hero-content">
+            <h1 className="tm-home-hero-title">
               让每一次 Windows 优化，
               <br />
               都心里有数。
-            </h2>
-            <p className="tm-home-hero-lead">
-              扫描你的 Windows 配置，了解每项优化意味着什么，确认以后再决定是否应用。
+            </h1>
+            <p className="tm-home-hero-subtitle">
+              扫描你的 Windows 配置，理解每项优化的作用、风险和恢复方式，再决定是否应用。
             </p>
-          </div>
-
-          <div className="tm-home-hero-aside">
             <Link className="tm-home-cta tm-button-primary" to="/scan">
               立即扫描 Windows
               <ArrowRight size={18} aria-hidden="true" />
             </Link>
-            <ul className="tm-home-trust-strip">
-              {heroTrustIndicators.map((indicator) => {
-                const Icon = indicator.icon;
+            <ul className="tm-home-trust-row">
+              {heroTrustRow.map((item) => {
+                const Icon = item.icon;
 
                 return (
-                  <li className="tm-home-trust-item" key={indicator.label}>
-                    <Icon aria-hidden="true" size={11} />
-                    <span>{indicator.label}</span>
+                  <li className="tm-home-trust-row-item" key={item.label}>
+                    <Icon aria-hidden="true" size={12} />
+                    <span>{item.label}</span>
                   </li>
                 );
               })}
             </ul>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="tm-home-section tm-home-section-quiet">
-        <h3 className="tm-home-section-title">为什么值得信任</h3>
-        <div className="tm-home-trust-detail">
-          {trustCards.map((card) => (
-            <article className="tm-home-trust-detail-item" key={card.title}>
-              <h4>{card.title}</h4>
-              <p>{card.description}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+        <section className="tm-home-block">
+          <h2 className="tm-home-heading">为什么值得信任</h2>
+          <div className="tm-home-panel tm-home-trust-panel">
+            <div className="tm-home-trust-columns">
+              {trustPrinciples.map((principle) => {
+                const Icon = principle.icon;
 
-      <section className="tm-home-section">
-        <h3 className="tm-home-section-title">已支持优化</h3>
-        <article className="tm-home-optimization-featured">
-          <p className="tm-home-optimization-eyebrow">重点支持</p>
-          <p className="tm-home-optimization-featured-name">{featuredOptimization}</p>
-          <p className="tm-home-optimization-featured-caption">共 {supportedOptimizations.length} 项 Windows 优化能力</p>
-        </article>
-        <ul className="tm-home-optimization-list">
-          {otherOptimizations.map((name) => (
-            <li className="tm-home-optimization-list-item" key={name}>
-              {name}
-            </li>
-          ))}
-        </ul>
-        <div className="tm-home-section-footer">
-          <Link className="tm-link-accent" to="/knowledge">
-            查看全部 →
-          </Link>
-        </div>
-      </section>
-
-      <section className="tm-home-section">
-        <h3 className="tm-home-section-title">Quick Actions</h3>
-        <div className="tm-home-actions">
-          <Link className="tm-home-action-primary tm-card-accent" to="/scan">
-            <div className="tm-home-action-primary-icon">
-              <MonitorCheck size={22} aria-hidden="true" />
+                return (
+                  <article className="tm-home-trust-column" key={principle.title}>
+                    <Icon aria-hidden="true" className="tm-home-trust-column-icon" size={16} />
+                    <h3>{principle.title}</h3>
+                    <p>{principle.description}</p>
+                  </article>
+                );
+              })}
             </div>
-            <div>
-              <h3 className="tm-home-action-primary-title">立即扫描 Windows</h3>
-              <span className="tm-home-action-primary-caption">
-                立即开始
-                <ArrowRight size={15} aria-hidden="true" />
-              </span>
-            </div>
-          </Link>
+          </div>
+        </section>
 
-          <Link className="tm-home-action-secondary" to="/knowledge">
-            <BookOpen size={18} aria-hidden="true" />
-            <div>
-              <h3>浏览知识库</h3>
-              <p>了解每项优化的含义</p>
+        <section className="tm-home-block">
+          <div className="tm-home-panel tm-home-primary-action">
+            <div className="tm-home-primary-action-copy">
+              <h2 className="tm-home-primary-action-title">开始第一次扫描</h2>
+              <p className="tm-home-primary-action-description">分析当前 Windows 配置，找出值得关注的优化项。</p>
+              <p className="tm-home-primary-action-meta">约 30 秒 · 本地完成 · 不会自动修改</p>
             </div>
-          </Link>
+            <Link className="tm-home-cta tm-button-primary tm-home-primary-action-button" to="/scan">
+              立即扫描 Windows
+              <ArrowRight size={18} aria-hidden="true" />
+            </Link>
+          </div>
+        </section>
 
-          <Link className="tm-home-action-secondary" to="/history">
-            <History size={18} aria-hidden="true" />
-            <div>
-              <h3>查看历史</h3>
-              <p>回顾已应用的修改</p>
+        <section className="tm-home-block">
+          <h2 className="tm-home-heading">已支持优化</h2>
+          <div className="tm-home-panel tm-home-optimization-panel">
+            <ul className="tm-home-optimization-columns">
+              {supportedOptimizations.map((name) => (
+                <li className="tm-home-optimization-item" key={name}>
+                  {name}
+                </li>
+              ))}
+            </ul>
+            <div className="tm-home-optimization-footer">
+              <Link className="tm-link-accent" to="/knowledge">
+                查看全部优化 →
+              </Link>
             </div>
-          </Link>
-        </div>
-      </section>
+          </div>
+        </section>
 
-      <section className="tm-home-section tm-home-section-quiet">
-        <h3 className="tm-home-section-title">为什么是 TweakMind</h3>
-        <div className="tm-home-philosophy">
-          {philosophyCards.map((card) => (
-            <blockquote className="tm-home-philosophy-item" key={card}>
-              {card}
-            </blockquote>
-          ))}
-        </div>
-      </section>
+        <section className="tm-home-block">
+          <h2 className="tm-home-heading">为什么是 TweakMind</h2>
+          <div className="tm-home-philosophy-grid">
+            {philosophyBlocks.map((block) => (
+              <article className="tm-home-philosophy-block" key={block.title}>
+                <h3>{block.title}</h3>
+                <p>{block.description}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
