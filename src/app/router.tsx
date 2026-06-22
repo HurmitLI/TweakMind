@@ -4,6 +4,7 @@ import { ApplyPage } from "../pages/ApplyPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { DecisionPage } from "../pages/DecisionPage";
 import { HistoryPage } from "../pages/HistoryPage";
+import { KnowledgePage } from "../pages/KnowledgePage";
 import { ReportPage } from "../pages/ReportPage";
 import { ScanPage } from "../pages/ScanPage";
 import { SettingsPage } from "../pages/SettingsPage";
@@ -24,6 +25,10 @@ export const router = createBrowserRouter([
       {
         path: "scan",
         element: <ScanPage />
+      },
+      {
+        path: "knowledge",
+        element: <KnowledgePage />
       },
       {
         path: "report",

@@ -48,17 +48,22 @@ export function DecisionPage() {
   const requestedOptimizationId = (searchParams.get("id") as OptimizationId | null) ?? defaultOptimization.id;
   const optimizationResult = scanResult?.optimizationResults.find((result) => result.id === requestedOptimizationId);
   const knowledge = KnowledgeRepository.getById(requestedOptimizationId);
-  const optimization =
+  const optimization = 
     (knowledge ? knowledgeToOptimizationDefinition(knowledge) : undefined) ??
     optimizationResult?.definition ??
     OptimizationRepository.getById(requestedOptimizationId) ??
     defaultOptimization;
-  const recommendation = optimizationResult ? toRecommendationResult(optimizationResult) : null;
+  const recommendation = optimizationResult
+    ? toRecommendationResult(optimizationResult)
+    : {
+        id: optimization.id,
+        recommendation: optimization.recommendation,
+        reason: optimization.description,
+        currentStatus: "Unknown" as const,
+        selectable: false,
+        selectedByDefault: false
+      };
   const currentStatus = recommendation?.currentStatus ?? "Unknown";
-
-  if (!recommendation) {
-    throw new Error(`Missing recommendation result for ${optimization.id}`);
-  }
 
   return (
     <div className="flex flex-1 flex-col gap-6">

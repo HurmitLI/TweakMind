@@ -1,4 +1,5 @@
 import type { OptimizationDefinition, OptimizationId } from "../../types/optimization";
+import type { OptimizationBenefitLevel } from "../../types/optimization";
 import type { OptimizationKnowledge } from "./KnowledgeDefinition";
 import { coreIsolationKnowledge } from "./items/core-isolation";
 import { deliveryOptimizationKnowledge } from "./items/delivery-optimization";
@@ -11,6 +12,18 @@ const knowledgeItems: OptimizationKnowledge[] = [
   coreIsolationKnowledge,
   deliveryOptimizationKnowledge
 ];
+
+export function estimateBenefitFromImpact(performanceImpact: number): OptimizationBenefitLevel {
+  if (performanceImpact >= 60) {
+    return "High";
+  }
+
+  if (performanceImpact >= 35) {
+    return "Medium";
+  }
+
+  return "Low";
+}
 
 export function knowledgeToOptimizationDefinition(knowledge: OptimizationKnowledge): OptimizationDefinition {
   return {
@@ -34,7 +47,7 @@ export function knowledgeToOptimizationDefinition(knowledge: OptimizationKnowled
     expectedResult: knowledge.recovery.expectedResult,
     impact: {
       ...knowledge.impact,
-      estimatedBenefit: knowledge.impact.performance >= 60 ? "High" : knowledge.impact.performance >= 35 ? "Medium" : "Low"
+      estimatedBenefit: estimateBenefitFromImpact(knowledge.impact.performance)
     },
     icon: knowledge.icon
   };

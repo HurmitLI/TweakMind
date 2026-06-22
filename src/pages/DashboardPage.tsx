@@ -15,7 +15,7 @@ const dashboardCards = [
   {
     title: "Knowledge Base",
     description: "Browse all supported Windows optimizations before making changes.",
-    to: "/decision",
+    to: "/knowledge",
     icon: BookOpen,
     tone: "secondary" as const
   },
