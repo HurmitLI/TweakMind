@@ -26,7 +26,8 @@ function canRecover(entryId: string | undefined) {
     !entry ||
     !OptimizationCapabilityRegistry.canRecover(entry.optimizationId) ||
     entry.status !== "Success" ||
-    entry.applyMode !== "real"
+    entry.applyMode !== "real" ||
+    entry.recoveryStatus === "Success"
   ) {
     return undefined;
   }
