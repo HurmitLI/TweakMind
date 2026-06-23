@@ -980,12 +980,33 @@
   }
 
   .tm-home-optimization-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
     padding: 0.875rem 0;
     border-bottom: 1px solid var(--tm-color-divider);
     font-size: var(--tm-font-body-size);
     line-height: var(--tm-font-body-line-height);
     font-weight: var(--tm-font-body-weight-medium);
     color: var(--tm-color-text);
+  }
+
+  .tm-home-optimization-mode {
+    flex-shrink: 0;
+    border-radius: 999px;
+    border: 1px solid rgba(16, 185, 129, 0.22);
+    background: rgba(16, 185, 129, 0.1);
+    padding: 0.125rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 650;
+    color: #047857;
+  }
+
+  .tm-home-optimization-mode-muted {
+    border-color: rgba(245, 158, 11, 0.26);
+    background: rgba(245, 158, 11, 0.12);
+    color: #b45309;
   }
 
   .tm-home-optimization-footer {

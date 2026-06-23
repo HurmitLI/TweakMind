@@ -192,6 +192,17 @@ export function KnowledgeDetailPage() {
         <ErrorPresentation actions={{ goBackHref: backTarget }} descriptor={applyUnavailableError} />
       ) : null}
 
+      {!canRealApply ? (
+        <section className="tm-notice-warning">
+          <div className="tm-notice-row">
+            <p className="tm-typo-body">
+              <span className="tm-typo-body-emphasis">{t("unsupported.alphaNotExecutable.title")}</span>{" "}
+              {t("unsupported.alphaNotExecutable.description")}
+            </p>
+          </div>
+        </section>
+      ) : null}
+
       <DecisionSection title={t("knowledgeDetail.section.summary")}>
         <p className="tm-typo-body">{knowledge.overview.summary}</p>
       </DecisionSection>

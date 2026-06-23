@@ -74,10 +74,18 @@ export function DecisionReportCard({ item, selected, onToggleSelected, emphasis 
                 <span className={recommendationStyles[item.recommendation]}>
                   {translateRecommendation(item.recommendation)}
                 </span>
+                {!item.canRealApply ? (
+                  <span className="tm-status-badge tm-status-badge-warning">
+                    {t("unsupported.alphaNotExecutable.title")}
+                  </span>
+                ) : null}
               </div>
               <p className={["mt-2", isQuiet ? "tm-typo-caption" : "tm-typo-body-secondary"].join(" ")}>
                 {item.reason}
               </p>
+              {!item.canRealApply ? (
+                <p className="mt-2 tm-typo-caption">{t("unsupported.alphaNotExecutable.description")}</p>
+              ) : null}
               {emphasis === "strong" ? (
                 <p className="tm-mt-md tm-typo-body-secondary">
                   <span className="tm-typo-body-emphasis">{t("report.card.ifIgnoredPrefix")}</span> {item.ignoreConsequence}
@@ -118,7 +126,9 @@ export function DecisionReportCard({ item, selected, onToggleSelected, emphasis 
             <>
               <div className="tm-report-metric-inline">
                 <dt>{t("report.card.label.realApply")}</dt>
-                <dd className="tm-report-metric-value">{item.canRealApply ? t("common.value.yes") : t("common.value.no")}</dd>
+                <dd className="tm-report-metric-value">
+                  {item.canRealApply ? t("unsupported.capability.realSupported") : t("unsupported.capability.notExecutable")}
+                </dd>
               </div>
               <div className="tm-report-metric-inline">
                 <dt>{t("report.card.label.recovery")}</dt>

@@ -29,6 +29,12 @@ export function ReportSelectionPanel({ summary }: ReportSelectionPanelProps) {
         <div className="tm-card-metadata">
           <p className="tm-label">{t("report.selection.label.selected")}</p>
           <p className="tm-mt-sm tm-report-selection-summary">{summary.selectedCount}</p>
+          <p className="tm-mt-sm tm-typo-caption">
+            {t("report.selection.supportedBreakdown", {
+              supportedCount: summary.supportedSelectedCount,
+              unsupportedCount: summary.unsupportedSelectedCount
+            })}
+          </p>
         </div>
         <div className="tm-card-metadata">
           <p className="tm-label">{t("report.selection.label.estimatedExecutionTime")}</p>
@@ -43,6 +49,14 @@ export function ReportSelectionPanel({ summary }: ReportSelectionPanelProps) {
           <p className="tm-mt-sm tm-value">{summary.applyMessage}</p>
         </div>
       </div>
+
+      {summary.unsupportedSelectedCount > 0 ? (
+        <div className="tm-mt-md tm-notice-warning">
+          <p className="tm-typo-body">
+            {t("report.selection.unsupportedNotice", { count: summary.unsupportedSelectedCount })}
+          </p>
+        </div>
+      ) : null}
 
       <div className="tm-mt-lg flex justify-end border-t border-[color:var(--tm-color-divider)] pt-5">
         {canApply ? (

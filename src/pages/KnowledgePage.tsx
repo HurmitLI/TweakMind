@@ -2,6 +2,7 @@ import { Gamepad2, Globe, Search, Shield, Sparkles, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { EmptyState } from "../components/common/EmptyState";
+import { OptimizationCapabilityRegistry } from "../core/execution/OptimizationCapabilityRegistry";
 import { KnowledgeRepository } from "../core/knowledge/KnowledgeRepository";
 import { hasPrivacyRelevance } from "../core/knowledge/knowledgeSchemaHelpers";
 import { useTranslation } from "../core/localization/LanguageProvider";
@@ -180,6 +181,7 @@ export function KnowledgePage() {
           visibleKnowledge.map((knowledge, index) => {
             const CategoryIcon = categoryIcons[knowledge.identity.category];
             const displayState = statusById.get(knowledge.identity.id) ?? "Scan Required";
+            const canRealApply = OptimizationCapabilityRegistry.canRealApply(knowledge.identity.id);
             const isFeatured = index === 0 && !query.trim() && !selectedCategory;
 
             return (
@@ -200,6 +202,9 @@ export function KnowledgePage() {
                       </h3>
                       <span className="tm-badge-small">
                         {translateCategory(knowledge.identity.category)}
+                      </span>
+                      <span className={canRealApply ? "tm-status-badge tm-status-badge-success" : "tm-status-badge tm-status-badge-warning"}>
+                        {canRealApply ? t("unsupported.capability.realSupported") : t("unsupported.capability.knowledgeOnly")}
                       </span>
                     </div>
                     <p className="tm-mt-sm line-clamp-2 tm-typo-body-secondary">{knowledge.overview.summary}</p>

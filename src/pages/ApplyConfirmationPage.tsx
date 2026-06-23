@@ -212,6 +212,18 @@ export function ApplyConfirmationPage() {
         />
       ) : null}
 
+      {!plan.canApply ? (
+        <section className="tm-notice-warning">
+          <div className="tm-notice-row">
+            <Info className="mt-0.5 shrink-0" size={18} aria-hidden="true" />
+            <p className="tm-typo-body">
+              <span className="tm-typo-body-emphasis">{t("unsupported.alphaNotExecutable.title")}</span>{" "}
+              {t("unsupported.alphaNotExecutable.description")}
+            </p>
+          </div>
+        </section>
+      ) : null}
+
       <footer className="tm-footer">
         <Link
           className="tm-button-secondary"

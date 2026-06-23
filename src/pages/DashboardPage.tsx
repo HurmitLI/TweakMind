@@ -25,17 +25,17 @@ const trustPrinciples = [
 ];
 
 const supportedOptimizations = [
-  "Windows Search",
-  "Game Mode",
-  "Core Isolation",
-  "Delivery Optimization",
-  "SysMain",
-  "HAGS",
-  "Power Plan",
-  "Background Apps",
-  "Startup Apps",
-  "Visual Effects",
-  "Windows Update Active Hours"
+  { name: "Windows Search", mode: "executable" },
+  { name: "Game Mode", mode: "executable" },
+  { name: "Core Isolation", mode: "executable" },
+  { name: "Delivery Optimization", mode: "executable" },
+  { name: "SysMain", mode: "executable" },
+  { name: "HAGS", mode: "executable" },
+  { name: "Power Plan", mode: "executable" },
+  { name: "Background Apps", mode: "knowledge-only" },
+  { name: "Startup Apps", mode: "knowledge-only" },
+  { name: "Visual Effects", mode: "knowledge-only" },
+  { name: "Windows Update Active Hours", mode: "knowledge-only" }
 ];
 
 const philosophyBlocks = [
@@ -131,9 +131,12 @@ export function DashboardPage() {
           <h2 className="tm-home-heading">已支持优化</h2>
           <div className="tm-home-panel tm-home-optimization-panel">
             <ul className="tm-home-optimization-columns">
-              {supportedOptimizations.map((name) => (
-                <li className="tm-home-optimization-item" key={name}>
-                  {name}
+              {supportedOptimizations.map((optimization) => (
+                <li className="tm-home-optimization-item" key={optimization.name}>
+                  <span>{optimization.name}</span>
+                  <span className={optimization.mode === "executable" ? "tm-home-optimization-mode" : "tm-home-optimization-mode tm-home-optimization-mode-muted"}>
+                    {optimization.mode === "executable" ? "可执行" : "仅知识"}
+                  </span>
                 </li>
               ))}
             </ul>
