@@ -148,6 +148,22 @@ None
 
 - HOME-004 Home Layout Reset
 
+- ALPHA-FUNC-001 Scan Persistence and Decision Report Access
+
+- ALPHA-P1-002 Scan Result Timestamp Reliability
+
+- ALPHA-P1-003 Apply Confirmation Gating
+
+- ALPHA-P1-004 Skip Fake Apply Progress on Failure
+
+- ALPHA-P1-005 Verification History Targeting
+
+- ALPHA-P1-006 Home Localization
+
+- ALPHA-P1-007 Pending Flow Persistence
+
+- ALPHA-P1-008 Scan Failure Isolation
+
 ---
 
 # In Progress
@@ -158,7 +174,7 @@ None
 
 # Next Development
 
-HOME-004 Review
+Alpha Function Completion Review
 
 ---
 

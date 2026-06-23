@@ -1,92 +1,95 @@
 import { ArrowRight, CheckCircle2, CloudOff, RotateCcw, ScanLine, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "../core/localization/LanguageProvider";
+import { readStoredScanResult } from "../core/scan/ScanResult";
 
-const trustPrinciples = [
+const trustPrincipleKeys = [
   {
-    title: "本地扫描",
-    description: "不会上传任何系统数据。",
+    titleKey: "home.trust.localScan.title" as const,
+    descriptionKey: "home.trust.localScan.description" as const,
     icon: ShieldCheck
   },
   {
-    title: "永不自动优化",
-    description: "所有修改都需要你的确认。",
+    titleKey: "home.trust.noAuto.title" as const,
+    descriptionKey: "home.trust.noAuto.description" as const,
     icon: CheckCircle2
   },
   {
-    title: "可验证",
-    description: "应用之后重新检测真实状态。",
+    titleKey: "home.trust.verifiable.title" as const,
+    descriptionKey: "home.trust.verifiable.description" as const,
     icon: ScanLine
   },
   {
-    title: "可恢复",
-    description: "所有修改都支持恢复。",
+    titleKey: "home.trust.recoverable.title" as const,
+    descriptionKey: "home.trust.recoverable.description" as const,
     icon: RotateCcw
   }
 ];
 
 const supportedOptimizations = [
-  { name: "Windows Search", mode: "executable" },
-  { name: "Game Mode", mode: "executable" },
-  { name: "Core Isolation", mode: "executable" },
-  { name: "Delivery Optimization", mode: "executable" },
-  { name: "SysMain", mode: "executable" },
-  { name: "HAGS", mode: "executable" },
-  { name: "Power Plan", mode: "executable" },
-  { name: "Background Apps", mode: "knowledge-only" },
-  { name: "Startup Apps", mode: "knowledge-only" },
-  { name: "Visual Effects", mode: "knowledge-only" },
-  { name: "Windows Update Active Hours", mode: "knowledge-only" }
+  { name: "Windows Search", mode: "executable" as const },
+  { name: "Game Mode", mode: "executable" as const },
+  { name: "Core Isolation", mode: "executable" as const },
+  { name: "Delivery Optimization", mode: "executable" as const },
+  { name: "SysMain", mode: "executable" as const },
+  { name: "HAGS", mode: "executable" as const },
+  { name: "Power Plan", mode: "executable" as const },
+  { name: "Background Apps", mode: "knowledge-only" as const },
+  { name: "Startup Apps", mode: "knowledge-only" as const },
+  { name: "Visual Effects", mode: "knowledge-only" as const },
+  { name: "Windows Update Active Hours", mode: "knowledge-only" as const }
 ];
 
-const philosophyBlocks = [
+const philosophyBlockKeys = [
   {
-    title: "先理解，再优化。",
-    description: "避免不知道改了什么的盲目优化。"
+    titleKey: "home.philosophy.understand.title" as const,
+    descriptionKey: "home.philosophy.understand.description" as const
   },
   {
-    title: "AI 提供建议，由你决定。",
-    description: "TweakMind 可以推荐，但不会替你做决定。"
+    titleKey: "home.philosophy.aiDecides.title" as const,
+    descriptionKey: "home.philosophy.aiDecides.description" as const
   },
   {
-    title: "每一次修改，都可以恢复。",
-    description: "优化不是不可逆操作，历史记录会保存恢复线索。"
+    titleKey: "home.philosophy.recover.title" as const,
+    descriptionKey: "home.philosophy.recover.description" as const
   }
 ];
 
-const heroTrustRow = [
-  { label: "本地扫描", icon: ShieldCheck },
-  { label: "不上传数据", icon: CloudOff },
-  { label: "不会自动修改", icon: CheckCircle2 },
-  { label: "支持恢复", icon: RotateCcw }
+const heroTrustRowKeys = [
+  { labelKey: "home.hero.trust.localScan" as const, icon: ShieldCheck },
+  { labelKey: "home.hero.trust.noUpload" as const, icon: CloudOff },
+  { labelKey: "home.hero.trust.noAutoModify" as const, icon: CheckCircle2 },
+  { labelKey: "home.hero.trust.recoverable" as const, icon: RotateCcw }
 ];
 
 export function DashboardPage() {
+  const { t } = useTranslation();
+  const hasScanResult = readStoredScanResult() !== null;
+
   return (
     <div className="tm-home-shell">
       <div className="tm-home-grid">
         <section className="tm-home-hero tm-home-panel">
           <div className="tm-home-hero-content">
             <h1 className="tm-home-hero-title">
-              让每一次{" "}
-              <span className="tm-home-hero-title-unit">Windows 优化，</span>
+              {t("home.hero.titleLead")}{" "}
+              <span className="tm-home-hero-title-unit">{t("home.hero.titleUnit")}</span>
               <br />
-              都心里有数。
+              {t("home.hero.titleTail")}
             </h1>
-            <p className="tm-home-hero-subtitle">
-              扫描你的 Windows 配置，理解每项优化的作用、风险和恢复方式，再决定是否应用。
-            </p>
+            <p className="tm-home-hero-subtitle">{t("home.hero.subtitle")}</p>
             <Link className="tm-home-cta tm-button-primary" to="/scan">
-              立即扫描 Windows
+              {t("home.hero.cta")}
               <ArrowRight size={18} aria-hidden="true" />
             </Link>
             <ul className="tm-home-trust-row">
-              {heroTrustRow.map((item) => {
+              {heroTrustRowKeys.map((item) => {
                 const Icon = item.icon;
 
                 return (
-                  <li className="tm-home-trust-row-item" key={item.label}>
+                  <li className="tm-home-trust-row-item" key={item.labelKey}>
                     <Icon aria-hidden="true" size={12} />
-                    <span>{item.label}</span>
+                    <span>{t(item.labelKey)}</span>
                   </li>
                 );
               })}
@@ -95,17 +98,17 @@ export function DashboardPage() {
         </section>
 
         <section className="tm-home-block">
-          <h2 className="tm-home-heading">为什么值得信任</h2>
+          <h2 className="tm-home-heading">{t("home.section.trustHeading")}</h2>
           <div className="tm-home-panel tm-home-trust-panel">
             <div className="tm-home-trust-columns">
-              {trustPrinciples.map((principle) => {
+              {trustPrincipleKeys.map((principle) => {
                 const Icon = principle.icon;
 
                 return (
-                  <article className="tm-home-trust-column" key={principle.title}>
+                  <article className="tm-home-trust-column" key={principle.titleKey}>
                     <Icon aria-hidden="true" className="tm-home-trust-column-icon" size={16} />
-                    <h3>{principle.title}</h3>
-                    <p>{principle.description}</p>
+                    <h3>{t(principle.titleKey)}</h3>
+                    <p>{t(principle.descriptionKey)}</p>
                   </article>
                 );
               })}
@@ -116,45 +119,54 @@ export function DashboardPage() {
         <section className="tm-home-block">
           <div className="tm-home-panel tm-home-primary-action">
             <div className="tm-home-primary-action-copy">
-              <h2 className="tm-home-primary-action-title">开始第一次扫描</h2>
-              <p className="tm-home-primary-action-description">分析当前 Windows 配置，找出值得关注的优化项。</p>
-              <p className="tm-home-primary-action-meta">约 30 秒 · 本地完成 · 不会自动修改</p>
+              <h2 className="tm-home-primary-action-title">{t("home.primary.title")}</h2>
+              <p className="tm-home-primary-action-description">{t("home.primary.description")}</p>
+              <p className="tm-home-primary-action-meta">{t("home.primary.meta")}</p>
             </div>
-            <Link className="tm-home-cta tm-button-primary tm-home-primary-action-button" to="/scan">
-              立即扫描 Windows
-              <ArrowRight size={18} aria-hidden="true" />
-            </Link>
+            <div className="tm-home-primary-action-actions">
+              <Link className="tm-home-cta tm-button-primary tm-home-primary-action-button" to="/scan">
+                {t("home.primary.cta")}
+                <ArrowRight size={18} aria-hidden="true" />
+              </Link>
+              {hasScanResult ? (
+                <Link className="tm-link-accent tm-home-primary-report-link" to="/report">
+                  {t("home.primary.reportCta")}
+                </Link>
+              ) : null}
+            </div>
           </div>
         </section>
 
         <section className="tm-home-block">
-          <h2 className="tm-home-heading">已支持优化</h2>
+          <h2 className="tm-home-heading">{t("home.section.optimizationsHeading")}</h2>
           <div className="tm-home-panel tm-home-optimization-panel">
             <ul className="tm-home-optimization-columns">
               {supportedOptimizations.map((optimization) => (
                 <li className="tm-home-optimization-item" key={optimization.name}>
                   <span>{optimization.name}</span>
                   <span className={optimization.mode === "executable" ? "tm-home-optimization-mode" : "tm-home-optimization-mode tm-home-optimization-mode-muted"}>
-                    {optimization.mode === "executable" ? "可执行" : "仅知识"}
+                    {optimization.mode === "executable"
+                      ? t("unsupported.capability.realSupported")
+                      : t("unsupported.capability.knowledgeOnly")}
                   </span>
                 </li>
               ))}
             </ul>
             <div className="tm-home-optimization-footer">
               <Link className="tm-link-accent" to="/knowledge">
-                查看全部优化 →
+                {t("home.optimizations.viewAll")}
               </Link>
             </div>
           </div>
         </section>
 
         <section className="tm-home-block">
-          <h2 className="tm-home-heading">为什么是 TweakMind</h2>
+          <h2 className="tm-home-heading">{t("home.section.philosophyHeading")}</h2>
           <div className="tm-home-philosophy-grid">
-            {philosophyBlocks.map((block) => (
-              <article className="tm-home-philosophy-block" key={block.title}>
-                <h3>{block.title}</h3>
-                <p>{block.description}</p>
+            {philosophyBlockKeys.map((block) => (
+              <article className="tm-home-philosophy-block" key={block.titleKey}>
+                <h3>{t(block.titleKey)}</h3>
+                <p>{t(block.descriptionKey)}</p>
               </article>
             ))}
           </div>

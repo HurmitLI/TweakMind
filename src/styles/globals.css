@@ -960,6 +960,19 @@
     flex-shrink: 0;
   }
 
+  .tm-home-primary-action-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .tm-home-primary-report-link {
+    font-size: var(--tm-font-caption-size);
+    line-height: var(--tm-font-caption-line-height);
+  }
+
   .tm-home-optimization-panel {
     padding: 0.25rem 1.75rem 1.5rem;
   }

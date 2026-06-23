@@ -26,12 +26,13 @@ export function ApplyPage() {
   const requestedOptimizationId = (searchParams.get("id") as OptimizationId | null) ?? defaultOptimization.id;
   const optimization =
     OptimizationRepository.getById(requestedOptimizationId) ?? defaultOptimization;
-  const [progress, setProgress] = useState(0);
   const [executionResult] = useState<OptimizationApplyResult | null>(() => readPendingApplyResult(optimization.id));
+  const showProgressAnimation = executionResult?.status === "success";
+  const [progress, setProgress] = useState(showProgressAnimation ? 0 : 100);
   const applySteps = useMemo(() => applyStepKeys.map((key) => t(key)), [t]);
 
   useEffect(() => {
-    if (!executionResult) {
+    if (!executionResult || !showProgressAnimation) {
       return;
     }
 
@@ -51,7 +52,7 @@ export function ApplyPage() {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [applySteps.length, executionResult]);
+  }, [applySteps.length, executionResult, showProgressAnimation]);
 
   const completed = progress >= 100 && executionResult !== null;
   const activeStepIndex = useMemo(

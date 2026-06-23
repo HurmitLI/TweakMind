@@ -133,52 +133,71 @@ export class WindowsOptimizationService {
   }
 }
 
+function readPendingValue<T>(storage: Storage, storageKey: string): T | null {
+  try {
+    const stored = storage.getItem(storageKey);
+
+    if (!stored) {
+      return null;
+    }
+
+    return JSON.parse(stored) as T;
+  } catch {
+    return null;
+  }
+}
+
+function storePendingValue(storageKey: string, value: unknown) {
+  const serialized = JSON.stringify(value);
+  window.sessionStorage.setItem(storageKey, serialized);
+  window.localStorage.setItem(storageKey, serialized);
+}
+
 export function storePendingApplyResult(result: OptimizationApplyResult) {
-  window.sessionStorage.setItem(pendingApplyResultStorageKey, JSON.stringify(result));
+  storePendingValue(pendingApplyResultStorageKey, result);
 }
 
 export function readPendingApplyResult(optimizationId: OptimizationId): OptimizationApplyResult | null {
-  try {
-    const stored = window.sessionStorage.getItem(pendingApplyResultStorageKey);
+  const sessionResult = readPendingValue<OptimizationApplyResult>(window.sessionStorage, pendingApplyResultStorageKey);
+  const localResult = readPendingValue<OptimizationApplyResult>(window.localStorage, pendingApplyResultStorageKey);
+  const result = sessionResult ?? localResult;
 
-    if (!stored) {
-      return null;
-    }
-
-    const result = JSON.parse(stored) as OptimizationApplyResult;
-    return result.optimizationId === optimizationId ? result : null;
-  } catch {
+  if (!result) {
     return null;
   }
+
+  return result.optimizationId === optimizationId ? result : null;
 }
 
 export function storePendingRecoveryResult(result: OptimizationRecoveryResult) {
-  window.sessionStorage.setItem(pendingRecoveryResultStorageKey, JSON.stringify(result));
+  storePendingValue(pendingRecoveryResultStorageKey, result);
 }
 
 export function readPendingRecoveryResult(historyEntryId: string): OptimizationRecoveryResult | null {
-  try {
-    const stored = window.sessionStorage.getItem(pendingRecoveryResultStorageKey);
+  const sessionResult = readPendingValue<OptimizationRecoveryResult>(window.sessionStorage, pendingRecoveryResultStorageKey);
+  const result =
+    sessionResult ?? readPendingValue<OptimizationRecoveryResult>(window.localStorage, pendingRecoveryResultStorageKey);
 
-    if (!stored) {
-      return null;
-    }
-
-    const result = JSON.parse(stored) as OptimizationRecoveryResult;
-    return result.historyEntryId === historyEntryId ? result : null;
-  } catch {
+  if (!result) {
     return null;
   }
+
+  return result.historyEntryId === historyEntryId ? result : null;
 }
 
 export function storePendingRecoveryAuthorization(historyEntryId: string) {
   window.sessionStorage.setItem(pendingRecoveryAuthorizationStorageKey, historyEntryId);
+  window.localStorage.setItem(pendingRecoveryAuthorizationStorageKey, historyEntryId);
 }
 
 export function hasPendingRecoveryAuthorization(historyEntryId: string) {
-  return window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey) === historyEntryId;
+  return (
+    window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey) === historyEntryId ||
+    window.localStorage.getItem(pendingRecoveryAuthorizationStorageKey) === historyEntryId
+  );
 }
 
 export function clearPendingRecoveryAuthorization() {
   window.sessionStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+  window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
 }
