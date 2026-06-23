@@ -54,7 +54,11 @@ export function DecisionReportCard({ item, selected, onToggleSelected, emphasis 
             <input
               aria-label={t("report.card.selectAriaLabel", { title: item.title })}
               checked={selected}
-              className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800"
+              className={[
+                "mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800",
+                item.selectable ? "" : "cursor-not-allowed opacity-50"
+              ].join(" ")}
+              disabled={!item.selectable}
               onChange={() => onToggleSelected(item.id)}
               type="checkbox"
             />

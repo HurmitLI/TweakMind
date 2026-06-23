@@ -26,6 +26,7 @@ export interface DecisionReportItem {
   canRealApply: boolean;
   canVerify: boolean;
   canRecover: boolean;
+  selectable: boolean;
   scanAvailable: boolean;
   runtimeScanStatus: RuntimeScanStatus;
   detectionMethod: string;

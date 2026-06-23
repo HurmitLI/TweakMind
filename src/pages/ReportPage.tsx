@@ -17,7 +17,7 @@ export function ReportPage() {
   const [activeRisk, setActiveRisk] = useState<OptimizationRiskLevel | undefined>();
   const [activeCategory, setActiveCategory] = useState<OptimizationCategory | undefined>();
   const [selectedIds, setSelectedIds] = useState<OptimizationId[]>(() =>
-    scanResult?.optimizationResults.filter((result) => result.selectedByDefault).map((result) => result.id) ?? []
+    reportModel.allItems.filter((item) => item.selectable && scanResult?.optimizationResults.some((result) => result.id === item.id && result.selectedByDefault)).map((item) => item.id)
   );
 
   function sectionEmptyState(sectionId: DecisionReportSectionId) {
@@ -55,6 +55,10 @@ export function ReportPage() {
   );
 
   function toggleSelected(id: OptimizationId) {
+    if (!reportModel.allItems.some((item) => item.id === id && item.selectable)) {
+      return;
+    }
+
     setSelectedIds((current) => (current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id]));
   }
 

@@ -136,6 +136,7 @@ function buildItem(result: OptimizationScanResult): DecisionReportItem | null {
     canRealApply: capabilities.canRealApply,
     canVerify: capabilities.canVerify,
     canRecover: capabilities.canRecover,
+    selectable: result.selectable && capabilities.canRealApply,
     scanAvailable,
     runtimeScanStatus: runtimeScan.runtimeScanStatus,
     detectionMethod: runtimeScan.detectionMethod,
@@ -234,7 +235,7 @@ export class DecisionReportService {
   }
 
   static summarizeSelection(selectedIds: string[], items: DecisionReportItem[]): DecisionReportSelectionSummary {
-    const selectedItems = items.filter((item) => selectedIds.includes(item.id));
+    const selectedItems = items.filter((item) => selectedIds.includes(item.id) && item.selectable);
     const supportedSelected = selectedItems.filter((item) => item.canRealApply);
     const unsupportedSelected = selectedItems.filter((item) => !item.canRealApply);
 
