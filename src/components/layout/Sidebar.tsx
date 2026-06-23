@@ -1,18 +1,24 @@
 import { BookOpen, History, Home, Info, ScanLine, Settings, Sparkles } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { AppInfo } from "../../core/app/AppInfo";
 import { useTranslation } from "../../core/localization/LanguageProvider";
+import { readStoredScanResult } from "../../core/scan/ScanResult";
 
-const navItems = [
-  { to: "/dashboard", labelKey: "sidebar.nav.home" as const, icon: Home },
-  { to: "/scan", labelKey: "sidebar.nav.analyze" as const, icon: ScanLine },
-  { to: "/knowledge", labelKey: "sidebar.nav.knowledge" as const, icon: BookOpen },
-  { to: "/history", labelKey: "sidebar.nav.history" as const, icon: History },
-  { to: "/settings", labelKey: "sidebar.nav.settings" as const, icon: Settings }
-];
+function getNavItems(analyzeRoute: "/scan" | "/report") {
+  return [
+    { to: "/dashboard", labelKey: "sidebar.nav.home" as const, icon: Home },
+    { to: analyzeRoute, labelKey: "sidebar.nav.analyze" as const, icon: ScanLine },
+    { to: "/knowledge", labelKey: "sidebar.nav.knowledge" as const, icon: BookOpen },
+    { to: "/history", labelKey: "sidebar.nav.history" as const, icon: History },
+    { to: "/settings", labelKey: "sidebar.nav.settings" as const, icon: Settings }
+  ];
+}
 
 export function Sidebar() {
   const { t } = useTranslation();
+  const location = useLocation();
+  const analyzeRoute = readStoredScanResult() ? "/report" : "/scan";
+  const navItems = getNavItems(analyzeRoute);
 
   return (
     <aside className="tm-sidebar flex w-72 shrink-0 flex-col border-r border-slate-700/60 px-6 py-7 shadow-2xl shadow-slate-950/30">
@@ -29,17 +35,20 @@ export function Sidebar() {
       <nav className="grid gap-1" aria-label={t("sidebar.aria.primaryNavigation")}>
         {navItems.map((item) => {
           const Icon = item.icon;
+          const isAnalyzeItem = item.labelKey === "sidebar.nav.analyze";
 
           return (
             <NavLink
-              className={({ isActive }) =>
-                [
+              className={({ isActive }) => {
+                const isCurrentAnalyzeRoute = isAnalyzeItem && (location.pathname === "/scan" || location.pathname === "/report");
+
+                return [
                   "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition",
-                  isActive
+                  isActive || isCurrentAnalyzeRoute
                     ? "bg-white text-slate-950 shadow-sm"
                     : "text-slate-300 hover:bg-slate-800/70 hover:text-white"
-                ].join(" ")
-              }
+                ].join(" ");
+              }}
               key={item.to}
               to={item.to}
             >
