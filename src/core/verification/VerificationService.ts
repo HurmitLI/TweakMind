@@ -28,7 +28,10 @@ export class VerificationService {
         }
       : result;
 
-    WindowsOptimizationService.recordVerification(verificationResult);
+    if (verificationResult.historyEntryId) {
+      WindowsOptimizationService.recordVerification(verificationResult);
+    }
+
     return verificationResult;
   }
 }
