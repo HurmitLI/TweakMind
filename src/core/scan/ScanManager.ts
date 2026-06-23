@@ -2,6 +2,8 @@ import { OptimizationSdkRegistry } from "../sdk/OptimizationSdkRegistry";
 import { normalizeOptimizationStatus } from "../sdk/OptimizationSdk";
 import type { MockDeviceType } from "../recommendation/RecommendationResult";
 import { OptimizationPluginManager } from "../plugins/OptimizationPluginManager";
+import { createEngineResult, type OptimizationEngineResult } from "../engine/OptimizationEngine";
+import type { OptimizationEvaluation } from "../sdk/OptimizationSdk";
 import { RuntimeScanService } from "./RuntimeScanService";
 import type { OptimizationScanResult, RecommendationSummary, ScanResult } from "./ScanResult";
 import { storeScanResult } from "./ScanResult";
@@ -31,6 +33,19 @@ function buildRecommendationSummary(results: OptimizationScanResult[]): Recommen
   };
 }
 
+function createIsolatedScanFailure(title: string, error: unknown): OptimizationEngineResult {
+  console.warn(`[TweakMind] Scan failed for ${title}.`, error);
+
+  return createEngineResult({
+    status: "Failed",
+    success: false,
+    previousState: "Unknown",
+    currentState: "Unknown",
+    message:
+      "Scan failed for this optimization. Unable to determine the current Windows state. Please retry scanning or check permissions."
+  });
+}
+
 export class ScanManager {
   static async run(options: ScanManagerOptions = {}): Promise<ScanResult> {
     const deviceType = options.deviceType ?? "Gaming PC";
@@ -46,15 +61,37 @@ export class ScanManager {
     });
 
     for (const module of modules) {
-      const detectionResult = await OptimizationPluginManager.scan(module.definition.id, {
-        scan: () => module.detector.detect()
-      });
+      let detectionResult: OptimizationEngineResult;
+
+      try {
+        detectionResult = await OptimizationPluginManager.scan(module.definition.id, {
+          scan: () => module.detector.detect()
+        });
+      } catch (error) {
+        detectionResult = createIsolatedScanFailure(module.definition.title, error);
+      }
+
       const normalizedStatus = normalizeOptimizationStatus(detectionResult.currentState);
-      const evaluation = module.evaluator.evaluate({
-        definition: module.definition,
-        detectedStatus: normalizedStatus,
-        deviceType
-      });
+      let evaluation: OptimizationEvaluation;
+
+      try {
+        evaluation = module.evaluator.evaluate({
+          definition: module.definition,
+          detectedStatus: normalizedStatus,
+          deviceType
+        });
+      } catch (error) {
+        console.warn(`[TweakMind] Scan evaluation failed for ${module.definition.title}.`, error);
+        evaluation = {
+          recommendation: "Optional" as const,
+          reason:
+            "Unable to determine the current Windows state. Please retry scanning or check permissions.",
+          selectable: false,
+          selectedByDefault: false,
+          currentStatus: "Unknown" as const
+        };
+      }
+      const canSelectSafely = detectionResult.success && normalizedStatus !== "Unknown";
 
       optimizationResults.push({
         id: module.definition.id,
@@ -62,9 +99,11 @@ export class ScanManager {
         rawDetectedValue: detectionResult.currentState,
         normalizedStatus,
         recommendation: evaluation.recommendation,
-        reason: evaluation.reason,
-        selectable: evaluation.selectable,
-        selectedByDefault: evaluation.selectedByDefault,
+        reason: detectionResult.success
+          ? evaluation.reason
+          : "Unable to determine the current Windows state. Please retry scanning or check permissions.",
+        selectable: canSelectSafely && evaluation.selectable,
+        selectedByDefault: canSelectSafely && evaluation.selectedByDefault,
         runtimeScan: RuntimeScanService.buildFromDetection(module.definition.id, detectionResult)
       });
 
