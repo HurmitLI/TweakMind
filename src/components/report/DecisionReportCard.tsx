@@ -9,6 +9,7 @@ import {
   translateRiskLevel,
   translateScanDisplayState
 } from "../../core/localization/localizationHelpers";
+import { translateRuntimeMessage } from "../../core/localization/RuntimeMessageLocalizationService";
 import type { OptimizationRecommendation } from "../../types/optimization";
 
 const recommendationStyles: Record<OptimizationRecommendation, string> = {
@@ -85,7 +86,7 @@ export function DecisionReportCard({ item, selected, onToggleSelected, emphasis 
                 ) : null}
               </div>
               <p className={["mt-2", isQuiet ? "tm-typo-caption" : "tm-typo-body-secondary"].join(" ")}>
-                {item.reason}
+                {translateRuntimeMessage(item.reason)}
               </p>
               {!item.canRealApply ? (
                 <p className="mt-2 tm-typo-caption">{t("unsupported.alphaNotExecutable.description")}</p>

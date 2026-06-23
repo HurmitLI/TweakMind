@@ -56,6 +56,8 @@ function isTechnicalWindowsMessage(message: string): boolean {
 const exactMessages: Record<string, TranslationKey> = {
   "Optimization completed through the executor.": "runtime.apply.completedThroughExecutor",
   "Detection is not available for this optimization yet.": "runtime.scan.detectionUnavailable",
+  "Unable to determine the current Windows state. Please retry scanning or check permissions.": "runtime.scan.stateUnknown",
+  "Scan failed for this optimization. Unable to determine the current Windows state. Please retry scanning or check permissions.": "runtime.scan.optimizationFailed",
   "Real Apply is not available for this optimization yet. No Windows changes were made.": "runtime.apply.unsupportedOptimization",
   "Recovery is not available for this optimization yet. No Windows changes were made.": "runtime.recovery.unsupportedOptimization",
   "Verification is not available for this optimization yet.": "runtime.verify.unsupportedOptimization",

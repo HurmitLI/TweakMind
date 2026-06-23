@@ -519,6 +519,8 @@ export const enMessages = {
   "runtime.verify.powerPlanHighPerformance": "Power plan is now detected as High performance.",
   "runtime.verify.expectedPowerPlanButDetected": "Expected High performance power plan, but detected {actual}.",
   "runtime.scan.detectionUnavailable": "Detection is not available for this optimization yet.",
+  "runtime.scan.stateUnknown": "Unable to determine the current Windows state. Please retry scanning or check permissions.",
+  "runtime.scan.optimizationFailed": "Scan failed for this optimization. Unable to determine the current Windows state. Please retry scanning or check permissions.",
   "runtime.history.capturedBeforeApply": "Captured before apply",
   "runtime.error.administratorRequired": "Administrator permission is required. Restart TweakMind as Administrator, then try again.",
   "runtime.error.windowsSettingFailed": "Windows could not complete the requested setting change. Review the result and try again if the change is still needed.",

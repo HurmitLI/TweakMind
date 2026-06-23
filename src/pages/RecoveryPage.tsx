@@ -9,8 +9,8 @@ import { translateRuntimeMessage } from "../core/localization/RuntimeMessageLoca
 import { OptimizationExecutor } from "../core/windows/OptimizationExecutor";
 import {
   clearPendingRecoveryAuthorization,
+  clearPendingRecoveryResult,
   hasPendingRecoveryAuthorization,
-  readPendingRecoveryResult,
   storePendingRecoveryResult,
   type OptimizationRecoveryResult,
   WindowsOptimizationService
@@ -32,12 +32,11 @@ export function RecoveryPage() {
   const historyEntryId = searchParams.get("historyId") ?? "";
   const entry = historyEntryId ? WindowsOptimizationService.getHistoryEntry(historyEntryId) : undefined;
   const [isAuthorized] = useState(() => (historyEntryId ? hasPendingRecoveryAuthorization(historyEntryId) : false));
-  const [result, setResult] = useState<OptimizationRecoveryResult | null>(() =>
-    historyEntryId ? readPendingRecoveryResult(historyEntryId) : null
-  );
+  const [result, setResult] = useState<OptimizationRecoveryResult | null>(null);
   const [progress, setProgress] = useState(0);
   const hasStarted = useRef(false);
   const recoverySteps = useMemo(() => recoveryStepKeys.map((key) => t(key)), [t]);
+  const showProgressAnimation = result === null || result.status === "success";
 
   useEffect(() => {
     if (!entry || result || hasStarted.current || !isAuthorized) {
@@ -46,14 +45,19 @@ export function RecoveryPage() {
 
     hasStarted.current = true;
     clearPendingRecoveryAuthorization();
+    clearPendingRecoveryResult();
     void OptimizationExecutor.restore(entry).then((recoveryResult) => {
       storePendingRecoveryResult(recoveryResult);
       setResult(recoveryResult);
+
+      if (recoveryResult.status !== "success") {
+        setProgress(100);
+      }
     });
   }, [entry, isAuthorized, result]);
 
   useEffect(() => {
-    if (!entry) {
+    if (!entry || result || !showProgressAnimation) {
       return;
     }
 
@@ -63,9 +67,9 @@ export function RecoveryPage() {
     const intervalId = window.setInterval(() => {
       const elapsed = Date.now() - startedAt;
       const nextProgress = Math.min(100, Math.round((elapsed / totalDuration) * 100));
-      setProgress(result ? 100 : nextProgress);
+      setProgress(nextProgress);
 
-      if (result || nextProgress >= 100) {
+      if (nextProgress >= 100) {
         window.clearInterval(intervalId);
       }
     }, 120);
@@ -73,7 +77,13 @@ export function RecoveryPage() {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [entry, recoverySteps.length, result]);
+  }, [entry, recoverySteps.length, result, showProgressAnimation]);
+
+  useEffect(() => {
+    if (result?.status === "success") {
+      setProgress(100);
+    }
+  }, [result]);
 
   const completed = progress >= 100 && result !== null;
   const activeStepIndex = useMemo(
@@ -82,7 +92,7 @@ export function RecoveryPage() {
   );
   const estimatedRemainingSeconds = Math.max(0, Math.ceil(((100 - progress) / 100) * 5));
 
-  if (!entry || (!result && !isAuthorized)) {
+  if (!entry || !isAuthorized) {
     return (
       <div className="tm-centered-shell">
         <ErrorPresentation

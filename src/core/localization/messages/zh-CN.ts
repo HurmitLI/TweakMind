@@ -521,6 +521,8 @@ export const zhCNMessages: Record<TranslationKey, string> = {
   "runtime.verify.powerPlanHighPerformance": "当前检测到高性能电源计划。",
   "runtime.verify.expectedPowerPlanButDetected": "预期为高性能电源计划，但检测到{actual}。",
   "runtime.scan.detectionUnavailable": "此优化项暂不支持检测。",
+  "runtime.scan.stateUnknown": "无法确定当前 Windows 状态。请重新扫描或检查权限。",
+  "runtime.scan.optimizationFailed": "此优化项扫描失败。无法确定当前 Windows 状态。请重新扫描或检查权限。",
   "runtime.history.capturedBeforeApply": "应用前已捕获",
   "runtime.error.administratorRequired": "需要管理员权限。请以管理员身份重新启动 TweakMind，然后重试。",
   "runtime.error.windowsSettingFailed": "Windows 无法完成请求的设置更改。请查看结果；如果仍需要更改，可再次尝试。",

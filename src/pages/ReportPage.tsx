@@ -4,6 +4,11 @@ import { DecisionReportSectionPanel } from "../components/report/DecisionReportS
 import { ReportFilters } from "../components/report/ReportFilters";
 import { ReportSelectionPanel } from "../components/report/ReportSelectionPanel";
 import { useTranslation } from "../core/localization/LanguageProvider";
+import {
+  translateReportStoredExecutionTime,
+  translateReportStoredImpact,
+  translateReportStoredRisk
+} from "../core/localization/localizationHelpers";
 import { DecisionReportService } from "../core/report/DecisionReportService";
 import type { DecisionReportFilterId, DecisionReportSectionId } from "../core/report/DecisionReportTypes";
 import { readStoredScanResult } from "../core/scan/ScanResult";
@@ -98,15 +103,15 @@ export function ReportPage() {
           </span>
           <span className="tm-report-metric-inline">
             {t("report.metric.estimatedTotalImpact")}:
-            <span className="tm-report-metric-value">{scanResult?.estimatedImpact ?? t("report.metric.defaultImpact")}</span>
+            <span className="tm-report-metric-value">{translateReportStoredImpact(scanResult?.estimatedImpact)}</span>
           </span>
           <span className="tm-report-metric-inline">
             {t("report.metric.estimatedTotalRisk")}:
-            <span className="tm-report-metric-value">{scanResult?.estimatedRisk ?? t("report.metric.defaultRisk")}</span>
+            <span className="tm-report-metric-value">{translateReportStoredRisk(scanResult?.estimatedRisk)}</span>
           </span>
           <span className="tm-report-metric-inline">
             {t("report.metric.estimatedExecutionTime")}:
-            <span className="tm-report-metric-value">{scanResult?.executionEstimate ?? t("report.metric.defaultExecutionTime")}</span>
+            <span className="tm-report-metric-value">{translateReportStoredExecutionTime(scanResult?.executionEstimate)}</span>
           </span>
         </div>
       </section>

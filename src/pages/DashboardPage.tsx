@@ -65,6 +65,7 @@ const heroTrustRowKeys = [
 export function DashboardPage() {
   const { t } = useTranslation();
   const hasScanResult = readStoredScanResult() !== null;
+  const analyzeRoute = hasScanResult ? "/report" : "/scan";
 
   return (
     <div className="tm-home-shell">
@@ -78,8 +79,8 @@ export function DashboardPage() {
               {t("home.hero.titleTail")}
             </h1>
             <p className="tm-home-hero-subtitle">{t("home.hero.subtitle")}</p>
-            <Link className="tm-home-cta tm-button-primary" to="/scan">
-              {t("home.hero.cta")}
+            <Link className="tm-home-cta tm-button-primary" to={analyzeRoute}>
+              {hasScanResult ? t("home.primary.reportCta") : t("home.hero.cta")}
               <ArrowRight size={18} aria-hidden="true" />
             </Link>
             <ul className="tm-home-trust-row">
@@ -124,13 +125,13 @@ export function DashboardPage() {
               <p className="tm-home-primary-action-meta">{t("home.primary.meta")}</p>
             </div>
             <div className="tm-home-primary-action-actions">
-              <Link className="tm-home-cta tm-button-primary tm-home-primary-action-button" to="/scan">
-                {t("home.primary.cta")}
+              <Link className="tm-home-cta tm-button-primary tm-home-primary-action-button" to={analyzeRoute}>
+                {hasScanResult ? t("home.primary.reportCta") : t("home.primary.cta")}
                 <ArrowRight size={18} aria-hidden="true" />
               </Link>
               {hasScanResult ? (
-                <Link className="tm-link-accent tm-home-primary-report-link" to="/report">
-                  {t("home.primary.reportCta")}
+                <Link className="tm-link-accent tm-home-primary-report-link" to="/scan">
+                  {t("home.primary.cta")}
                 </Link>
               ) : null}
             </div>

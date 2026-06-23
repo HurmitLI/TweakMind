@@ -163,3 +163,38 @@ export function translateConfidenceLevel(value: string): string {
 export function translateApplyMode(mode: "real" | "mock" | "unsupported"): string {
   return LocalizationService.translate(`applyMode.${mode}`);
 }
+
+export function translateReportStoredImpact(value?: string): string {
+  if (!value) {
+    return LocalizationService.translate("report.metric.defaultImpact");
+  }
+
+  const map: Record<string, TranslationKey> = {
+    Low: "benefit.low",
+    Medium: "benefit.medium",
+    High: "benefit.high"
+  };
+
+  const key = map[value];
+  return key ? LocalizationService.translate(key) : value;
+}
+
+export function translateReportStoredRisk(value?: string): string {
+  if (!value) {
+    return LocalizationService.translate("report.metric.defaultRisk");
+  }
+
+  if (value === "Low" || value === "Medium" || value === "High") {
+    return translateRiskLevel(value);
+  }
+
+  return value;
+}
+
+export function translateReportStoredExecutionTime(value?: string): string {
+  if (!value || value === "3 min") {
+    return LocalizationService.translate("report.metric.defaultExecutionTime");
+  }
+
+  return value;
+}

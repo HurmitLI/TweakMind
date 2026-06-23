@@ -164,6 +164,16 @@ None
 
 - ALPHA-P1-008 Scan Failure Isolation
 
+- ALPHA-P0-001 Recovery Pending-State Lifecycle
+
+- ALPHA-P1-009 Report Summary Localization
+
+- ALPHA-P1-010 Scan Failure Reason Localization
+
+- ALPHA-P1-011 Home Analyze Route Alignment
+
+- ALPHA Function Completion Review
+
 ---
 
 # In Progress
@@ -174,7 +184,7 @@ None
 
 # Next Development
 
-Alpha Function Completion Review
+Beta Preparation
 
 ---
 

@@ -201,3 +201,8 @@ export function clearPendingRecoveryAuthorization() {
   window.sessionStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
   window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
 }
+
+export function clearPendingRecoveryResult() {
+  window.sessionStorage.removeItem(pendingRecoveryResultStorageKey);
+  window.localStorage.removeItem(pendingRecoveryResultStorageKey);
+}
