@@ -115,7 +115,7 @@ export function HistoryPage() {
                             historyHref: "/history",
                             retryHref:
                               entry.recoveryStatus === "Failed"
-                                ? `/recovery?historyId=${entry.id}`
+                                ? `/recover/${entry.id}`
                                 : entry.verificationStatus === "Failed"
                                   ? `/verify?id=${entry.optimizationId}&mode=${entry.recoveryStatus === "Success" ? "recovery" : "apply"}&historyId=${entry.id}`
                                   : `/confirm/${entry.optimizationId}?from=decision`

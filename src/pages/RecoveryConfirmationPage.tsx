@@ -4,7 +4,10 @@ import { OptimizationCapabilityRegistry } from "../core/execution/OptimizationCa
 import { useTranslation } from "../core/localization/LanguageProvider";
 import { translateOptimizationStatus, translateRiskLevel } from "../core/localization/localizationHelpers";
 import { translateRuntimeMessage } from "../core/localization/RuntimeMessageLocalizationService";
-import { WindowsOptimizationService } from "../core/windows/WindowsOptimizationService";
+import {
+  storePendingRecoveryAuthorization,
+  WindowsOptimizationService
+} from "../core/windows/WindowsOptimizationService";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -119,6 +122,7 @@ export function RecoveryConfirmationPage() {
         </Link>
         <Link
           className="tm-button-primary"
+          onClick={() => storePendingRecoveryAuthorization(entry.id)}
           to={`/recovery?historyId=${entry.id}`}
         >
           {t("recoveryConfirm.action.confirmRecovery")}

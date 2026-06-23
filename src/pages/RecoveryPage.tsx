@@ -8,6 +8,8 @@ import { translateOptimizationStatus } from "../core/localization/localizationHe
 import { translateRuntimeMessage } from "../core/localization/RuntimeMessageLocalizationService";
 import { OptimizationExecutor } from "../core/windows/OptimizationExecutor";
 import {
+  clearPendingRecoveryAuthorization,
+  hasPendingRecoveryAuthorization,
   readPendingRecoveryResult,
   storePendingRecoveryResult,
   type OptimizationRecoveryResult,
@@ -29,6 +31,7 @@ export function RecoveryPage() {
   const [searchParams] = useSearchParams();
   const historyEntryId = searchParams.get("historyId") ?? "";
   const entry = historyEntryId ? WindowsOptimizationService.getHistoryEntry(historyEntryId) : undefined;
+  const [isAuthorized] = useState(() => (historyEntryId ? hasPendingRecoveryAuthorization(historyEntryId) : false));
   const [result, setResult] = useState<OptimizationRecoveryResult | null>(() =>
     historyEntryId ? readPendingRecoveryResult(historyEntryId) : null
   );
@@ -37,16 +40,17 @@ export function RecoveryPage() {
   const recoverySteps = useMemo(() => recoveryStepKeys.map((key) => t(key)), [t]);
 
   useEffect(() => {
-    if (!entry || result || hasStarted.current) {
+    if (!entry || result || hasStarted.current || !isAuthorized) {
       return;
     }
 
     hasStarted.current = true;
+    clearPendingRecoveryAuthorization();
     void OptimizationExecutor.restore(entry).then((recoveryResult) => {
       storePendingRecoveryResult(recoveryResult);
       setResult(recoveryResult);
     });
-  }, [entry, result]);
+  }, [entry, isAuthorized, result]);
 
   useEffect(() => {
     if (!entry) {
@@ -78,7 +82,7 @@ export function RecoveryPage() {
   );
   const estimatedRemainingSeconds = Math.max(0, Math.ceil(((100 - progress) / 100) * 5));
 
-  if (!entry) {
+  if (!entry || (!result && !isAuthorized)) {
     return (
       <div className="tm-centered-shell">
         <ErrorPresentation
@@ -104,7 +108,7 @@ export function RecoveryPage() {
             actions={{
               goBackHref: "/history",
               historyHref: "/history",
-              retryHref: `/recovery?historyId=${entry.id}`
+              retryHref: `/recover/${entry.id}`
             }}
             descriptor={recoveryError}
             layout="centered"

@@ -44,6 +44,7 @@ export type OptimizationExecutionResult = OptimizationHistoryEntry;
 export const optimizationHistoryStorageKey = "tweakmind:optimization-history";
 export const pendingApplyResultStorageKey = "tweakmind:pending-apply-result";
 export const pendingRecoveryResultStorageKey = "tweakmind:pending-recovery-result";
+export const pendingRecoveryAuthorizationStorageKey = "tweakmind:pending-recovery-authorization";
 
 function readHistory(): OptimizationHistoryEntry[] {
   try {
@@ -168,4 +169,16 @@ export function readPendingRecoveryResult(historyEntryId: string): OptimizationR
   } catch {
     return null;
   }
+}
+
+export function storePendingRecoveryAuthorization(historyEntryId: string) {
+  window.sessionStorage.setItem(pendingRecoveryAuthorizationStorageKey, historyEntryId);
+}
+
+export function hasPendingRecoveryAuthorization(historyEntryId: string) {
+  return window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey) === historyEntryId;
+}
+
+export function clearPendingRecoveryAuthorization() {
+  window.sessionStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
 }
