@@ -132,6 +132,11 @@ export function storeScanResult(scanResult: ScanResult) {
   window.localStorage.setItem(scanResultStorageKey, serialized);
 }
 
+export function clearStoredScanResult() {
+  window.sessionStorage.removeItem(scanResultStorageKey);
+  window.localStorage.removeItem(scanResultStorageKey);
+}
+
 export function toRecommendationResult(result: OptimizationScanResult): RecommendationResult {
   return {
     id: result.id,

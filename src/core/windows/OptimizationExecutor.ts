@@ -1,6 +1,7 @@
 import type { OptimizationId } from "../../types/optimization";
 import { OptimizationRepository } from "../optimization/OptimizationRepository";
 import { OptimizationPluginManager } from "../plugins/OptimizationPluginManager";
+import { clearStoredScanResult } from "../scan/ScanResult";
 import {
   type OptimizationApplyResult,
   type OptimizationHistoryEntry,
@@ -17,8 +18,8 @@ function toApplyHistoryEntry(result: OptimizationApplyResult): OptimizationHisto
     newState: result.currentState,
     previousStartupType: result.previousStartupType ?? "Captured before apply",
     timestamp: result.timestamp,
-    status: "Success",
-    message: result.message ?? "Optimization completed through the executor.",
+    status: result.status === "success" ? "Success" : "Failed",
+    message: result.message ?? result.error ?? "Optimization completed through the executor.",
     isAdmin: result.applyMode === "real",
     applyMode: result.applyMode
   };
@@ -27,12 +28,16 @@ function toApplyHistoryEntry(result: OptimizationApplyResult): OptimizationHisto
 export class OptimizationExecutor {
   static async apply(optimizationId: OptimizationId): Promise<OptimizationApplyResult> {
     const result = await OptimizationPluginManager.apply(optimizationId);
+    const historyEntry = WindowsOptimizationService.recordHistory(toApplyHistoryEntry(result));
 
     if (result.status === "success") {
-      WindowsOptimizationService.recordHistory(toApplyHistoryEntry(result));
+      clearStoredScanResult();
     }
 
-    return result;
+    return {
+      ...result,
+      historyEntryId: historyEntry.id
+    };
   }
 
   static async restore(entry: OptimizationHistoryEntry): Promise<OptimizationRecoveryResult> {
@@ -41,6 +46,10 @@ export class OptimizationExecutor {
     });
 
     WindowsOptimizationService.recordRecoveryResult(result);
+    if (result.status === "success") {
+      clearStoredScanResult();
+    }
+
     return result;
   }
 }

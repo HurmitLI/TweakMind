@@ -69,6 +69,7 @@ export class WindowsOptimizationService {
 
   static recordHistory(entry: OptimizationHistoryEntry) {
     writeHistory([entry, ...readHistory()]);
+    return entry;
   }
 
   static recordVerification(result: VerificationResult) {
@@ -77,7 +78,9 @@ export class WindowsOptimizationService {
     const nextHistory = history.map((entry) => {
       if (
         updated ||
-        (result.historyEntryId ? entry.id !== result.historyEntryId : entry.optimizationId !== result.optimizationId) ||
+        (result.historyEntryId
+          ? entry.id !== result.historyEntryId || entry.optimizationId !== result.optimizationId
+          : entry.optimizationId !== result.optimizationId) ||
         entry.status !== "Success"
       ) {
         return entry;

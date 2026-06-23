@@ -16,8 +16,14 @@ export class VerificationService {
       historyEntryId: options.historyEntryId,
       verificationMode: options.mode ?? "apply"
     });
+    const verificationResult = options.historyEntryId && !result.historyEntryId
+      ? {
+          ...result,
+          historyEntryId: options.historyEntryId
+        }
+      : result;
 
-    WindowsOptimizationService.recordVerification(result);
-    return result;
+    WindowsOptimizationService.recordVerification(verificationResult);
+    return verificationResult;
   }
 }

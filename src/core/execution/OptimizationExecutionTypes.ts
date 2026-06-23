@@ -10,6 +10,7 @@ export interface PreviousStateSnapshot {
 }
 
 export interface ApplyExecutionResult {
+  historyEntryId?: string;
   optimizationId: OptimizationId;
   applyMode: ExecutionMode;
   status: Extract<ExecutionStatus, "success" | "failed" | "unsupported">;

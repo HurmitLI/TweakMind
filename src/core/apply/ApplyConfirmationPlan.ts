@@ -63,6 +63,7 @@ export function getApplyConfirmationPlan(id: OptimizationId) {
     knowledge,
     recommendation,
     currentStatus,
+    canApply: capabilities.canRealApply,
     targetState: getTargetStateForOptimization(optimization.id, recommendation.recommendation, currentStatus),
     safetyNotice: safetyNoticeKey ? LocalizationService.translate(safetyNoticeKey) : undefined,
     whatWillChange:

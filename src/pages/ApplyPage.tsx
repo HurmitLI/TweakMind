@@ -121,7 +121,7 @@ export function ApplyPage() {
             {isSuccess ? (
               <Link
                 className="tm-button-primary"
-                to={`/verify?id=${executionResult.optimizationId}`}
+                to={`/verify?id=${executionResult.optimizationId}${executionResult.historyEntryId ? `&historyId=${executionResult.historyEntryId}` : ""}`}
               >
                 <ShieldCheck size={17} aria-hidden="true" />
                 {t("apply.success.action.verifyResult")}

@@ -65,6 +65,11 @@ export function ApplyConfirmationPage() {
   const [applyError, setApplyError] = useState<ReturnType<typeof ErrorPresentationService.fromTechnicalError> | null>(null);
 
   async function confirmAndApply() {
+    if (!plan.canApply) {
+      setApplyError(ErrorPresentationService.forApplyUnavailable(false));
+      return;
+    }
+
     setApplyError(null);
     setIsConfirming(true);
 
@@ -85,6 +90,8 @@ export function ApplyConfirmationPage() {
     knowledge?.recovery.estimatedTime === "Unknown" || !knowledge?.recovery.estimatedTime
       ? optimization.estimatedTime
       : knowledge.recovery.estimatedTime;
+  const applyUnavailableError = plan.canApply ? null : ErrorPresentationService.forApplyUnavailable(false);
+  const displayedApplyError = applyError ?? applyUnavailableError;
 
   return (
     <div className="tm-layout-page">
@@ -194,14 +201,14 @@ export function ApplyConfirmationPage() {
         <LoadingState description={t("applyConfirm.loading.description")} title={t("applyConfirm.loading.title")} />
       ) : null}
 
-      {applyError ? (
+      {displayedApplyError ? (
         <ErrorPresentation
           actions={{
             goBackHref: cancelTarget,
-            onDismiss: () => setApplyError(null),
-            onRetry: confirmAndApply
+            onDismiss: applyError ? () => setApplyError(null) : undefined,
+            onRetry: plan.canApply ? confirmAndApply : undefined
           }}
-          descriptor={applyError}
+          descriptor={displayedApplyError}
         />
       ) : null}
 
@@ -214,8 +221,8 @@ export function ApplyConfirmationPage() {
           {t("common.action.cancel")}
         </Link>
         <button
-          className="tm-button-primary"
-          disabled={isConfirming}
+          className={plan.canApply ? "tm-button-primary" : "tm-button-disabled"}
+          disabled={isConfirming || !plan.canApply}
           onClick={confirmAndApply}
           type="button"
         >
