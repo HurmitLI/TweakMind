@@ -106,9 +106,54 @@ function readScanResultFromStorage(storage: Storage): ScanResult | null {
   }
 }
 
-function getScanResultTimestamp(scanResult: ScanResult): number {
-  const timestamp = Date.parse(scanResult.timestamp);
-  return Number.isNaN(timestamp) ? 0 : timestamp;
+/**
+ * Normalizes scan result timestamps to Unix seconds for comparison.
+ * Supports current Unix-second strings and legacy ISO date strings.
+ * Returns null when the value cannot be parsed safely.
+ */
+export function parseScanResultTimestamp(timestamp: string): number | null {
+  const trimmed = timestamp.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  if (/^\d+$/.test(trimmed)) {
+    const seconds = Number(trimmed);
+
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+      return null;
+    }
+
+    return seconds;
+  }
+
+  const parsedMilliseconds = Date.parse(trimmed);
+
+  if (Number.isNaN(parsedMilliseconds)) {
+    return null;
+  }
+
+  return Math.floor(parsedMilliseconds / 1000);
+}
+
+function pickNewerScanResult(localResult: ScanResult, sessionResult: ScanResult): ScanResult {
+  const localTimestamp = parseScanResultTimestamp(localResult.timestamp);
+  const sessionTimestamp = parseScanResultTimestamp(sessionResult.timestamp);
+
+  if (localTimestamp === null && sessionTimestamp === null) {
+    return localResult;
+  }
+
+  if (localTimestamp === null) {
+    return sessionResult;
+  }
+
+  if (sessionTimestamp === null) {
+    return localResult;
+  }
+
+  return sessionTimestamp > localTimestamp ? sessionResult : localResult;
 }
 
 export function readStoredScanResult(): ScanResult | null {
@@ -116,7 +161,7 @@ export function readStoredScanResult(): ScanResult | null {
   const sessionResult = readScanResultFromStorage(window.sessionStorage);
 
   if (localResult && sessionResult) {
-    return getScanResultTimestamp(sessionResult) > getScanResultTimestamp(localResult) ? sessionResult : localResult;
+    return pickNewerScanResult(localResult, sessionResult);
   }
 
   return localResult ?? sessionResult;
