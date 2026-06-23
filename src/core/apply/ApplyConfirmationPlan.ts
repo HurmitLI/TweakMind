@@ -50,6 +50,7 @@ export function getApplyConfirmationPlan(id: OptimizationId) {
       };
   const currentStatus = recommendation.currentStatus ?? "Unknown";
   const capabilities = OptimizationCapabilityRegistry.get(optimization.id);
+  const canApply = capabilities.canRealApply && recommendation.selectable;
   const isAlreadyOptimized = recommendation.recommendation === "Already Optimized";
   const safetyNoticeKeys: Partial<Record<OptimizationId, "applyPlan.safetyNotice.sysmain" | "applyPlan.safetyNotice.hags" | "applyPlan.safetyNotice.powerPlan">> = {
     sysmain: "applyPlan.safetyNotice.sysmain",
@@ -63,11 +64,12 @@ export function getApplyConfirmationPlan(id: OptimizationId) {
     knowledge,
     recommendation,
     currentStatus,
-    canApply: capabilities.canRealApply,
+    canApply,
+    canRealApply: capabilities.canRealApply,
     targetState: getTargetStateForOptimization(optimization.id, recommendation.recommendation, currentStatus),
     safetyNotice: safetyNoticeKey ? LocalizationService.translate(safetyNoticeKey) : undefined,
     whatWillChange:
-      capabilities.canRealApply && !isAlreadyOptimized
+      canApply && !isAlreadyOptimized
         ? LocalizationService.translate("applyPlan.whatWillChange.real", { title: optimization.title })
         : capabilities.canRealApply
           ? LocalizationService.translate("applyPlan.whatWillChange.alreadyOptimized", { title: optimization.title })

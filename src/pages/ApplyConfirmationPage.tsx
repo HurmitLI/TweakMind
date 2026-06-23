@@ -66,7 +66,7 @@ export function ApplyConfirmationPage() {
 
   async function confirmAndApply() {
     if (!plan.canApply) {
-      setApplyError(ErrorPresentationService.forApplyUnavailable(false));
+      setApplyError(plan.canRealApply ? null : ErrorPresentationService.forApplyUnavailable(false));
       return;
     }
 
@@ -90,7 +90,7 @@ export function ApplyConfirmationPage() {
     knowledge?.recovery.estimatedTime === "Unknown" || !knowledge?.recovery.estimatedTime
       ? optimization.estimatedTime
       : knowledge.recovery.estimatedTime;
-  const applyUnavailableError = plan.canApply ? null : ErrorPresentationService.forApplyUnavailable(false);
+  const applyUnavailableError = plan.canApply || plan.canRealApply ? null : ErrorPresentationService.forApplyUnavailable(false);
   const displayedApplyError = applyError ?? applyUnavailableError;
 
   return (

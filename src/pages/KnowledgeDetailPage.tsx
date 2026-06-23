@@ -7,6 +7,7 @@ import { BulletListSection } from "../components/decision/BulletListSection";
 import { DecisionSection } from "../components/decision/DecisionSection";
 import { OptimizationWorkflowStrip } from "../components/decision/OptimizationWorkflowStrip";
 import { RecommendationBadge } from "../components/decision/RecommendationBadge";
+import { getApplyConfirmationPlan } from "../core/apply/ApplyConfirmationPlan";
 import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
 import { OptimizationCapabilityRegistry } from "../core/execution/OptimizationCapabilityRegistry";
 import { KnowledgeRepository } from "../core/knowledge/KnowledgeRepository";
@@ -102,6 +103,7 @@ export function KnowledgeDetailPage() {
   const runtimeScan = RuntimeScanService.getStoredSnapshot(requestedOptimizationId);
   const scanCapability = RuntimeScanService.getCapability(requestedOptimizationId);
   const canRealApply = OptimizationCapabilityRegistry.canRealApply(requestedOptimizationId);
+  const applyPlan = getApplyConfirmationPlan(requestedOptimizationId);
   const historyEntries = useMemo(
     () => WindowsOptimizationService.getHistory().filter((entry) => entry.optimizationId === requestedOptimizationId),
     [requestedOptimizationId]
@@ -335,7 +337,7 @@ export function KnowledgeDetailPage() {
             </Link>
           ) : null}
 
-          {canRealApply ? (
+          {applyPlan.canApply ? (
             <Link
               className="tm-button-primary"
               to={`/confirm/${knowledge.identity.id}?from=${applyFrom}`}
