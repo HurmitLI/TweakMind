@@ -66,8 +66,13 @@ export function AboutPage() {
       </dl>
 
       <section className="tm-section-card">
-        <h3 className="tm-typo-section">{t("about.alpha.title")}</h3>
-        <p className="tm-mt-md max-w-3xl tm-typo-body">{t("about.alpha.description")}</p>
+        <h3 className="tm-typo-section">{t("about.beta.title")}</h3>
+        <p className="tm-mt-md max-w-3xl tm-typo-body">{t("about.beta.description")}</p>
+        <p className="tm-mt-md tm-typo-body-secondary">
+          <a className="tm-link-accent" href={AppInfo.issueTrackerUrl} rel="noreferrer" target="_blank">
+            {t("about.beta.feedback")}
+          </a>
+        </p>
       </section>
 
       <section className="tm-section-card">

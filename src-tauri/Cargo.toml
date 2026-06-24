@@ -1,6 +1,6 @@
 [package]
 name = "tweakmind"
-version = "0.1.0"
+version = "0.2.0"
 description = "AI-assisted Windows Optimization Decision Tool"
 authors = ["TweakMind contributors"]
 license = "MIT"

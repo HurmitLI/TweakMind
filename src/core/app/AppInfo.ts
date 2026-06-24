@@ -1,7 +1,7 @@
 import packageJson from "../../../package.json";
 
 const applicationName = "TweakMind";
-const releasePhase = "Alpha";
+const releasePhase = "Beta";
 
 export const AppInfo = {
   name: applicationName,

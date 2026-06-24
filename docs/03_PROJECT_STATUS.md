@@ -26,7 +26,7 @@
 
 # Current Version
 
-**0.1.0 Alpha**
+**0.2.0 Beta**
 
 ---
 
@@ -128,6 +128,8 @@ None
 
 - BETA-001 Internal Testing
 
+- RELEASE-003 Beta Release
+
 ---
 
 # Completed ALPHA
@@ -188,7 +190,7 @@ None
 
 # Next Development
 
-Beta Release Preparation
+BETA-002 Public Beta Testing
 
 ---
 

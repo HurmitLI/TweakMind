@@ -4,13 +4,13 @@ TweakMind is an AI-assisted Windows optimization **decision tool**.
 
 Slogan: Make every Windows optimization an informed decision.
 
-This Alpha build implements the full decision workflow for supported Windows optimizations:
+This Beta build implements the full decision workflow for supported Windows optimizations:
 
 **Knowledge → Scan → Decision → Apply → Verify → Recover → History**
 
 TweakMind explains trade-offs, records changes, verifies results, and supports recovery. It does not auto-optimize or make decisions for you.
 
-## Alpha Scope
+## Beta Scope
 
 - **7 real-apply optimizations:** Windows Search, Game Mode, Core Isolation, Delivery Optimization, SysMain, HAGS, Power Plan
 - **4 knowledge-only optimizations:** Background Apps, Startup Apps, Visual Effects, Windows Update Active Hours
