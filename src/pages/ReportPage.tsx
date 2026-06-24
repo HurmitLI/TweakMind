@@ -15,9 +15,9 @@ import { readStoredScanResult } from "../core/scan/ScanResult";
 import type { OptimizationCategory, OptimizationId, OptimizationRiskLevel } from "../types/optimization";
 
 export function ReportPage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const scanResult = useMemo(() => readStoredScanResult(), []);
-  const reportModel = useMemo(() => DecisionReportService.buildModel(scanResult), [scanResult]);
+  const reportModel = useMemo(() => DecisionReportService.buildModel(scanResult, language), [scanResult, language]);
   const [activeFilter, setActiveFilter] = useState<DecisionReportFilterId>("all");
   const [activeRisk, setActiveRisk] = useState<OptimizationRiskLevel | undefined>();
   const [activeCategory, setActiveCategory] = useState<OptimizationCategory | undefined>();
@@ -55,8 +55,8 @@ export function ReportPage() {
   );
 
   const selectionSummary = useMemo(
-    () => DecisionReportService.summarizeSelection(selectedIds, reportModel.allItems),
-    [reportModel.allItems, selectedIds]
+    () => DecisionReportService.summarizeSelection(selectedIds, reportModel.allItems, language),
+    [reportModel.allItems, selectedIds, language]
   );
 
   function toggleSelected(id: OptimizationId) {

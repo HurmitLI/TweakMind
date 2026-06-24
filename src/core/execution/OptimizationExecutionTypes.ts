@@ -59,7 +59,7 @@ export interface OptimizationExecutionTarget {
   id: OptimizationId;
   capabilities: OptimizationExecutionCapabilities;
   apply(): Promise<ApplyExecutionResult>;
-  verifyApply(): Promise<VerificationExecutionResult>;
+  verifyApply(historyEntryId?: string): Promise<VerificationExecutionResult>;
   verifyRecovery(historyEntryId: string): Promise<VerificationExecutionResult>;
   recover(historyEntryId: string): Promise<RecoveryExecutionResult>;
 }

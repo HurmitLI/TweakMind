@@ -37,7 +37,7 @@ export const SysMainPlugin: OptimizationPlugin = {
       return verifier.verifyRecovery(context.historyEntryId ?? "");
     }
 
-    return verifier.verifyApply();
+    return verifier.verifyApply(context?.historyEntryId);
   },
   recover(context?: OptimizationPluginContext): Promise<RecoveryExecutionResult> {
     const historyEntryId = context?.historyEntryId;

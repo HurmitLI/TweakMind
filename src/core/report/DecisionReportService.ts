@@ -7,6 +7,7 @@ import type {
 } from "../../types/optimization";
 import { OptimizationCapabilityRegistry } from "../execution/OptimizationCapabilityRegistry";
 import { LocalizationService } from "../localization/LocalizationService";
+import type { AppLanguage } from "../settings/SettingsService";
 import type { KnowledgePriority } from "../knowledge/KnowledgeDefinition";
 import { KnowledgeRepository } from "../knowledge/KnowledgeRepository";
 import type { RuntimeScanStatus } from "../scan/RuntimeScanModel";
@@ -181,7 +182,8 @@ function buildSections(items: DecisionReportItem[]): DecisionReportSection[] {
 }
 
 export class DecisionReportService {
-  static buildModel(scanResult: ScanResult | null): DecisionReportModel {
+  static buildModel(scanResult: ScanResult | null, language: AppLanguage = LocalizationService.getLanguage()): DecisionReportModel {
+    void language;
     if (!scanResult) {
       return {
         hasScan: false,
@@ -234,7 +236,12 @@ export class DecisionReportService {
     });
   }
 
-  static summarizeSelection(selectedIds: string[], items: DecisionReportItem[]): DecisionReportSelectionSummary {
+  static summarizeSelection(
+    selectedIds: string[],
+    items: DecisionReportItem[],
+    language: AppLanguage = LocalizationService.getLanguage()
+  ): DecisionReportSelectionSummary {
+    void language;
     const selectedItems = items.filter((item) => selectedIds.includes(item.id) && item.selectable);
     const supportedSelected = selectedItems.filter((item) => item.canRealApply);
     const unsupportedSelected = selectedItems.filter((item) => !item.canRealApply);

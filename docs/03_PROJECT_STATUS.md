@@ -126,6 +126,8 @@ None
 
 - RELEASE-002 Beta Release Preparation
 
+- BETA-001 Internal Testing
+
 ---
 
 # Completed ALPHA
@@ -186,7 +188,7 @@ None
 
 # Next Development
 
-BETA-001 Internal Testing
+Beta Release Preparation
 
 ---
 

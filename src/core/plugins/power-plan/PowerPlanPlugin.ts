@@ -8,12 +8,12 @@ import type {
 import { isTauriRuntime, nowTimestamp } from "../../execution/targets/ExecutionRuntime";
 import { OptimizationSdkRegistry } from "../../sdk/OptimizationSdkRegistry";
 import {
-  readPendingApplyResult,
   readPendingRecoveryResult,
   type OptimizationHistoryEntry,
   type OptimizationRecoveryResult,
   WindowsOptimizationService
 } from "../../windows/WindowsOptimizationService";
+import { resolveApplyVerificationSource } from "../../execution/targets/ApplyVerificationSupport";
 import type { OptimizationPlugin, OptimizationPluginContext } from "../OptimizationPluginTypes";
 
 const EXPECTED_APPLY_STATE = "Enabled";
@@ -74,33 +74,35 @@ async function applyPowerPlan(): Promise<ApplyExecutionResult> {
   }
 }
 
-async function verifyPowerPlanApply(): Promise<VerificationExecutionResult> {
-  const applyResult = readPendingApplyResult("power-plan");
+async function verifyPowerPlanApply(historyEntryId?: string): Promise<VerificationExecutionResult> {
+  const resolution = resolveApplyVerificationSource("power-plan", EXPECTED_APPLY_STATE, historyEntryId);
 
-  if (!applyResult) {
+  if (!resolution.ok) {
+    if (resolution.reason === "missing") {
+      return {
+        ...unavailable("No completed Apply result was found. Verification is pending.", historyEntryId),
+        expectedState: EXPECTED_APPLY_STATE
+      };
+    }
+
     return {
-      ...unavailable("No completed Apply result was found. Verification is pending."),
+      ...unavailable("Only successful real Power Plan Apply results can be verified in this MVP step.", historyEntryId),
+      previousState: resolution.previousState ?? "Unknown",
       expectedState: EXPECTED_APPLY_STATE
     };
   }
 
-  if (applyResult.status !== "success" || applyResult.applyMode !== "real") {
-    return {
-      ...unavailable("Only successful real Power Plan Apply results can be verified in this MVP step."),
-      previousState: applyResult.previousState,
-      expectedState: EXPECTED_APPLY_STATE
-    };
-  }
-
+  const { previousState, expectedState, historyEntryId: resolvedHistoryEntryId } = resolution.source;
   const detection = await OptimizationSdkRegistry.detect("power-plan");
   const actualState = detection.currentState || "Unknown";
-  const verified = detection.success && actualState === EXPECTED_APPLY_STATE;
+  const verified = detection.success && actualState === expectedState;
 
   return {
+    historyEntryId: resolvedHistoryEntryId,
     optimizationId: "power-plan",
     status: verified ? "Verified" : "Failed",
-    previousState: applyResult.previousState,
-    expectedState: EXPECTED_APPLY_STATE,
+    previousState,
+    expectedState,
     actualState,
     message: verified
       ? "Power plan is now detected as High performance."
@@ -223,7 +225,7 @@ export const PowerPlanPlugin: OptimizationPlugin = {
       return verifyPowerPlanRecovery(context.historyEntryId ?? "");
     }
 
-    return verifyPowerPlanApply();
+    return verifyPowerPlanApply(context?.historyEntryId);
   },
   recover(context?: OptimizationPluginContext): Promise<RecoveryExecutionResult> {
     const historyEntryId = context?.historyEntryId;

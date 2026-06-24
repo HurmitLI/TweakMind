@@ -1,10 +1,10 @@
 import { OptimizationSdkRegistry } from "../../sdk/OptimizationSdkRegistry";
 import {
-  readPendingApplyResult,
   readPendingRecoveryResult,
   WindowsOptimizationService
 } from "../../windows/WindowsOptimizationService";
 import type { VerificationExecutionResult } from "../OptimizationExecutionTypes";
+import { resolveApplyVerificationSource } from "./ApplyVerificationSupport";
 import { nowTimestamp } from "./ExecutionRuntime";
 
 function unavailable(message: string, historyEntryId?: string): VerificationExecutionResult {
@@ -21,34 +21,37 @@ function unavailable(message: string, historyEntryId?: string): VerificationExec
 }
 
 export class WindowsSearchVerifier {
-  async verifyApply(): Promise<VerificationExecutionResult> {
-    const applyResult = readPendingApplyResult("windows-search");
-
-    if (!applyResult) {
-      return {
-        ...unavailable("No completed Apply result was found. Verification is pending."),
-        expectedState: "Disabled"
-      };
-    }
-
-    if (applyResult.status !== "success" || applyResult.applyMode !== "real") {
-      return {
-        ...unavailable("Only successful real Windows Search Apply results can be verified in this MVP step."),
-        previousState: applyResult.previousState,
-        expectedState: "Disabled"
-      };
-    }
-
+  async verifyApply(historyEntryId?: string): Promise<VerificationExecutionResult> {
     const expectedState = "Disabled";
+    const resolution = resolveApplyVerificationSource("windows-search", expectedState, historyEntryId);
+
+    if (!resolution.ok) {
+      if (resolution.reason === "missing") {
+        return {
+          ...unavailable("No completed Apply result was found. Verification is pending.", historyEntryId),
+          expectedState
+        };
+      }
+
+      return {
+        ...unavailable("Only successful real Windows Search Apply results can be verified in this MVP step.", historyEntryId),
+        previousState: resolution.previousState ?? "Unknown",
+        expectedState
+      };
+    }
+
+    const { previousState, expectedState: resolvedExpectedState, historyEntryId: resolvedHistoryEntryId } =
+      resolution.source;
     const detection = await OptimizationSdkRegistry.detect("windows-search");
     const actualState = detection.currentState || "Unknown";
-    const verified = detection.success && actualState === expectedState;
+    const verified = detection.success && actualState === resolvedExpectedState;
 
     return {
+      historyEntryId: resolvedHistoryEntryId,
       optimizationId: "windows-search",
       status: verified ? "Verified" : "Failed",
-      previousState: applyResult.previousState,
-      expectedState,
+      previousState,
+      expectedState: resolvedExpectedState,
       actualState,
       message: verified
         ? "Windows Search is now detected as Disabled."

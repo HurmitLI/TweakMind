@@ -8,12 +8,12 @@ import type {
 import { isTauriRuntime, nowTimestamp } from "../../execution/targets/ExecutionRuntime";
 import { OptimizationSdkRegistry } from "../../sdk/OptimizationSdkRegistry";
 import {
-  readPendingApplyResult,
   readPendingRecoveryResult,
   type OptimizationHistoryEntry,
   type OptimizationRecoveryResult,
   WindowsOptimizationService
 } from "../../windows/WindowsOptimizationService";
+import { resolveApplyVerificationSource } from "../../execution/targets/ApplyVerificationSupport";
 import type { OptimizationPlugin, OptimizationPluginContext } from "../OptimizationPluginTypes";
 
 const EXPECTED_APPLY_STATE = "Disabled";
@@ -74,33 +74,35 @@ async function applyDeliveryOptimization(): Promise<ApplyExecutionResult> {
   }
 }
 
-async function verifyDeliveryOptimizationApply(): Promise<VerificationExecutionResult> {
-  const applyResult = readPendingApplyResult("delivery-optimization");
+async function verifyDeliveryOptimizationApply(historyEntryId?: string): Promise<VerificationExecutionResult> {
+  const resolution = resolveApplyVerificationSource("delivery-optimization", EXPECTED_APPLY_STATE, historyEntryId);
 
-  if (!applyResult) {
+  if (!resolution.ok) {
+    if (resolution.reason === "missing") {
+      return {
+        ...unavailable("No completed Apply result was found. Verification is pending.", historyEntryId),
+        expectedState: EXPECTED_APPLY_STATE
+      };
+    }
+
     return {
-      ...unavailable("No completed Apply result was found. Verification is pending."),
+      ...unavailable("Only successful real Delivery Optimization Apply results can be verified in this MVP step.", historyEntryId),
+      previousState: resolution.previousState ?? "Unknown",
       expectedState: EXPECTED_APPLY_STATE
     };
   }
 
-  if (applyResult.status !== "success" || applyResult.applyMode !== "real") {
-    return {
-      ...unavailable("Only successful real Delivery Optimization Apply results can be verified in this MVP step."),
-      previousState: applyResult.previousState,
-      expectedState: EXPECTED_APPLY_STATE
-    };
-  }
-
+  const { previousState, expectedState, historyEntryId: resolvedHistoryEntryId } = resolution.source;
   const detection = await OptimizationSdkRegistry.detect("delivery-optimization");
   const actualState = detection.currentState || "Unknown";
-  const verified = detection.success && actualState === EXPECTED_APPLY_STATE;
+  const verified = detection.success && actualState === expectedState;
 
   return {
+    historyEntryId: resolvedHistoryEntryId,
     optimizationId: "delivery-optimization",
     status: verified ? "Verified" : "Failed",
-    previousState: applyResult.previousState,
-    expectedState: EXPECTED_APPLY_STATE,
+    previousState,
+    expectedState,
     actualState,
     message: verified
       ? "Delivery Optimization is now detected as Disabled (HTTP only, no peer sharing)."
@@ -226,7 +228,7 @@ export const DeliveryOptimizationPlugin: OptimizationPlugin = {
       return verifyDeliveryOptimizationRecovery(context.historyEntryId ?? "");
     }
 
-    return verifyDeliveryOptimizationApply();
+    return verifyDeliveryOptimizationApply(context?.historyEntryId);
   },
   recover(context?: OptimizationPluginContext): Promise<RecoveryExecutionResult> {
     const historyEntryId = context?.historyEntryId;

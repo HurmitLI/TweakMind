@@ -8,12 +8,12 @@ import type {
 import { isTauriRuntime, nowTimestamp } from "../../execution/targets/ExecutionRuntime";
 import { OptimizationSdkRegistry } from "../../sdk/OptimizationSdkRegistry";
 import {
-  readPendingApplyResult,
   readPendingRecoveryResult,
   type OptimizationHistoryEntry,
   type OptimizationRecoveryResult,
   WindowsOptimizationService
 } from "../../windows/WindowsOptimizationService";
+import { resolveApplyVerificationSource } from "../../execution/targets/ApplyVerificationSupport";
 import type { OptimizationPlugin, OptimizationPluginContext } from "../OptimizationPluginTypes";
 
 function unavailable(message: string, historyEntryId?: string): VerificationExecutionResult {
@@ -72,33 +72,35 @@ async function applyCoreIsolation(): Promise<ApplyExecutionResult> {
   }
 }
 
-async function verifyCoreIsolationApply(): Promise<VerificationExecutionResult> {
-  const applyResult = readPendingApplyResult("core-isolation");
+async function verifyCoreIsolationApply(historyEntryId?: string): Promise<VerificationExecutionResult> {
+  const fallbackExpectedState = "Enabled";
+  const resolution = resolveApplyVerificationSource("core-isolation", fallbackExpectedState, historyEntryId);
 
-  if (!applyResult) {
+  if (!resolution.ok) {
+    if (resolution.reason === "missing") {
+      return {
+        ...unavailable("No completed Apply result was found. Verification is pending.", historyEntryId),
+        expectedState: fallbackExpectedState
+      };
+    }
+
     return {
-      ...unavailable("No completed Apply result was found. Verification is pending."),
-      expectedState: "Enabled"
+      ...unavailable("Only successful real Core Isolation Apply results can be verified in this MVP step.", historyEntryId),
+      previousState: resolution.previousState ?? "Unknown",
+      expectedState: fallbackExpectedState
     };
   }
 
-  if (applyResult.status !== "success" || applyResult.applyMode !== "real") {
-    return {
-      ...unavailable("Only successful real Core Isolation Apply results can be verified in this MVP step."),
-      previousState: applyResult.previousState,
-      expectedState: "Enabled"
-    };
-  }
-
-  const expectedState = "Enabled";
+  const { previousState, expectedState, historyEntryId: resolvedHistoryEntryId } = resolution.source;
   const detection = await OptimizationSdkRegistry.detect("core-isolation");
   const actualState = detection.currentState || "Unknown";
   const verified = detection.success && actualState === expectedState;
 
   return {
+    historyEntryId: resolvedHistoryEntryId,
     optimizationId: "core-isolation",
     status: verified ? "Verified" : "Failed",
-    previousState: applyResult.previousState,
+    previousState,
     expectedState,
     actualState,
     message: verified
@@ -222,7 +224,7 @@ export const CoreIsolationPlugin: OptimizationPlugin = {
       return verifyCoreIsolationRecovery(context.historyEntryId ?? "");
     }
 
-    return verifyCoreIsolationApply();
+    return verifyCoreIsolationApply(context?.historyEntryId);
   },
   recover(context?: OptimizationPluginContext): Promise<RecoveryExecutionResult> {
     const historyEntryId = context?.historyEntryId;
