@@ -1,9 +1,10 @@
 import { ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ScanChecklistItem } from "../components/scan/ScanChecklistItem";
 import { useTranslation } from "../core/localization/LanguageProvider";
 import { ScanManager } from "../core/scan/ScanManager";
+import { readStoredScanResult } from "../core/scan/ScanResult";
 
 const scanItemKeys = [
   "scan.checklist.windowsConfiguration",
@@ -20,18 +21,24 @@ const scanTickMs = 120;
 export function ScanPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const existingScan = useMemo(() => readStoredScanResult(), []);
+  const [rescanConfirmed, setRescanConfirmed] = useState(existingScan === null);
   const [progress, setProgress] = useState(0);
   const scanItems = useMemo(() => scanItemKeys.map((key) => t(key)), [t]);
 
   useEffect(() => {
+    if (!rescanConfirmed) {
+      return;
+    }
+
     const startedAt = Date.now();
     let scanCompleted = false;
     let scanProgress = 0;
     let isMounted = true;
 
     const scanPromise = ScanManager.run({
-      onProgress(progress) {
-        scanProgress = progress.progress;
+      onProgress(progressUpdate) {
+        scanProgress = progressUpdate.progress;
       }
     });
 
@@ -72,7 +79,7 @@ export function ScanPage() {
       isMounted = false;
       window.clearInterval(intervalId);
     };
-  }, [navigate]);
+  }, [navigate, rescanConfirmed]);
 
   const completedItems = useMemo(
     () => Math.min(scanItems.length, Math.floor((progress / 100) * (scanItems.length + 1))),
@@ -80,6 +87,28 @@ export function ScanPage() {
   );
 
   const activeItemIndex = Math.min(scanItems.length - 1, completedItems);
+
+  if (!rescanConfirmed && existingScan) {
+    return (
+      <div className="tm-centered-shell">
+        <section className="tm-centered-card">
+          <h2 className="tm-typo-page">{t("scan.rescan.title")}</h2>
+          <p className="tm-mt-md mx-auto max-w-xl tm-typo-body">{t("scan.rescan.description")}</p>
+          <div className="tm-mt-lg flex flex-col justify-center tm-gap-sm sm:flex-row">
+            <Link className="tm-button-secondary" to="/dashboard">
+              {t("scan.rescan.action.cancel")}
+            </Link>
+            <button className="tm-button-secondary" onClick={() => setRescanConfirmed(true)} type="button">
+              {t("scan.rescan.action.confirmRescan")}
+            </button>
+            <Link className="tm-button-primary" to="/report">
+              {t("scan.rescan.action.viewReport")}
+            </Link>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="tm-centered-shell">

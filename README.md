@@ -1,57 +1,63 @@
 # TweakMind
 
-TweakMind is an AI-assisted Windows Optimization Decision Tool.
+TweakMind is an AI-assisted Windows optimization **decision tool**.
 
-Slogan: 让每一次 Windows 优化，都心里有数。
+Slogan: Make every Windows optimization an informed decision.
 
-This repository currently contains the desktop application architecture only. It does not scan Windows, optimize settings, call Windows APIs, edit the registry, run AI, or apply system changes.
+This Alpha build implements the full decision workflow for supported Windows optimizations:
+
+**Knowledge → Scan → Decision → Apply → Verify → Recover → History**
+
+TweakMind explains trade-offs, records changes, verifies results, and supports recovery. It does not auto-optimize or make decisions for you.
+
+## Alpha Scope
+
+- **7 real-apply optimizations:** Windows Search, Game Mode, Core Isolation, Delivery Optimization, SysMain, HAGS, Power Plan
+- **4 knowledge-only optimizations:** Background Apps, Startup Apps, Visual Effects, Windows Update Active Hours
+- **Localization:** English and Chinese UI (knowledge bodies may remain English)
+- **Platform:** Real apply/verify/recovery require the Tauri desktop app on Windows
+
+See the in-app **About** page for version details and known limitations.
 
 ## Stack
 
-- React
-- TypeScript
-- Tauri
+- React 19 + TypeScript
+- Tauri 2
 - TailwindCSS
-- React Router
+- React Router 7
 
-## Application Structure
+## Project Structure
 
 ```text
-tweakmind/
-  src/
-    app/
-      router.tsx
-    components/
-      layout/
-        AppLayout.tsx
-        Sidebar.tsx
-      page/
-        PageTitle.tsx
-    pages/
-      DashboardPage.tsx
-      ScanPage.tsx
-      ReportPage.tsx
-      DecisionPage.tsx
-      HistoryPage.tsx
-      SettingsPage.tsx
-    styles/
-      globals.css
-    main.tsx
-  src-tauri/
-    src/main.rs
-    tauri.conf.json
+src/
+  app/router.tsx          # Routes
+  pages/                  # Screen-level UI
+  components/             # Shared UI
+  core/                   # Scan, apply, verify, knowledge, localization
+  styles/globals.css      # Design system
+src-tauri/                # Native Windows executor (Rust)
+docs/                     # LOCKED product and engineering docs
 ```
 
 ## Routes
 
-- `/dashboard`
-- `/scan`
-- `/report`
-- `/decision`
-- `/history`
-- `/settings`
-
-Each route currently renders only its page title. This is intentional: Sprint architecture work should create stable extension points without adding product or platform logic.
+| Route | Purpose |
+|---|---|
+| `/dashboard` | Home |
+| `/scan` | System scan |
+| `/report` | Decision report |
+| `/knowledge` | Knowledge center |
+| `/knowledge/detail` | Optimization detail |
+| `/decision` | Decision support (alias) |
+| `/confirm/:id` | Apply confirmation |
+| `/apply` | Apply progress |
+| `/verify` | Verification |
+| `/recover/:historyId` | Recovery confirmation |
+| `/recovery` | Recovery progress |
+| `/history` | Optimization history |
+| `/settings` | Preferences |
+| `/about` | Release info and limitations |
+| `/onboarding` | First-run experience |
 
 ## Development
 
@@ -79,24 +85,34 @@ Build the frontend:
 npm run build
 ```
 
+Lint:
+
+```bash
+npm run lint
+```
+
 Build the desktop app:
 
 ```bash
 npm run tauri:build
 ```
 
-## Current Boundaries
+## Verification (Release)
 
-Do not implement these in this architecture sprint:
+```bash
+npm run build
+npm run lint
+cd src-tauri && cargo check
+npm run tauri build -- --debug --no-bundle
+```
 
-- Scanning
-- Optimization
-- Registry changes
-- Windows API calls
-- AI features
-- Business logic
+## Official Docs
 
-Future development should add those capabilities behind explicit modules, permissions, and user-confirmed flows.
+- `docs/00_PROJECT_CONTEXT.md`
+- `docs/01_PRODUCT_BIBLE.md`
+- `docs/02_MVP_SPEC.md`
+- `docs/03_PROJECT_STATUS.md`
+- `docs/04_ENGINEERING_GUIDE.md`
 
 ## License
 

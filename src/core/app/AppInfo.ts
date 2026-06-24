@@ -14,5 +14,7 @@ export const AppInfo = {
   copyright: `© ${new Date().getFullYear()} ${applicationName}`,
   repositoryUrl: "https://github.com/HurmitLI/TweakMind",
   issueTrackerUrl: "https://github.com/HurmitLI/TweakMind/issues",
-  licenseName: "MIT License"
+  licenseName: "MIT License",
+  executableOptimizationCount: 7,
+  knowledgeOnlyOptimizationCount: 4
 } as const;

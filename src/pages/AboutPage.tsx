@@ -12,6 +12,22 @@ function InfoField({ label, value }: { label: string; value: string }) {
   );
 }
 
+const limitationKeys = [
+  {
+    key: "about.limitations.item.executableCount" as const,
+    params: { count: AppInfo.executableOptimizationCount }
+  },
+  {
+    key: "about.limitations.item.knowledgeOnly" as const,
+    params: { count: AppInfo.knowledgeOnlyOptimizationCount }
+  },
+  { key: "about.limitations.item.windowsDesktop" as const },
+  { key: "about.limitations.item.administrator" as const },
+  { key: "about.limitations.item.partialLocalization" as const },
+  { key: "about.limitations.item.rescanReplacesResults" as const },
+  { key: "about.limitations.item.noAi" as const }
+];
+
 export function AboutPage() {
   const { t } = useTranslation();
 
@@ -52,6 +68,17 @@ export function AboutPage() {
       <section className="tm-section-card">
         <h3 className="tm-typo-section">{t("about.alpha.title")}</h3>
         <p className="tm-mt-md max-w-3xl tm-typo-body">{t("about.alpha.description")}</p>
+      </section>
+
+      <section className="tm-section-card">
+        <h3 className="tm-typo-section">{t("about.limitations.title")}</h3>
+        <ul className="tm-mt-md max-w-3xl tm-layout-stack tm-typo-body">
+          {limitationKeys.map((item) => (
+            <li className="list-disc pl-5" key={item.key}>
+              {t(item.key, item.params)}
+            </li>
+          ))}
+        </ul>
         <Link className="tm-mt-lg tm-button-secondary" to="/dashboard">
           {t("common.action.returnHome")}
         </Link>
