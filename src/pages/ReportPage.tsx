@@ -5,9 +5,9 @@ import { ReportFilters } from "../components/report/ReportFilters";
 import { ReportSelectionPanel } from "../components/report/ReportSelectionPanel";
 import { useTranslation } from "../core/localization/LanguageProvider";
 import {
-  translateReportStoredExecutionTime,
-  translateReportStoredImpact,
-  translateReportStoredRisk
+  translateReportHeroExecutionMinutes,
+  translateReportHeroImpact,
+  translateReportHeroRisk
 } from "../core/localization/localizationHelpers";
 import { DecisionReportService } from "../core/report/DecisionReportService";
 import type { DecisionReportFilterId, DecisionReportSectionId } from "../core/report/DecisionReportTypes";
@@ -99,19 +99,21 @@ export function ReportPage() {
         <div className="tm-report-metrics">
           <span className="tm-report-metric-inline">
             {t("report.metric.totalRecommendations")}:
-            <span className="tm-report-metric-value">{scanResult?.recommendationSummary.total ?? 0}</span>
+            <span className="tm-report-metric-value">{reportModel.hero.totalRecommendations}</span>
           </span>
           <span className="tm-report-metric-inline">
             {t("report.metric.estimatedTotalImpact")}:
-            <span className="tm-report-metric-value">{translateReportStoredImpact(scanResult?.estimatedImpact)}</span>
+            <span className="tm-report-metric-value">{translateReportHeroImpact(reportModel.hero.estimatedImpact)}</span>
           </span>
           <span className="tm-report-metric-inline">
             {t("report.metric.estimatedTotalRisk")}:
-            <span className="tm-report-metric-value">{translateReportStoredRisk(scanResult?.estimatedRisk)}</span>
+            <span className="tm-report-metric-value">{translateReportHeroRisk(reportModel.hero.estimatedRisk)}</span>
           </span>
           <span className="tm-report-metric-inline">
             {t("report.metric.estimatedExecutionTime")}:
-            <span className="tm-report-metric-value">{translateReportStoredExecutionTime(scanResult?.executionEstimate)}</span>
+            <span className="tm-report-metric-value">
+              {translateReportHeroExecutionMinutes(reportModel.hero.estimatedExecutionMinutes)}
+            </span>
           </span>
         </div>
       </section>

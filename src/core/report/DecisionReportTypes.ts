@@ -34,8 +34,19 @@ export interface DecisionReportItem {
   scanUnavailableReason?: string;
   section: DecisionReportSectionId;
   ignoreConsequence: string;
-  estimatedMinutes: number;
+  /** Parsed recovery minutes when knowledge provides a numeric estimate; otherwise null. */
+  estimatedMinutes: number | null;
   lastAppliedLabel?: string;
+}
+
+export interface DecisionReportHeroSummary {
+  totalRecommendations: number;
+  /** Highest known expected benefit among report items, or Unknown when none are known. */
+  estimatedImpact: OptimizationBenefitLevel | "Unknown";
+  /** Highest known risk among report items, or Unknown when none are known. */
+  estimatedRisk: OptimizationRiskLevel | "Unknown";
+  /** Sum of known recommended-item minutes, or null when evidence is incomplete. */
+  estimatedExecutionMinutes: number | null;
 }
 
 export interface DecisionReportSection {
@@ -66,4 +77,5 @@ export interface DecisionReportModel {
   hasScan: boolean;
   sections: DecisionReportSection[];
   allItems: DecisionReportItem[];
+  hero: DecisionReportHeroSummary;
 }

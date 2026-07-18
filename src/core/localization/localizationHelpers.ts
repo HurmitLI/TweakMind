@@ -164,9 +164,30 @@ export function translateApplyMode(mode: "real" | "mock" | "unsupported"): strin
   return LocalizationService.translate(`applyMode.${mode}`);
 }
 
+export function translateReportHeroImpact(value: OptimizationBenefitLevel | "Unknown"): string {
+  return translateBenefitLevel(value);
+}
+
+export function translateReportHeroRisk(value: OptimizationRiskLevel | "Unknown"): string {
+  return translateRiskLevel(value);
+}
+
+export function translateReportHeroExecutionMinutes(minutes: number | null): string {
+  if (minutes === null) {
+    return LocalizationService.translate("report.metric.pendingEvaluation");
+  }
+
+  if (minutes <= 1) {
+    return LocalizationService.translate("report.selection.aboutOneMinute");
+  }
+
+  return LocalizationService.translate("report.selection.aboutMinutes", { count: minutes });
+}
+
+/** @deprecated Prefer hero metrics derived from DecisionReportService. */
 export function translateReportStoredImpact(value?: string): string {
-  if (!value) {
-    return LocalizationService.translate("report.metric.defaultImpact");
+  if (!value || value === "Unknown") {
+    return LocalizationService.translate("report.metric.pendingEvaluation");
   }
 
   const map: Record<string, TranslationKey> = {
@@ -176,24 +197,26 @@ export function translateReportStoredImpact(value?: string): string {
   };
 
   const key = map[value];
-  return key ? LocalizationService.translate(key) : value;
+  return key ? LocalizationService.translate(key) : LocalizationService.translate("report.metric.pendingEvaluation");
 }
 
+/** @deprecated Prefer hero metrics derived from DecisionReportService. */
 export function translateReportStoredRisk(value?: string): string {
-  if (!value) {
-    return LocalizationService.translate("report.metric.defaultRisk");
+  if (!value || value === "Unknown") {
+    return LocalizationService.translate("report.metric.pendingEvaluation");
   }
 
   if (value === "Low" || value === "Medium" || value === "High") {
     return translateRiskLevel(value);
   }
 
-  return value;
+  return LocalizationService.translate("report.metric.pendingEvaluation");
 }
 
+/** @deprecated Prefer hero metrics derived from DecisionReportService. */
 export function translateReportStoredExecutionTime(value?: string): string {
-  if (!value || value === "3 min") {
-    return LocalizationService.translate("report.metric.defaultExecutionTime");
+  if (!value || value === "Unknown" || value === "3 min") {
+    return LocalizationService.translate("report.metric.pendingEvaluation");
   }
 
   return value;
