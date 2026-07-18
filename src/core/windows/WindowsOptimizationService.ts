@@ -46,10 +46,85 @@ export const pendingApplyResultStorageKey = "tweakmind:pending-apply-result";
 export const pendingRecoveryResultStorageKey = "tweakmind:pending-recovery-result";
 export const pendingRecoveryAuthorizationStorageKey = "tweakmind:pending-recovery-authorization";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+const executionStatuses = ["success", "failed", "unsupported"] as const;
+
+function isExecutionStatus(value: unknown): boolean {
+  return typeof value === "string" && (executionStatuses as readonly string[]).includes(value);
+}
+
+export function isValidHistoryEntry(value: unknown): value is OptimizationHistoryEntry {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === "string" &&
+    typeof value.optimizationId === "string" &&
+    typeof value.optimizationName === "string" &&
+    typeof value.previousState === "string" &&
+    typeof value.newState === "string" &&
+    typeof value.previousStartupType === "string" &&
+    typeof value.timestamp === "string" &&
+    (value.status === "Success" || value.status === "Failed") &&
+    typeof value.message === "string" &&
+    typeof value.isAdmin === "boolean"
+  );
+}
+
+export function isValidApplyResult(value: unknown): value is OptimizationApplyResult {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.optimizationId === "string" &&
+    typeof value.applyMode === "string" &&
+    isExecutionStatus(value.status) &&
+    typeof value.previousState === "string" &&
+    typeof value.currentState === "string" &&
+    typeof value.timestamp === "string" &&
+    (value.error === null || typeof value.error === "string")
+  );
+}
+
+export function isValidRecoveryResult(value: unknown): value is OptimizationRecoveryResult {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.historyEntryId === "string" &&
+    typeof value.optimizationId === "string" &&
+    isExecutionStatus(value.status) &&
+    typeof value.previousState === "string" &&
+    typeof value.expectedState === "string" &&
+    typeof value.actualState === "string" &&
+    typeof value.timestamp === "string" &&
+    (value.error === null || typeof value.error === "string")
+  );
+}
+
 function readHistory(): OptimizationHistoryEntry[] {
   try {
     const stored = window.localStorage.getItem(optimizationHistoryStorageKey);
-    return stored ? (JSON.parse(stored) as OptimizationHistoryEntry[]) : [];
+
+    if (!stored) {
+      return [];
+    }
+
+    const parsed = JSON.parse(stored) as unknown;
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    // Corrupt entries are ignored so one bad record cannot poison the
+    // Recovery Center; valid entries are preserved untouched.
+    return parsed.filter(isValidHistoryEntry);
   } catch {
     return [];
   }
@@ -133,7 +208,7 @@ export class WindowsOptimizationService {
   }
 }
 
-function readPendingValue<T>(storage: Storage, storageKey: string): T | null {
+function readPendingValue<T>(storage: Storage, storageKey: string, isValid: (value: unknown) => value is T): T | null {
   try {
     const stored = storage.getItem(storageKey);
 
@@ -141,7 +216,8 @@ function readPendingValue<T>(storage: Storage, storageKey: string): T | null {
       return null;
     }
 
-    return JSON.parse(stored) as T;
+    const parsed = JSON.parse(stored) as unknown;
+    return isValid(parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -158,8 +234,8 @@ export function storePendingApplyResult(result: OptimizationApplyResult) {
 }
 
 export function readPendingApplyResult(optimizationId: OptimizationId): OptimizationApplyResult | null {
-  const sessionResult = readPendingValue<OptimizationApplyResult>(window.sessionStorage, pendingApplyResultStorageKey);
-  const localResult = readPendingValue<OptimizationApplyResult>(window.localStorage, pendingApplyResultStorageKey);
+  const sessionResult = readPendingValue(window.sessionStorage, pendingApplyResultStorageKey, isValidApplyResult);
+  const localResult = readPendingValue(window.localStorage, pendingApplyResultStorageKey, isValidApplyResult);
   const result = sessionResult ?? localResult;
 
   if (!result) {
@@ -174,9 +250,9 @@ export function storePendingRecoveryResult(result: OptimizationRecoveryResult) {
 }
 
 export function readPendingRecoveryResult(historyEntryId: string): OptimizationRecoveryResult | null {
-  const sessionResult = readPendingValue<OptimizationRecoveryResult>(window.sessionStorage, pendingRecoveryResultStorageKey);
+  const sessionResult = readPendingValue(window.sessionStorage, pendingRecoveryResultStorageKey, isValidRecoveryResult);
   const result =
-    sessionResult ?? readPendingValue<OptimizationRecoveryResult>(window.localStorage, pendingRecoveryResultStorageKey);
+    sessionResult ?? readPendingValue(window.localStorage, pendingRecoveryResultStorageKey, isValidRecoveryResult);
 
   if (!result) {
     return null;

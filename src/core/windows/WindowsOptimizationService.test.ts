@@ -1,0 +1,190 @@
+import { beforeEach, describe, expect, it } from "vitest";
+import type {
+  OptimizationApplyResult,
+  OptimizationHistoryEntry,
+  OptimizationRecoveryResult
+} from "./WindowsOptimizationService";
+import {
+  isValidApplyResult,
+  isValidHistoryEntry,
+  isValidRecoveryResult,
+  optimizationHistoryStorageKey,
+  pendingApplyResultStorageKey,
+  pendingRecoveryResultStorageKey,
+  readPendingApplyResult,
+  readPendingRecoveryResult,
+  storePendingApplyResult,
+  storePendingRecoveryResult,
+  WindowsOptimizationService
+} from "./WindowsOptimizationService";
+
+function buildHistoryEntry(overrides: Partial<OptimizationHistoryEntry> = {}): OptimizationHistoryEntry {
+  return {
+    id: "entry-1",
+    optimizationId: "windows-search",
+    optimizationName: "Windows Search",
+    previousState: "Running",
+    newState: "Disabled",
+    previousStartupType: "Automatic",
+    timestamp: "1700000000",
+    status: "Success",
+    message: "Applied.",
+    isAdmin: true,
+    ...overrides
+  };
+}
+
+function buildApplyResult(overrides: Partial<OptimizationApplyResult> = {}): OptimizationApplyResult {
+  return {
+    historyEntryId: "entry-1",
+    optimizationId: "windows-search",
+    applyMode: "real",
+    status: "success",
+    previousState: "Running",
+    currentState: "Disabled",
+    message: "Applied.",
+    error: null,
+    timestamp: "1700000000",
+    ...overrides
+  };
+}
+
+function buildRecoveryResult(overrides: Partial<OptimizationRecoveryResult> = {}): OptimizationRecoveryResult {
+  return {
+    historyEntryId: "entry-1",
+    optimizationId: "windows-search",
+    status: "success",
+    previousState: "Disabled",
+    expectedState: "Running",
+    actualState: "Running",
+    message: "Restored.",
+    error: null,
+    timestamp: "1700000000",
+    ...overrides
+  };
+}
+
+beforeEach(() => {
+  window.localStorage.clear();
+  window.sessionStorage.clear();
+});
+
+describe("isValidHistoryEntry", () => {
+  it("accepts a complete entry", () => {
+    expect(isValidHistoryEntry(buildHistoryEntry())).toBe(true);
+  });
+
+  it("accepts entries with optional verification and recovery fields", () => {
+    expect(
+      isValidHistoryEntry(buildHistoryEntry({ verificationStatus: "Verified", recoveryStatus: "Success" }))
+    ).toBe(true);
+  });
+
+  it("rejects non-object values", () => {
+    expect(isValidHistoryEntry(null)).toBe(false);
+    expect(isValidHistoryEntry("entry")).toBe(false);
+  });
+
+  it("rejects entries missing required fields", () => {
+    const entry = { ...buildHistoryEntry() } as Record<string, unknown>;
+    delete entry.optimizationId;
+
+    expect(isValidHistoryEntry(entry)).toBe(false);
+  });
+
+  it("rejects entries with wrong field types", () => {
+    expect(isValidHistoryEntry(buildHistoryEntry({ isAdmin: "yes" as unknown as boolean }))).toBe(false);
+    expect(isValidHistoryEntry(buildHistoryEntry({ status: "Done" as unknown as "Success" }))).toBe(false);
+  });
+});
+
+describe("history reading with corrupted storage", () => {
+  it("returns an empty list for unparseable JSON", () => {
+    window.localStorage.setItem(optimizationHistoryStorageKey, "{ not json");
+    expect(WindowsOptimizationService.getHistory()).toEqual([]);
+  });
+
+  it("returns an empty list when the payload is not an array", () => {
+    window.localStorage.setItem(optimizationHistoryStorageKey, JSON.stringify({ id: "entry-1" }));
+    expect(WindowsOptimizationService.getHistory()).toEqual([]);
+  });
+
+  it("drops corrupt entries while preserving valid ones", () => {
+    const valid = buildHistoryEntry();
+    const corrupt = { id: "entry-2", optimizationId: 42 };
+    window.localStorage.setItem(optimizationHistoryStorageKey, JSON.stringify([valid, corrupt]));
+
+    const history = WindowsOptimizationService.getHistory();
+
+    expect(history).toHaveLength(1);
+    expect(history[0].id).toBe("entry-1");
+  });
+
+  it("still records new history after corruption", () => {
+    window.localStorage.setItem(optimizationHistoryStorageKey, "{ not json");
+    WindowsOptimizationService.recordHistory(buildHistoryEntry());
+
+    expect(WindowsOptimizationService.getHistory()).toHaveLength(1);
+  });
+});
+
+describe("pending apply result validation", () => {
+  it("round-trips a valid result", () => {
+    storePendingApplyResult(buildApplyResult());
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-1");
+  });
+
+  it("returns null when the stored optimization does not match", () => {
+    storePendingApplyResult(buildApplyResult());
+    expect(readPendingApplyResult("sysmain")).toBeNull();
+  });
+
+  it("ignores unparseable payloads", () => {
+    window.sessionStorage.setItem(pendingApplyResultStorageKey, "{ not json");
+    window.localStorage.setItem(pendingApplyResultStorageKey, "{ not json");
+    expect(readPendingApplyResult("windows-search")).toBeNull();
+  });
+
+  it("ignores parseable but structurally invalid payloads", () => {
+    const corrupt = JSON.stringify({ optimizationId: "windows-search", status: "done" });
+    window.sessionStorage.setItem(pendingApplyResultStorageKey, corrupt);
+    window.localStorage.setItem(pendingApplyResultStorageKey, corrupt);
+    expect(readPendingApplyResult("windows-search")).toBeNull();
+  });
+
+  it("falls back to a valid local copy when the session copy is corrupt", () => {
+    window.sessionStorage.setItem(pendingApplyResultStorageKey, JSON.stringify({ broken: true }));
+    window.localStorage.setItem(pendingApplyResultStorageKey, JSON.stringify(buildApplyResult()));
+
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-1");
+  });
+
+  it("validates status against the execution status enum", () => {
+    expect(isValidApplyResult(buildApplyResult({ status: "pending" as unknown as "success" }))).toBe(false);
+    expect(isValidApplyResult(buildApplyResult({ status: "unsupported" }))).toBe(true);
+  });
+});
+
+describe("pending recovery result validation", () => {
+  it("round-trips a valid result", () => {
+    storePendingRecoveryResult(buildRecoveryResult());
+    expect(readPendingRecoveryResult("entry-1")?.status).toBe("success");
+  });
+
+  it("returns null when the history entry does not match", () => {
+    storePendingRecoveryResult(buildRecoveryResult());
+    expect(readPendingRecoveryResult("entry-9")).toBeNull();
+  });
+
+  it("ignores structurally invalid payloads", () => {
+    const corrupt = JSON.stringify({ historyEntryId: "entry-1", status: 200 });
+    window.sessionStorage.setItem(pendingRecoveryResultStorageKey, corrupt);
+    window.localStorage.setItem(pendingRecoveryResultStorageKey, corrupt);
+    expect(readPendingRecoveryResult("entry-1")).toBeNull();
+  });
+
+  it("requires error to be a string or null", () => {
+    expect(isValidRecoveryResult(buildRecoveryResult({ error: 42 as unknown as string }))).toBe(false);
+    expect(isValidRecoveryResult(buildRecoveryResult({ error: "failed" }))).toBe(true);
+  });
+});

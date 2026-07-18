@@ -33,10 +33,11 @@ export function RecoveryPage() {
   const entry = historyEntryId ? WindowsOptimizationService.getHistoryEntry(historyEntryId) : undefined;
   const [isAuthorized] = useState(() => (historyEntryId ? hasPendingRecoveryAuthorization(historyEntryId) : false));
   const [result, setResult] = useState<OptimizationRecoveryResult | null>(null);
+  const [unexpectedFailure, setUnexpectedFailure] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const hasStarted = useRef(false);
   const recoverySteps = useMemo(() => recoveryStepKeys.map((key) => t(key)), [t]);
-  const showProgressAnimation = result === null || result.status === "success";
+  const showProgressAnimation = unexpectedFailure === null && (result === null || result.status === "success");
 
   useEffect(() => {
     if (!entry || result || hasStarted.current || !isAuthorized) {
@@ -46,14 +47,19 @@ export function RecoveryPage() {
     hasStarted.current = true;
     clearPendingRecoveryAuthorization();
     clearPendingRecoveryResult();
-    void OptimizationExecutor.restore(entry).then((recoveryResult) => {
-      storePendingRecoveryResult(recoveryResult);
-      setResult(recoveryResult);
+    OptimizationExecutor.restore(entry)
+      .then((recoveryResult) => {
+        storePendingRecoveryResult(recoveryResult);
+        setResult(recoveryResult);
 
-      if (recoveryResult.status !== "success") {
+        if (recoveryResult.status !== "success") {
+          setProgress(100);
+        }
+      })
+      .catch((error: unknown) => {
+        setUnexpectedFailure(error instanceof Error ? error.message : String(error));
         setProgress(100);
-      }
-    });
+      });
   }, [entry, isAuthorized, result]);
 
   useEffect(() => {
@@ -101,6 +107,24 @@ export function RecoveryPage() {
             historyHref: "/history"
           }}
           descriptor={ErrorPresentationService.forRecoveryUnavailable()}
+          layout="centered"
+        />
+      </div>
+    );
+  }
+
+  if (unexpectedFailure !== null) {
+    return (
+      <div className="tm-centered-shell">
+        <ErrorPresentation
+          actions={{
+            goBackHref: "/history",
+            historyHref: "/history",
+            retryHref: `/recover/${entry.id}`
+          }}
+          descriptor={ErrorPresentationService.fromTechnicalError(unexpectedFailure, "recovery", {
+            type: "recovery-failed"
+          })}
           layout="centered"
         />
       </div>

@@ -66,6 +66,7 @@ export function VerificationPage() {
   const runtimeScan = RuntimeScanService.getStoredSnapshot(optimization.id);
   const scanCapability = RuntimeScanService.getCapability(optimization.id);
   const [result, setResult] = useState<VerificationResult | null>(null);
+  const [unexpectedFailure, setUnexpectedFailure] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
 
@@ -73,23 +74,38 @@ export function VerificationPage() {
     let isMounted = true;
 
     setIsVerifying(true);
-    void VerificationService.verify(optimization.id, { mode, historyEntryId }).then((verificationResult) => {
-      if (!isMounted) {
-        return;
-      }
+    setUnexpectedFailure(null);
+    VerificationService.verify(optimization.id, { mode, historyEntryId })
+      .then((verificationResult) => {
+        if (!isMounted) {
+          return;
+        }
 
-      setResult(verificationResult);
-      setIsVerifying(false);
-    });
+        setResult(verificationResult);
+        setIsVerifying(false);
+      })
+      .catch((error: unknown) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setResult(null);
+        setUnexpectedFailure(error instanceof Error ? error.message : String(error));
+        setIsVerifying(false);
+      });
 
     return () => {
       isMounted = false;
     };
   }, [historyEntryId, mode, optimization.id, retryCount]);
 
-  const status = result?.status ?? "Pending / Not Available";
+  const status = unexpectedFailure ? "Failed" : (result?.status ?? "Pending / Not Available");
   const StatusIcon = isVerifying ? Loader2 : statusIcons[status];
-  const verificationError = result ? ErrorPresentationService.fromVerificationResult(result) : null;
+  const verificationError = unexpectedFailure
+    ? ErrorPresentationService.fromTechnicalError(unexpectedFailure, "verify", { type: "verification-failed" })
+    : result
+      ? ErrorPresentationService.fromVerificationResult(result)
+      : null;
   const checkingLabel = t("verify.status.checking");
 
   return (
