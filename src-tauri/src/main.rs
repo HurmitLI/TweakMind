@@ -412,6 +412,82 @@ mod input_validation {
         Some((source, RegistryRestoreAction::Set(value)))
     }
 
+    /// Decision made by the recoverable-snapshot gate that every real Apply
+    /// path must consult before selecting a system write. `Write` means the
+    /// before-snapshot lies inside the same restore domain that the matching
+    /// `restore_*` path will later enforce. `Reject` means Apply must fail
+    /// without touching the system.
+    #[derive(Debug, PartialEq, Eq)]
+    pub enum ApplyWriteDecision {
+        Write,
+        Reject { error: &'static str },
+    }
+
+    fn allow_or_reject(ok: bool, error: &'static str) -> ApplyWriteDecision {
+        if ok {
+            ApplyWriteDecision::Write
+        } else {
+            ApplyWriteDecision::Reject { error }
+        }
+    }
+
+    /// Service apply gate (windows-search / sysmain). Reuses
+    /// `parse_service_restore_request` so Apply and Recover share one domain.
+    pub fn decide_service_apply_write(state: &str, startup_type: &str) -> ApplyWriteDecision {
+        allow_or_reject(
+            parse_service_restore_request(state, startup_type).is_some(),
+            "Current service state is not restorable.",
+        )
+    }
+
+    /// Binary registry apply gate (game-mode / core-isolation). Reuses the
+    /// restore whitelist for previous state plus Missing/DWORD:0/DWORD:1.
+    pub fn decide_binary_registry_apply_write(
+        state: &str,
+        raw_value: &str,
+        unrestorable_error: &'static str,
+    ) -> ApplyWriteDecision {
+        allow_or_reject(
+            parse_registry_previous_state(state).is_some()
+                && parse_binary_registry_restore_action(raw_value).is_some(),
+            unrestorable_error,
+        )
+    }
+
+    /// HAGS apply gate. Reuses the restore whitelist for previous state plus
+    /// Missing/DWORD:1/DWORD:2.
+    pub fn decide_hags_apply_write(state: &str, raw_value: &str) -> ApplyWriteDecision {
+        allow_or_reject(
+            parse_registry_previous_state(state).is_some()
+                && parse_hags_restore_action(raw_value).is_some(),
+            "Current HAGS registry value is not restorable.",
+        )
+    }
+
+    /// Delivery Optimization apply gate. Reuses the restore whitelist for
+    /// previous state plus source (Policy/Config) and DODownloadMode domain.
+    pub fn decide_delivery_optimization_apply_write(
+        state: &str,
+        raw_value: &str,
+    ) -> ApplyWriteDecision {
+        allow_or_reject(
+            parse_registry_previous_state(state).is_some()
+                && parse_delivery_optimization_restore(raw_value).is_some(),
+            "Current Delivery Optimization registry value is not restorable.",
+        )
+    }
+
+    /// Power-plan apply gate for the platform-neutral snapshot domain
+    /// (state whitelist + strict GUID shape). Runtime availability of the
+    /// saved scheme is checked separately on Windows before any activation.
+    pub fn decide_power_plan_apply_write(state: &str, guid_raw: &str) -> ApplyWriteDecision {
+        allow_or_reject(
+            parse_power_plan_previous_state(state).is_some()
+                && parse_guid_raw_strict(guid_raw).is_some(),
+            "Current power plan snapshot is not restorable.",
+        )
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -997,6 +1073,230 @@ mod input_validation {
                 parse_delivery_optimization_restore("Config:DWORD:1;reg delete HKLM"),
                 None
             );
+        }
+
+        #[test]
+        fn service_apply_write_allows_only_restorable_snapshots() {
+            let legal = [
+                ("Running", "Automatic"),
+                ("Running", "Manual"),
+                ("Stopped", "Automatic"),
+                ("Stopped", "Manual"),
+                ("Disabled", "Disabled"),
+            ];
+
+            for (state, startup_type) in legal {
+                assert_eq!(
+                    decide_service_apply_write(state, startup_type),
+                    ApplyWriteDecision::Write,
+                    "{state}/{startup_type} should allow apply write"
+                );
+            }
+        }
+
+        #[test]
+        fn service_apply_write_rejects_unrestorable_snapshots_before_write() {
+            let illegal = [
+                ("Unknown", "Automatic"),
+                ("Running", "Boot"),
+                ("Running", "System"),
+                ("Running", "Unknown"),
+                ("Stopped", "Boot"),
+                ("Disabled", "Automatic"),
+                ("Running", "Disabled"),
+                ("", "Manual"),
+            ];
+
+            for (state, startup_type) in illegal {
+                assert_eq!(
+                    decide_service_apply_write(state, startup_type),
+                    ApplyWriteDecision::Reject {
+                        error: "Current service state is not restorable."
+                    },
+                    "{state}/{startup_type} must be rejected before any service write"
+                );
+            }
+        }
+
+        #[test]
+        fn binary_registry_apply_write_allows_only_restorable_snapshots() {
+            let legal = [
+                ("Enabled", "DWORD:1"),
+                ("Disabled", "DWORD:0"),
+                ("Unknown", "Missing"),
+            ];
+
+            for (state, raw) in legal {
+                assert_eq!(
+                    decide_binary_registry_apply_write(
+                        state,
+                        raw,
+                        "Current Game Mode registry value is not restorable."
+                    ),
+                    ApplyWriteDecision::Write,
+                    "{state}/{raw} should allow apply write"
+                );
+            }
+        }
+
+        #[test]
+        fn binary_registry_apply_write_rejects_unrestorable_snapshots_before_write() {
+            let illegal = [
+                ("Enabled", "DWORD:2"),
+                ("Disabled", "DWORD:3"),
+                ("Unknown", "UnsupportedType"),
+                ("Enabled", "DWORD:01"),
+                ("Running", "DWORD:1"),
+                ("Enabled", ""),
+            ];
+
+            for (state, raw) in illegal {
+                assert_eq!(
+                    decide_binary_registry_apply_write(
+                        state,
+                        raw,
+                        "Current Game Mode registry value is not restorable."
+                    ),
+                    ApplyWriteDecision::Reject {
+                        error: "Current Game Mode registry value is not restorable."
+                    },
+                    "{state}/{raw} must be rejected before any registry write"
+                );
+            }
+        }
+
+        #[test]
+        fn hags_apply_write_allows_only_restorable_snapshots() {
+            let legal = [
+                ("Enabled", "DWORD:1"),
+                ("Disabled", "DWORD:2"),
+                ("Unknown", "Missing"),
+            ];
+
+            for (state, raw) in legal {
+                assert_eq!(
+                    decide_hags_apply_write(state, raw),
+                    ApplyWriteDecision::Write,
+                    "{state}/{raw} should allow apply write"
+                );
+            }
+        }
+
+        #[test]
+        fn hags_apply_write_rejects_unrestorable_snapshots_before_write() {
+            let illegal = [
+                ("Enabled", "DWORD:0"),
+                ("Disabled", "DWORD:3"),
+                ("Unknown", "UnsupportedType"),
+                ("Enabled", "DWORD:01"),
+                ("Running", "DWORD:1"),
+                ("Enabled", ""),
+            ];
+
+            for (state, raw) in illegal {
+                assert_eq!(
+                    decide_hags_apply_write(state, raw),
+                    ApplyWriteDecision::Reject {
+                        error: "Current HAGS registry value is not restorable."
+                    },
+                    "{state}/{raw} must be rejected before any HAGS write"
+                );
+            }
+        }
+
+        #[test]
+        fn delivery_optimization_apply_write_allows_only_restorable_snapshots() {
+            let legal = [
+                ("Disabled", "Config:DWORD:0"),
+                ("Enabled", "Config:DWORD:1"),
+                ("Enabled", "Policy:DWORD:3"),
+                ("Disabled", "Config:DWORD:100"),
+                ("Unknown", "Config:Missing"),
+                ("Unknown", "Policy:Missing"),
+            ];
+
+            for (state, raw) in legal {
+                assert_eq!(
+                    decide_delivery_optimization_apply_write(state, raw),
+                    ApplyWriteDecision::Write,
+                    "{state}/{raw} should allow apply write"
+                );
+            }
+        }
+
+        #[test]
+        fn delivery_optimization_apply_write_rejects_unrestorable_snapshots_before_write() {
+            let illegal = [
+                ("Enabled", "Config:DWORD:4"),
+                ("Disabled", "Config:DWORD:98"),
+                ("Enabled", "Other:DWORD:1"),
+                ("Enabled", "Config:DWORD:03"),
+                ("Running", "Config:DWORD:1"),
+                ("Enabled", "Missing"),
+                ("Unknown", "UnsupportedType"),
+            ];
+
+            for (state, raw) in illegal {
+                assert_eq!(
+                    decide_delivery_optimization_apply_write(state, raw),
+                    ApplyWriteDecision::Reject {
+                        error: "Current Delivery Optimization registry value is not restorable."
+                    },
+                    "{state}/{raw} must be rejected before any DO write"
+                );
+            }
+        }
+
+        #[test]
+        fn power_plan_apply_write_allows_only_restorable_snapshots() {
+            let legal = [
+                (
+                    "Default",
+                    "GUID:{381b4222-f694-41f0-9685-ff1bb1920fa1}",
+                ),
+                (
+                    "Enabled",
+                    "GUID:{8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c}",
+                ),
+                (
+                    "Disabled",
+                    "GUID:{a1841308-3541-4fab-bc81-f7156f29d605}",
+                ),
+                (
+                    "Unknown",
+                    "GUID:{00000000-0000-0000-0000-000000000000}",
+                ),
+            ];
+
+            for (state, guid_raw) in legal {
+                assert_eq!(
+                    decide_power_plan_apply_write(state, guid_raw),
+                    ApplyWriteDecision::Write,
+                    "{state}/{guid_raw} should allow apply write"
+                );
+            }
+        }
+
+        #[test]
+        fn power_plan_apply_write_rejects_unrestorable_snapshots_before_write() {
+            let illegal = [
+                ("Balanced", "GUID:{381b4222-f694-41f0-9685-ff1bb1920fa1}"),
+                ("Enabled", "GUID:{}"),
+                ("Enabled", "381b4222-f694-41f0-9685-ff1bb1920fa1"),
+                ("Enabled", "not-a-guid"),
+                ("", "GUID:{381b4222-f694-41f0-9685-ff1bb1920fa1}"),
+                ("Enabled", ""),
+            ];
+
+            for (state, guid_raw) in illegal {
+                assert_eq!(
+                    decide_power_plan_apply_write(state, guid_raw),
+                    ApplyWriteDecision::Reject {
+                        error: "Current power plan snapshot is not restorable."
+                    },
+                    "{state}/{guid_raw} must be rejected before any power-plan write"
+                );
+            }
         }
     }
 }
@@ -2259,6 +2559,27 @@ mod windows_apply {
             }
         };
 
+        // Refuse to mutate the service when the before-snapshot cannot be
+        // restored later by restore_service (shared whitelist domain).
+        if let super::input_validation::ApplyWriteDecision::Reject { error } =
+            super::input_validation::decide_service_apply_write(
+                &before.state,
+                &before.startup_type,
+            )
+        {
+            return apply_result(
+                optimization_id,
+                "failed",
+                &before.state,
+                &before.state,
+                &before.startup_type,
+                format!(
+                    "{label} was not changed because the current state cannot be restored later."
+                ),
+                Some(error.to_string()),
+            );
+        }
+
         let ok = unsafe {
             ChangeServiceConfigW(
                 service.0,
@@ -2544,6 +2865,21 @@ mod windows_apply {
             }
         };
 
+        if let super::input_validation::ApplyWriteDecision::Reject { error } =
+            super::input_validation::decide_hags_apply_write(&before.state, &before.raw_value)
+        {
+            return apply_result(
+                "hags",
+                "failed",
+                &before.state,
+                &before.state,
+                &before.raw_value,
+                "HAGS was not changed because the current registry value cannot be restored later."
+                    .to_string(),
+                Some(error.to_string()),
+            );
+        }
+
         if let Err(message) = set_hags_value(1) {
             return apply_result(
                 "hags",
@@ -2676,6 +3012,51 @@ mod windows_apply {
                 );
             }
         };
+
+        if let super::input_validation::ApplyWriteDecision::Reject { error } =
+            super::input_validation::decide_power_plan_apply_write(&before.state, &before.guid_raw)
+        {
+            return apply_result(
+                "power-plan",
+                "failed",
+                &before.state,
+                &before.state,
+                &before.guid_raw,
+                "Power plan was not changed because the current snapshot cannot be restored later."
+                    .to_string(),
+                Some(error.to_string()),
+            );
+        }
+
+        // The before GUID must remain activatable later by restore_power_plan.
+        let before_guid = match super::power_plan_ops::parse_guid_raw(&before.guid_raw) {
+            Some(guid) => guid,
+            None => {
+                return apply_result(
+                    "power-plan",
+                    "failed",
+                    &before.state,
+                    &before.state,
+                    &before.guid_raw,
+                    "Power plan was not changed because the current snapshot cannot be restored later."
+                        .to_string(),
+                    Some("Current power plan snapshot is not restorable.".to_string()),
+                );
+            }
+        };
+
+        if !super::power_plan_ops::scheme_exists(&before_guid) {
+            return apply_result(
+                "power-plan",
+                "failed",
+                &before.state,
+                &before.state,
+                &before.guid_raw,
+                "Power plan was not changed because the current plan is not available for recovery."
+                    .to_string(),
+                Some("The current power plan is no longer available on this system.".to_string()),
+            );
+        }
 
         if !super::power_plan_ops::high_performance_available() {
             return apply_result(
@@ -2929,6 +3310,25 @@ mod windows_apply {
             }
         };
 
+        if let super::input_validation::ApplyWriteDecision::Reject { error } =
+            super::input_validation::decide_binary_registry_apply_write(
+                &before.state,
+                &before.raw_value,
+                "Current Game Mode registry value is not restorable.",
+            )
+        {
+            return apply_result(
+                "game-mode",
+                "failed",
+                &before.state,
+                &before.state,
+                &before.raw_value,
+                "Game Mode was not changed because the current registry value cannot be restored later."
+                    .to_string(),
+                Some(error.to_string()),
+            );
+        }
+
         if let Err(message) = set_game_mode_value(1) {
             return apply_result(
                 "game-mode",
@@ -3065,6 +3465,25 @@ mod windows_apply {
                 );
             }
         };
+
+        if let super::input_validation::ApplyWriteDecision::Reject { error } =
+            super::input_validation::decide_binary_registry_apply_write(
+                &before.state,
+                &before.raw_value,
+                "Current Core Isolation registry value is not restorable.",
+            )
+        {
+            return apply_result(
+                "core-isolation",
+                "failed",
+                &before.state,
+                &before.state,
+                &before.raw_value,
+                "Core Isolation (Memory Integrity) was not changed because the current registry value cannot be restored later."
+                    .to_string(),
+                Some(error.to_string()),
+            );
+        }
 
         if let Err(message) = set_core_isolation_value(1) {
             return apply_result(
@@ -3366,6 +3785,24 @@ mod windows_apply {
                 );
             }
         };
+
+        if let super::input_validation::ApplyWriteDecision::Reject { error } =
+            super::input_validation::decide_delivery_optimization_apply_write(
+                &before.state,
+                &before.raw_value,
+            )
+        {
+            return apply_result(
+                "delivery-optimization",
+                "failed",
+                &before.state,
+                &before.state,
+                &before.raw_value,
+                "Delivery Optimization was not changed because the current registry value cannot be restored later."
+                    .to_string(),
+                Some(error.to_string()),
+            );
+        }
 
         if let Err(message) = set_delivery_optimization_value(&before.write_source, DO_APPLY_TARGET) {
             return apply_result(
