@@ -46,7 +46,7 @@ const technicalPatternGroups: Array<{ type: ErrorType; patterns: RegExp[] }> = [
   },
   {
     type: "scan-failed",
-    patterns: [/scan failed/i, /detection is not available/i, /scan is not available/i, /run a scan/i]
+    patterns: [/scan failed/i, /detection is not available/i, /scan is not available/i]
   },
   {
     type: "windows-api-failed",
@@ -169,9 +169,9 @@ function baseDescriptor(
       showDismiss: context === "apply" || context === "knowledge"
     },
     "scan-failed": {
-      title: t("error.scanRequired.title"),
-      explanation: t("error.scanRequired.explanation"),
-      recommendedAction: t("error.scanRequired.action"),
+      title: t("error.scanFailed.title"),
+      explanation: t("error.scanFailed.explanation"),
+      recommendedAction: t("error.scanFailed.action"),
       retryAvailable: true,
       showGoBack: true,
       showOpenHistory: false,
@@ -261,7 +261,15 @@ export class ErrorPresentationService {
   }
 
   static forScanRequired(): ErrorDescriptor {
-    return baseDescriptor("scan-failed", "knowledge");
+    const t = LocalizationService.translate.bind(LocalizationService);
+
+    // Keep the scan-failed type for retry affordances, but use the distinct
+    // "scan required" copy so callers do not show a false hard-failure.
+    return baseDescriptor("scan-failed", "knowledge", {
+      title: t("error.scanRequired.title"),
+      explanation: t("error.scanRequired.explanation"),
+      recommendedAction: t("error.scanRequired.action")
+    });
   }
 
   static forApplyUnavailable(canRealApply: boolean): ErrorDescriptor | null {

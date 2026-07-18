@@ -94,7 +94,10 @@ export function RecoveryConfirmationPage() {
         <section className="tm-card">
           <h3 className="tm-typo-section">{t("recoveryConfirm.section.whatWillChange")}</h3>
           <p className="tm-mt-md tm-typo-body">
-            {t("recoveryConfirm.whatWillChange.body", { name: entry.optimizationName, state: entry.previousState })}
+            {t("recoveryConfirm.whatWillChange.body", {
+              name: entry.optimizationName,
+              state: translateOptimizationStatus(entry.previousState)
+            })}
           </p>
         </section>
 

@@ -9,6 +9,7 @@ import { ErrorPresentationService } from "../core/error/ErrorPresentationService
 import { getApplyConfirmationPlan } from "../core/apply/ApplyConfirmationPlan";
 import { useTranslation } from "../core/localization/LanguageProvider";
 import { translateOptimizationStatus, translateRecommendation, translateRiskLevel } from "../core/localization/localizationHelpers";
+import { translateRuntimeMessage } from "../core/localization/RuntimeMessageLocalizationService";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
 import { OptimizationExecutor } from "../core/windows/OptimizationExecutor";
 import { storePendingApplyResult } from "../core/windows/WindowsOptimizationService";
@@ -116,7 +117,7 @@ export function ApplyConfirmationPage() {
           <div>
             <p className="tm-eyebrow">{t("applyConfirm.eyebrow")}</p>
             <h2 className="tm-typo-page">{optimization.title}</h2>
-            <p className="tm-subtitle">{recommendation.reason}</p>
+            <p className="tm-subtitle">{translateRuntimeMessage(recommendation.reason)}</p>
           </div>
           <div className="flex flex-wrap tm-gap-sm lg:justify-end">
             <RecommendationBadge value={recommendation.recommendation} />
@@ -159,7 +160,7 @@ export function ApplyConfirmationPage() {
           <h3 className="tm-typo-section">
             {t("applyConfirm.section.whyRecommended", { recommendation: translateRecommendation(recommendation.recommendation).toLowerCase() })}
           </h3>
-          <p className="tm-mt-md tm-typo-body">{recommendation.reason}</p>
+          <p className="tm-mt-md tm-typo-body">{translateRuntimeMessage(recommendation.reason)}</p>
           <div className="tm-notice-info">
             <div className="tm-notice-row">
               <ShieldCheck className="mt-0.5 shrink-0" size={18} aria-hidden="true" />

@@ -70,7 +70,7 @@ export function ScanPage() {
   const activeItemIndex = Math.min(scanItems.length - 1, completedItems);
   const scanErrorDescriptor = scanFailure
     ? ErrorPresentationService.fromTechnicalError(scanFailure, "scan", {
-        type: "unknown-error"
+        type: "scan-failed"
       })
     : null;
 

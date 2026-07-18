@@ -1,10 +1,28 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   ApplyExecutionResult,
   RecoveryExecutionResult
 } from "../execution/OptimizationExecutionTypes";
+import { LocalizationService } from "../localization/LocalizationService";
+import { SettingsService } from "../settings/SettingsService";
 import type { OptimizationHistoryEntry } from "../windows/WindowsOptimizationService";
 import { ErrorPresentationService, type ErrorType } from "./ErrorPresentationService";
+
+function stubMatchMedia() {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn()
+    }))
+  });
+}
 
 function buildApplyResult(overrides: Partial<ApplyExecutionResult> = {}): ApplyExecutionResult {
   return {
@@ -60,7 +78,7 @@ describe("classifyTechnicalMessage", () => {
     ["Real apply is not available for this optimization yet.", "unsupported-optimization"],
     ["HAGS detection is not available yet.", "unsupported-optimization"],
     ["Scan failed for this optimization.", "scan-failed"],
-    ["Run a scan before applying this optimization.", "scan-failed"],
+    ["Scan failed unexpectedly.", "scan-failed"],
     ["Open HKEY_LOCAL_MACHINE subkey failed.", "windows-api-failed"],
     ["Registry value could not be written.", "windows-api-failed"],
     ["PowerSetActiveScheme returned an error.", "windows-api-failed"],
@@ -184,5 +202,57 @@ describe("forApplyUnavailable", () => {
 
   it("reports unsupported-runtime outside the Tauri desktop app", () => {
     expect(ErrorPresentationService.forApplyUnavailable(false)?.type).toBe("unsupported-runtime");
+  });
+});
+
+describe("runtime localization for scan and common error actions", () => {
+  beforeEach(() => {
+    stubMatchMedia();
+  });
+
+  afterEach(() => {
+    SettingsService.updateSettings({ language: "en" });
+  });
+
+  it("uses scan-failed translation keys instead of hardcoded English", () => {
+    SettingsService.updateSettings({ language: "en" });
+    const english = ErrorPresentationService.fromTechnicalError("Scan failed unexpectedly.", "scan", {
+      type: "scan-failed"
+    });
+
+    expect(english.title).toBe(LocalizationService.translate("error.scanFailed.title"));
+    expect(english.explanation).toBe(LocalizationService.translate("error.scanFailed.explanation"));
+    expect(english.recommendedAction).toBe(LocalizationService.translate("error.scanFailed.action"));
+    expect(english.title).not.toBe("Something Went Wrong");
+    expect(english.title).not.toBe("Scan Required");
+
+    SettingsService.updateSettings({ language: "zh-CN" });
+    const chinese = ErrorPresentationService.fromTechnicalError("Scan failed unexpectedly.", "scan", {
+      type: "scan-failed"
+    });
+
+    expect(chinese.title).toBe("扫描失败");
+    expect(chinese.explanation).toContain("未能完成系统扫描");
+    expect(chinese.recommendedAction).toContain("重试扫描");
+    expect(chinese.title).not.toBe(english.title);
+  });
+
+  it("keeps forScanRequired on the scan-required copy after language switches", () => {
+    SettingsService.updateSettings({ language: "zh-CN" });
+    const descriptor = ErrorPresentationService.forScanRequired();
+
+    expect(descriptor.type).toBe("scan-failed");
+    expect(descriptor.title).toBe("需要扫描");
+    expect(descriptor.explanation).toContain("最新扫描结果");
+    expect(descriptor.recommendedAction).toContain("运行扫描");
+  });
+
+  it("localizes common error action labels through translation keys", () => {
+    SettingsService.updateSettings({ language: "zh-CN" });
+
+    expect(LocalizationService.translate("common.action.retry")).toBe("重试");
+    expect(LocalizationService.translate("common.action.goBack")).toBe("返回");
+    expect(LocalizationService.translate("common.action.openHistory")).toBe("打开历史记录");
+    expect(LocalizationService.translate("error.recommendedActionPrefix")).not.toBe("Recommended action:");
   });
 });

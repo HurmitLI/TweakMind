@@ -27,6 +27,7 @@ function toErrorMessage(error: unknown): string {
   }
 
   const asString = String(error ?? "").trim();
+  // Stable English technical token; UI maps it through the translation layer.
   return asString || "Scan failed unexpectedly.";
 }
 
