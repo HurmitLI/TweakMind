@@ -79,7 +79,7 @@ Run the Tauri desktop app:
 npm run tauri:dev
 ```
 
-Build the frontend:
+Build the frontend (includes TypeScript check via `tsc`):
 
 ```bash
 npm run build
@@ -91,6 +91,18 @@ Lint:
 npm run lint
 ```
 
+Run unit tests:
+
+```bash
+npm test
+```
+
+Check version consistency across `package.json`, `src-tauri/tauri.conf.json`, `Cargo.toml`, and `Cargo.lock`:
+
+```bash
+npm run check:versions
+```
+
 Build the desktop app:
 
 ```bash
@@ -99,12 +111,18 @@ npm run tauri:build
 
 ## Verification (Release)
 
+These commands match the Windows CI job in `.github/workflows/ci.yml` (`windows-latest`, on pushes to `main` and pull requests):
+
 ```bash
-npm run build
+npm ci
+npm run check:versions
 npm run lint
-cd src-tauri && cargo check
-npm run tauri build -- --debug --no-bundle
+npm test
+npm run build
+cargo check --manifest-path src-tauri/Cargo.toml --locked
 ```
+
+CI does not run `cargo test` or a Tauri bundle build as part of this verification job.
 
 ## Official Docs
 
