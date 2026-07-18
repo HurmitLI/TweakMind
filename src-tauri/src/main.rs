@@ -38,6 +38,248 @@ struct RecoveryResult {
     timestamp: String,
 }
 
+/// Pure input validation and outcome evaluation for values that arrive from
+/// the frontend (saved recovery state) or from post-apply re-queries.
+/// This module is intentionally free of Windows API calls so it compiles and
+/// tests on every platform.
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+mod input_validation {
+    /// Whitelist parser for saved binary registry values. Game Mode and Core
+    /// Isolation only ever store 0 or 1; anything else (including large
+    /// DWORDs, signs, whitespace, or leading zeros) is rejected so a corrupt
+    /// or tampered history entry can never write an arbitrary value.
+    pub fn parse_binary_dword_raw(value: &str) -> Option<u32> {
+        match value {
+            "DWORD:0" => Some(0),
+            "DWORD:1" => Some(1),
+            _ => None,
+        }
+    }
+
+    /// Platform-neutral GUID representation so parsing stays testable
+    /// without the windows-sys GUID type.
+    #[derive(Debug, PartialEq, Eq)]
+    pub struct GuidParts {
+        pub data1: u32,
+        pub data2: u16,
+        pub data3: u16,
+        pub data4: [u8; 8],
+    }
+
+    fn is_strict_hex(part: &str, expected_len: usize) -> bool {
+        part.len() == expected_len && part.bytes().all(|byte| byte.is_ascii_hexdigit())
+    }
+
+    /// Strict parser for saved power scheme identifiers. Only the exact shape
+    /// `GUID:{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}` produced by the detector
+    /// is accepted: one brace pair, five dash-separated groups, hex digits
+    /// only. Signs, whitespace, missing braces, or extra characters are all
+    /// rejected before any power plan activation can happen.
+    pub fn parse_guid_raw_strict(value: &str) -> Option<GuidParts> {
+        let inner = value.strip_prefix("GUID:{")?.strip_suffix('}')?;
+
+        if inner.contains('{') || inner.contains('}') {
+            return None;
+        }
+
+        let parts: Vec<&str> = inner.split('-').collect();
+
+        if parts.len() != 5 {
+            return None;
+        }
+
+        let expected_lengths = [8usize, 4, 4, 4, 12];
+
+        for (part, expected_length) in parts.iter().zip(expected_lengths) {
+            if !is_strict_hex(part, expected_length) {
+                return None;
+            }
+        }
+
+        let data1 = u32::from_str_radix(parts[0], 16).ok()?;
+        let data2 = u16::from_str_radix(parts[1], 16).ok()?;
+        let data3 = u16::from_str_radix(parts[2], 16).ok()?;
+        let mut combined = String::from(parts[3]);
+        combined.push_str(parts[4]);
+        let bytes = (0..8)
+            .map(|index| u8::from_str_radix(&combined[index * 2..index * 2 + 2], 16))
+            .collect::<Result<Vec<_>, _>>()
+            .ok()?;
+        let mut data4 = [0u8; 8];
+        data4.copy_from_slice(&bytes);
+
+        Some(GuidParts {
+            data1,
+            data2,
+            data3,
+            data4,
+        })
+    }
+
+    /// Outcome of confirming a service apply through a post-change re-query.
+    #[derive(Debug, PartialEq, Eq)]
+    pub enum ServiceApplyConfirmation {
+        /// Re-query succeeded and the startup type is Disabled as expected.
+        Confirmed { state: String },
+        /// Re-query succeeded but the startup type is not Disabled.
+        Mismatch { state: String, startup_type: String },
+        /// Re-query failed; the result cannot be trusted as a success.
+        QueryFailed { error: String },
+    }
+
+    /// Judges whether a service apply may be reported as success. Success
+    /// requires a successful re-query showing startup type Disabled; a failed
+    /// re-query or an unexpected startup type must never be masked with a
+    /// fabricated snapshot.
+    pub fn confirm_service_apply(
+        requery: Result<(String, String), String>,
+    ) -> ServiceApplyConfirmation {
+        match requery {
+            Ok((state, startup_type)) => {
+                if startup_type == "Disabled" {
+                    ServiceApplyConfirmation::Confirmed { state }
+                } else {
+                    ServiceApplyConfirmation::Mismatch {
+                        state,
+                        startup_type,
+                    }
+                }
+            }
+            Err(error) => ServiceApplyConfirmation::QueryFailed { error },
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn binary_dword_accepts_only_zero_and_one() {
+            assert_eq!(parse_binary_dword_raw("DWORD:0"), Some(0));
+            assert_eq!(parse_binary_dword_raw("DWORD:1"), Some(1));
+        }
+
+        #[test]
+        fn binary_dword_rejects_other_numbers() {
+            assert_eq!(parse_binary_dword_raw("DWORD:2"), None);
+            assert_eq!(parse_binary_dword_raw("DWORD:100"), None);
+            assert_eq!(parse_binary_dword_raw("DWORD:4294967295"), None);
+            assert_eq!(parse_binary_dword_raw("DWORD:-1"), None);
+        }
+
+        #[test]
+        fn binary_dword_rejects_formatting_tricks() {
+            assert_eq!(parse_binary_dword_raw("DWORD:01"), None);
+            assert_eq!(parse_binary_dword_raw("DWORD:+1"), None);
+            assert_eq!(parse_binary_dword_raw("DWORD: 1"), None);
+            assert_eq!(parse_binary_dword_raw("DWORD:1 "), None);
+            assert_eq!(parse_binary_dword_raw(" DWORD:1"), None);
+            assert_eq!(parse_binary_dword_raw("dword:1"), None);
+            assert_eq!(parse_binary_dword_raw("DWORD:0x1"), None);
+        }
+
+        #[test]
+        fn binary_dword_rejects_corrupt_input() {
+            assert_eq!(parse_binary_dword_raw(""), None);
+            assert_eq!(parse_binary_dword_raw("DWORD:"), None);
+            assert_eq!(parse_binary_dword_raw("Missing"), None);
+            assert_eq!(parse_binary_dword_raw("UnsupportedType"), None);
+            assert_eq!(parse_binary_dword_raw("DWORD:1;reg delete HKLM"), None);
+        }
+
+        #[test]
+        fn guid_accepts_the_exact_detector_shape() {
+            let parsed = parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1bb1920fa1}")
+                .expect("balanced GUID should parse");
+
+            assert_eq!(parsed.data1, 0x381b4222);
+            assert_eq!(parsed.data2, 0xf694);
+            assert_eq!(parsed.data3, 0x41f0);
+            assert_eq!(parsed.data4, [0x96, 0x85, 0xff, 0x1b, 0xb1, 0x92, 0x0f, 0xa1]);
+        }
+
+        #[test]
+        fn guid_accepts_uppercase_hex_and_boundary_values() {
+            assert!(parse_guid_raw_strict("GUID:{8C5E7FDA-E8BF-4A96-9A85-A6E23A8C635C}").is_some());
+            assert!(parse_guid_raw_strict("GUID:{00000000-0000-0000-0000-000000000000}").is_some());
+            assert!(parse_guid_raw_strict("GUID:{ffffffff-ffff-ffff-ffff-ffffffffffff}").is_some());
+        }
+
+        #[test]
+        fn guid_rejects_missing_or_malformed_wrappers() {
+            assert_eq!(parse_guid_raw_strict(""), None);
+            assert_eq!(parse_guid_raw_strict("GUID:{}"), None);
+            assert_eq!(parse_guid_raw_strict("381b4222-f694-41f0-9685-ff1bb1920fa1"), None);
+            assert_eq!(parse_guid_raw_strict("GUID:381b4222-f694-41f0-9685-ff1bb1920fa1"), None);
+            assert_eq!(parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1bb1920fa1"), None);
+            assert_eq!(parse_guid_raw_strict("GUID:{{381b4222-f694-41f0-9685-ff1bb1920fa1}}"), None);
+            assert_eq!(parse_guid_raw_strict("guid:{381b4222-f694-41f0-9685-ff1bb1920fa1}"), None);
+        }
+
+        #[test]
+        fn guid_rejects_wrong_group_shapes() {
+            assert_eq!(parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685}"), None);
+            assert_eq!(parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1b-b1920fa1}"), None);
+            assert_eq!(parse_guid_raw_strict("GUID:{381b422-f694-41f0-9685-ff1bb1920fa1}"), None);
+            assert_eq!(parse_guid_raw_strict("GUID:{381b4222-f69-41f0-9685-ff1bb1920fa1}"), None);
+            assert_eq!(parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1bb1920fa}"), None);
+        }
+
+        #[test]
+        fn guid_rejects_non_hex_and_injection_attempts() {
+            assert_eq!(parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1bb1920fzz}"), None);
+            assert_eq!(parse_guid_raw_strict("GUID:{+81b4222-f694-41f0-9685-ff1bb1920fa1}"), None);
+            assert_eq!(parse_guid_raw_strict("GUID:{ 81b4222-f694-41f0-9685-ff1bb1920fa1}"), None);
+            assert_eq!(parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1bb1920fa1} "), None);
+            assert_eq!(parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1bb1920fa1};rm"), None);
+        }
+
+        #[test]
+        fn service_apply_confirms_only_a_disabled_requery() {
+            let outcome = confirm_service_apply(Ok(("Disabled".to_string(), "Disabled".to_string())));
+
+            assert_eq!(
+                outcome,
+                ServiceApplyConfirmation::Confirmed {
+                    state: "Disabled".to_string()
+                }
+            );
+        }
+
+        #[test]
+        fn service_apply_reports_mismatch_when_startup_type_is_not_disabled() {
+            let outcome = confirm_service_apply(Ok(("Stopped".to_string(), "Manual".to_string())));
+
+            assert_eq!(
+                outcome,
+                ServiceApplyConfirmation::Mismatch {
+                    state: "Stopped".to_string(),
+                    startup_type: "Manual".to_string()
+                }
+            );
+
+            let still_automatic =
+                confirm_service_apply(Ok(("Running".to_string(), "Automatic".to_string())));
+            assert!(matches!(
+                still_automatic,
+                ServiceApplyConfirmation::Mismatch { .. }
+            ));
+        }
+
+        #[test]
+        fn service_apply_never_reports_success_when_the_requery_fails() {
+            let outcome = confirm_service_apply(Err("Windows error 5".to_string()));
+
+            assert_eq!(
+                outcome,
+                ServiceApplyConfirmation::QueryFailed {
+                    error: "Windows error 5".to_string()
+                }
+            );
+        }
+    }
+}
+
 fn now_timestamp() -> String {
     match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
         Ok(duration) => duration.as_secs().to_string(),
@@ -185,9 +427,17 @@ mod power_plan_ops {
     }
 
     pub fn parse_guid_raw(value: &str) -> Option<GUID> {
-        value
-            .strip_prefix("GUID:")
-            .and_then(|raw| guid_from_str(raw))
+        // Strict validation: only the exact `GUID:{...}` shape produced by
+        // the detector is accepted, so a corrupt or tampered saved value can
+        // never reach PowerSetActiveScheme.
+        let parts = super::input_validation::parse_guid_raw_strict(value)?;
+
+        Some(GUID {
+            data1: parts.data1,
+            data2: parts.data2,
+            data3: parts.data3,
+            data4: parts.data4,
+        })
     }
 
     pub fn classify_guid(value: &str) -> (String, String, String) {
@@ -826,8 +1076,9 @@ mod windows_apply {
     }
 
     fn parse_game_mode_raw_value(value: &str) -> Option<u32> {
-        value.strip_prefix("DWORD:")
-            .and_then(|raw| raw.parse::<u32>().ok())
+        // Game Mode only ever stores 0 or 1; any other saved value is
+        // rejected before it can reach the registry.
+        super::input_validation::parse_binary_dword_raw(value)
     }
 
     fn query_game_mode_snapshot() -> Result<GameModeSnapshot, String> {
@@ -946,8 +1197,9 @@ mod windows_apply {
     }
 
     fn parse_core_isolation_raw_value(value: &str) -> Option<u32> {
-        value.strip_prefix("DWORD:")
-            .and_then(|raw| raw.parse::<u32>().ok())
+        // HVCI Enabled only ever stores 0 or 1; any other saved value is
+        // rejected before it can reach the registry.
+        super::input_validation::parse_binary_dword_raw(value)
     }
 
     fn query_core_isolation_snapshot() -> Result<CoreIsolationSnapshot, String> {
@@ -1337,20 +1589,46 @@ mod windows_apply {
             }
         }
 
-        let after = query_snapshot(service.0, label).unwrap_or(ServiceSnapshot {
-            state: "Disabled".to_string(),
-            startup_type: "Disabled".to_string(),
-        });
+        // Success must be confirmed by a real re-query showing the service is
+        // Disabled; a failed re-query or an unexpected startup type is
+        // reported as a failure instead of being masked.
+        let requery = query_snapshot(service.0, label)
+            .map(|snapshot| (snapshot.state, snapshot.startup_type));
 
-        apply_result(
-            optimization_id,
-            "success",
-            &before.state,
-            &after.state,
-            &before.startup_type,
-            format!("{label} was disabled through the native Tauri executor."),
-            None,
-        )
+        match super::input_validation::confirm_service_apply(requery) {
+            super::input_validation::ServiceApplyConfirmation::Confirmed { state } => apply_result(
+                optimization_id,
+                "success",
+                &before.state,
+                &state,
+                &before.startup_type,
+                format!("{label} was disabled through the native Tauri executor."),
+                None,
+            ),
+            super::input_validation::ServiceApplyConfirmation::Mismatch {
+                state,
+                startup_type,
+            } => apply_result(
+                optimization_id,
+                "failed",
+                &before.state,
+                &state,
+                &before.startup_type,
+                format!("{label} was not confirmed as Disabled after apply."),
+                Some(format!(
+                    "Post-apply query detected startup type {startup_type} instead of Disabled."
+                )),
+            ),
+            super::input_validation::ServiceApplyConfirmation::QueryFailed { error } => apply_result(
+                optimization_id,
+                "failed",
+                &before.state,
+                "Unknown",
+                &before.startup_type,
+                format!("{label} could not be confirmed after apply."),
+                Some(error),
+            ),
+        }
     }
 
     fn restore_service(

@@ -1,4 +1,5 @@
 import type { OptimizationId } from "../../types/optimization";
+import { toErrorMessage } from "../error/errorMessage";
 import { OptimizationRepository } from "../optimization/OptimizationRepository";
 import { OptimizationPluginManager } from "../plugins/OptimizationPluginManager";
 import { clearStoredScanResult } from "../scan/ScanResult";
@@ -41,9 +42,24 @@ export class OptimizationExecutor {
   }
 
   static async restore(entry: OptimizationHistoryEntry): Promise<OptimizationRecoveryResult> {
-    const result = await OptimizationPluginManager.recover(entry.optimizationId, {
-      historyEntryId: entry.id
-    });
+    let result: OptimizationRecoveryResult;
+
+    try {
+      result = await OptimizationPluginManager.recover(entry.optimizationId, {
+        historyEntryId: entry.id
+      });
+    } catch (error) {
+      result = {
+        historyEntryId: entry.id,
+        optimizationId: entry.optimizationId,
+        status: "failed",
+        previousState: entry.newState,
+        expectedState: entry.previousState,
+        actualState: "Unknown",
+        error: `Recovery failed: native invoke error (${toErrorMessage(error)}).`,
+        timestamp: Math.floor(Date.now() / 1000).toString()
+      };
+    }
 
     WindowsOptimizationService.recordRecoveryResult(result);
     if (result.status === "success") {

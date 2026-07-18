@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { OptimizationStatus } from "../../types/optimization";
+import { toErrorMessage } from "../error/errorMessage";
 import type { OptimizationEngineResult, OptimizationEngineStatus } from "./OptimizationEngine";
 
 interface NativeDetectionResult {
@@ -26,20 +27,26 @@ function fromNative(result: NativeDetectionResult): OptimizationEngineResult {
   };
 }
 
+function failedResult(message: string): OptimizationEngineResult {
+  return {
+    success: false,
+    status: "Failed",
+    previousState: "Unknown",
+    currentState: "Unknown",
+    message,
+    timestamp: Math.floor(Date.now() / 1000).toString()
+  };
+}
+
 export async function detectWithNativeCommand(command: string, label: string): Promise<OptimizationEngineResult> {
   if (!isTauriRuntime()) {
-    const timestamp = Math.floor(Date.now() / 1000).toString();
-
-    return {
-      success: false,
-      status: "Failed",
-      previousState: "Unknown",
-      currentState: "Unknown",
-      message: `${label} detection is only available in the Tauri desktop app.`,
-      timestamp
-    };
+    return failedResult(`${label} detection is only available in the Tauri desktop app.`);
   }
 
-  const result = await invoke<NativeDetectionResult>(command);
-  return fromNative(result);
+  try {
+    const result = await invoke<NativeDetectionResult>(command);
+    return fromNative(result);
+  } catch (error) {
+    return failedResult(`${label} detection failed: native invoke error (${toErrorMessage(error)}).`);
+  }
 }
