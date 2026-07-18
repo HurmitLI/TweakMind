@@ -412,6 +412,62 @@ mod input_validation {
         Some((source, RegistryRestoreAction::Set(value)))
     }
 
+    /// Detector-aligned state for a Delivery Optimization restore action.
+    /// Mirrors `state_from_delivery_optimization_value`: Missing => Unknown,
+    /// DWORD 0/100 => Disabled, other allowed DWORD values => Enabled.
+    fn delivery_optimization_state_for_action(action: &RegistryRestoreAction) -> &'static str {
+        match action {
+            RegistryRestoreAction::Delete => "Unknown",
+            RegistryRestoreAction::Set(0) | RegistryRestoreAction::Set(100) => "Disabled",
+            RegistryRestoreAction::Set(_) => "Enabled",
+        }
+    }
+
+    /// Consistent binary-registry restore request (game-mode / core-isolation).
+    /// Only exact detector pairs are accepted so restore confirmation cannot
+    /// be doomed by a contradictory saved state/raw combination.
+    pub fn parse_binary_registry_restore_request(
+        state: &str,
+        raw_value: &str,
+    ) -> Option<RegistryRestoreAction> {
+        match (state, raw_value) {
+            ("Enabled", "DWORD:1") => Some(RegistryRestoreAction::Set(1)),
+            ("Disabled", "DWORD:0") => Some(RegistryRestoreAction::Set(0)),
+            ("Unknown", "Missing") => Some(RegistryRestoreAction::Delete),
+            _ => None,
+        }
+    }
+
+    /// Consistent HAGS restore request. Only Enabled/DWORD:1, Disabled/DWORD:2,
+    /// and Unknown/Missing are accepted.
+    pub fn parse_hags_restore_request(
+        state: &str,
+        raw_value: &str,
+    ) -> Option<RegistryRestoreAction> {
+        match (state, raw_value) {
+            ("Enabled", "DWORD:1") => Some(RegistryRestoreAction::Set(1)),
+            ("Disabled", "DWORD:2") => Some(RegistryRestoreAction::Set(2)),
+            ("Unknown", "Missing") => Some(RegistryRestoreAction::Delete),
+            _ => None,
+        }
+    }
+
+    /// Consistent Delivery Optimization restore request. Requires a legal
+    /// Policy/Config raw encoding whose implied detector state matches
+    /// `previous_state` exactly.
+    pub fn parse_delivery_optimization_restore_request(
+        state: &str,
+        raw_value: &str,
+    ) -> Option<(&'static str, RegistryRestoreAction)> {
+        let (source, action) = parse_delivery_optimization_restore(raw_value)?;
+
+        if state == delivery_optimization_state_for_action(&action) {
+            Some((source, action))
+        } else {
+            None
+        }
+    }
+
     /// Decision made by the recoverable-snapshot gate that every real Apply
     /// path must consult before selecting a system write. `Write` means the
     /// before-snapshot lies inside the same restore domain that the matching
@@ -441,38 +497,34 @@ mod input_validation {
     }
 
     /// Binary registry apply gate (game-mode / core-isolation). Reuses the
-    /// restore whitelist for previous state plus Missing/DWORD:0/DWORD:1.
+    /// consistent restore request parser so Apply and Recover share one domain.
     pub fn decide_binary_registry_apply_write(
         state: &str,
         raw_value: &str,
         unrestorable_error: &'static str,
     ) -> ApplyWriteDecision {
         allow_or_reject(
-            parse_registry_previous_state(state).is_some()
-                && parse_binary_registry_restore_action(raw_value).is_some(),
+            parse_binary_registry_restore_request(state, raw_value).is_some(),
             unrestorable_error,
         )
     }
 
-    /// HAGS apply gate. Reuses the restore whitelist for previous state plus
-    /// Missing/DWORD:1/DWORD:2.
+    /// HAGS apply gate. Reuses the consistent HAGS restore request parser.
     pub fn decide_hags_apply_write(state: &str, raw_value: &str) -> ApplyWriteDecision {
         allow_or_reject(
-            parse_registry_previous_state(state).is_some()
-                && parse_hags_restore_action(raw_value).is_some(),
+            parse_hags_restore_request(state, raw_value).is_some(),
             "Current HAGS registry value is not restorable.",
         )
     }
 
-    /// Delivery Optimization apply gate. Reuses the restore whitelist for
-    /// previous state plus source (Policy/Config) and DODownloadMode domain.
+    /// Delivery Optimization apply gate. Reuses the consistent DO restore
+    /// request parser (source/value domain plus state/raw agreement).
     pub fn decide_delivery_optimization_apply_write(
         state: &str,
         raw_value: &str,
     ) -> ApplyWriteDecision {
         allow_or_reject(
-            parse_registry_previous_state(state).is_some()
-                && parse_delivery_optimization_restore(raw_value).is_some(),
+            parse_delivery_optimization_restore_request(state, raw_value).is_some(),
             "Current Delivery Optimization registry value is not restorable.",
         )
     }
@@ -1136,6 +1188,10 @@ mod input_validation {
                     ApplyWriteDecision::Write,
                     "{state}/{raw} should allow apply write"
                 );
+                assert!(
+                    parse_binary_registry_restore_request(state, raw).is_some(),
+                    "{state}/{raw} should also be accepted by restore"
+                );
             }
         }
 
@@ -1148,6 +1204,13 @@ mod input_validation {
                 ("Enabled", "DWORD:01"),
                 ("Running", "DWORD:1"),
                 ("Enabled", ""),
+                // Contradictory but individually legal domain members.
+                ("Enabled", "DWORD:0"),
+                ("Disabled", "DWORD:1"),
+                ("Unknown", "DWORD:0"),
+                ("Unknown", "DWORD:1"),
+                ("Enabled", "Missing"),
+                ("Disabled", "Missing"),
             ];
 
             for (state, raw) in illegal {
@@ -1161,6 +1224,11 @@ mod input_validation {
                         error: "Current Game Mode registry value is not restorable."
                     },
                     "{state}/{raw} must be rejected before any registry write"
+                );
+                assert_eq!(
+                    parse_binary_registry_restore_request(state, raw),
+                    None,
+                    "{state}/{raw} must also be rejected by restore"
                 );
             }
         }
@@ -1179,6 +1247,10 @@ mod input_validation {
                     ApplyWriteDecision::Write,
                     "{state}/{raw} should allow apply write"
                 );
+                assert!(
+                    parse_hags_restore_request(state, raw).is_some(),
+                    "{state}/{raw} should also be accepted by restore"
+                );
             }
         }
 
@@ -1191,6 +1263,13 @@ mod input_validation {
                 ("Enabled", "DWORD:01"),
                 ("Running", "DWORD:1"),
                 ("Enabled", ""),
+                // Contradictory but individually legal domain members.
+                ("Enabled", "DWORD:2"),
+                ("Disabled", "DWORD:1"),
+                ("Unknown", "DWORD:1"),
+                ("Unknown", "DWORD:2"),
+                ("Enabled", "Missing"),
+                ("Disabled", "Missing"),
             ];
 
             for (state, raw) in illegal {
@@ -1201,6 +1280,11 @@ mod input_validation {
                     },
                     "{state}/{raw} must be rejected before any HAGS write"
                 );
+                assert_eq!(
+                    parse_hags_restore_request(state, raw),
+                    None,
+                    "{state}/{raw} must also be rejected by restore"
+                );
             }
         }
 
@@ -1209,7 +1293,9 @@ mod input_validation {
             let legal = [
                 ("Disabled", "Config:DWORD:0"),
                 ("Enabled", "Config:DWORD:1"),
+                ("Enabled", "Config:DWORD:2"),
                 ("Enabled", "Policy:DWORD:3"),
+                ("Enabled", "Config:DWORD:99"),
                 ("Disabled", "Config:DWORD:100"),
                 ("Unknown", "Config:Missing"),
                 ("Unknown", "Policy:Missing"),
@@ -1220,6 +1306,10 @@ mod input_validation {
                     decide_delivery_optimization_apply_write(state, raw),
                     ApplyWriteDecision::Write,
                     "{state}/{raw} should allow apply write"
+                );
+                assert!(
+                    parse_delivery_optimization_restore_request(state, raw).is_some(),
+                    "{state}/{raw} should also be accepted by restore"
                 );
             }
         }
@@ -1234,6 +1324,15 @@ mod input_validation {
                 ("Running", "Config:DWORD:1"),
                 ("Enabled", "Missing"),
                 ("Unknown", "UnsupportedType"),
+                // Contradictory but individually legal domain members.
+                ("Enabled", "Config:DWORD:0"),
+                ("Enabled", "Config:DWORD:100"),
+                ("Disabled", "Config:DWORD:1"),
+                ("Disabled", "Policy:DWORD:99"),
+                ("Unknown", "Config:DWORD:1"),
+                ("Unknown", "Config:DWORD:0"),
+                ("Enabled", "Config:Missing"),
+                ("Disabled", "Policy:Missing"),
             ];
 
             for (state, raw) in illegal {
@@ -1244,7 +1343,40 @@ mod input_validation {
                     },
                     "{state}/{raw} must be rejected before any DO write"
                 );
+                assert_eq!(
+                    parse_delivery_optimization_restore_request(state, raw),
+                    None,
+                    "{state}/{raw} must also be rejected by restore"
+                );
             }
+        }
+
+        #[test]
+        fn registry_restore_requests_accept_only_consistent_pairs() {
+            assert_eq!(
+                parse_binary_registry_restore_request("Enabled", "DWORD:1"),
+                Some(RegistryRestoreAction::Set(1))
+            );
+            assert_eq!(
+                parse_binary_registry_restore_request("Disabled", "DWORD:0"),
+                Some(RegistryRestoreAction::Set(0))
+            );
+            assert_eq!(
+                parse_binary_registry_restore_request("Unknown", "Missing"),
+                Some(RegistryRestoreAction::Delete)
+            );
+            assert_eq!(
+                parse_hags_restore_request("Enabled", "DWORD:1"),
+                Some(RegistryRestoreAction::Set(1))
+            );
+            assert_eq!(
+                parse_hags_restore_request("Disabled", "DWORD:2"),
+                Some(RegistryRestoreAction::Set(2))
+            );
+            assert_eq!(
+                parse_hags_restore_request("Unknown", "Missing"),
+                Some(RegistryRestoreAction::Delete)
+            );
         }
 
         #[test]
@@ -2928,16 +3060,34 @@ mod windows_apply {
     }
 
     pub fn restore_hags(previous_state: String, previous_registry_value: String) -> RecoveryResult {
-        // Saved inputs are validated against the legal HAGS domain (state
-        // Enabled/Disabled/Unknown, value 1/2/Missing) before any registry
-        // write happens.
-        let expected_state = super::input_validation::parse_registry_previous_state(&previous_state);
-        let action = super::input_validation::parse_hags_restore_action(&previous_registry_value);
+        // Saved inputs must be an exact consistent HAGS pair before any
+        // registry write happens (same domain as the apply gate).
+        let action = match super::input_validation::parse_hags_restore_request(
+            &previous_state,
+            &previous_registry_value,
+        ) {
+            Some(action) => action,
+            None => {
+                let actual = query_hags_snapshot()
+                    .map(|snapshot| snapshot.state)
+                    .unwrap_or_else(|_| "Unknown".to_string());
 
-        let recovery = match (expected_state, action) {
-            (Some(_), Some(super::input_validation::RegistryRestoreAction::Delete)) => delete_hags_value(),
-            (Some(_), Some(super::input_validation::RegistryRestoreAction::Set(value))) => set_hags_value(value),
-            _ => Err("Saved HAGS registry value is not restorable.".to_string()),
+                return recovery_result(
+                    "hags",
+                    "failed",
+                    &previous_state,
+                    &previous_state,
+                    &actual,
+                    &previous_registry_value,
+                    "HAGS recovery was not applied.".to_string(),
+                    Some("Saved HAGS registry value is not restorable.".to_string()),
+                );
+            }
+        };
+
+        let recovery = match action {
+            super::input_validation::RegistryRestoreAction::Delete => delete_hags_value(),
+            super::input_validation::RegistryRestoreAction::Set(value) => set_hags_value(value),
         };
 
         if let Err(message) = recovery {
@@ -2957,12 +3107,9 @@ mod windows_apply {
             );
         }
 
-        // expected_state is always Some here because the recovery above only
-        // runs after both validations pass.
-        let expected_state = expected_state.unwrap_or("Unknown");
         let requery = query_hags_snapshot().map(|snapshot| snapshot.state);
 
-        match super::input_validation::confirm_registry_restore(requery, expected_state) {
+        match super::input_validation::confirm_registry_restore(requery, &previous_state) {
             super::input_validation::RestoreConfirmation::Confirmed { state } => recovery_result(
                 "hags",
                 "success",
@@ -3377,21 +3524,34 @@ mod windows_apply {
     }
 
     pub fn restore_game_mode(previous_state: String, previous_registry_value: String) -> RecoveryResult {
-        // Saved inputs are validated against the legal Game Mode domain
-        // (state Enabled/Disabled/Unknown, value 0/1/Missing) before any
-        // registry write happens.
-        let expected_state = super::input_validation::parse_registry_previous_state(&previous_state);
-        let action =
-            super::input_validation::parse_binary_registry_restore_action(&previous_registry_value);
+        // Saved inputs must be an exact consistent binary-registry pair before
+        // any registry write happens (same domain as the apply gate).
+        let action = match super::input_validation::parse_binary_registry_restore_request(
+            &previous_state,
+            &previous_registry_value,
+        ) {
+            Some(action) => action,
+            None => {
+                let actual = query_game_mode_snapshot()
+                    .map(|snapshot| snapshot.state)
+                    .unwrap_or_else(|_| "Unknown".to_string());
 
-        let recovery = match (expected_state, action) {
-            (Some(_), Some(super::input_validation::RegistryRestoreAction::Delete)) => {
-                delete_game_mode_value()
+                return recovery_result(
+                    "game-mode",
+                    "failed",
+                    &previous_state,
+                    &previous_state,
+                    &actual,
+                    &previous_registry_value,
+                    "Game Mode recovery was not applied.".to_string(),
+                    Some("Saved Game Mode registry value is not restorable.".to_string()),
+                );
             }
-            (Some(_), Some(super::input_validation::RegistryRestoreAction::Set(value))) => {
-                set_game_mode_value(value)
-            }
-            _ => Err("Saved Game Mode registry value is not restorable.".to_string()),
+        };
+
+        let recovery = match action {
+            super::input_validation::RegistryRestoreAction::Delete => delete_game_mode_value(),
+            super::input_validation::RegistryRestoreAction::Set(value) => set_game_mode_value(value),
         };
 
         if let Err(message) = recovery {
@@ -3411,12 +3571,9 @@ mod windows_apply {
             );
         }
 
-        // expected_state is always Some here because the recovery above only
-        // runs after both validations pass.
-        let expected_state = expected_state.unwrap_or("Unknown");
         let requery = query_game_mode_snapshot().map(|snapshot| snapshot.state);
 
-        match super::input_validation::confirm_registry_restore(requery, expected_state) {
+        match super::input_validation::confirm_registry_restore(requery, &previous_state) {
             super::input_validation::RestoreConfirmation::Confirmed { state } => recovery_result(
                 "game-mode",
                 "success",
@@ -3533,21 +3690,36 @@ mod windows_apply {
     }
 
     pub fn restore_core_isolation(previous_state: String, previous_registry_value: String) -> RecoveryResult {
-        // Saved inputs are validated against the legal Core Isolation domain
-        // (state Enabled/Disabled/Unknown, value 0/1/Missing) before any
-        // registry write happens.
-        let expected_state = super::input_validation::parse_registry_previous_state(&previous_state);
-        let action =
-            super::input_validation::parse_binary_registry_restore_action(&previous_registry_value);
+        // Saved inputs must be an exact consistent binary-registry pair before
+        // any registry write happens (same domain as the apply gate).
+        let action = match super::input_validation::parse_binary_registry_restore_request(
+            &previous_state,
+            &previous_registry_value,
+        ) {
+            Some(action) => action,
+            None => {
+                let actual = query_core_isolation_snapshot()
+                    .map(|snapshot| snapshot.state)
+                    .unwrap_or_else(|_| "Unknown".to_string());
 
-        let recovery = match (expected_state, action) {
-            (Some(_), Some(super::input_validation::RegistryRestoreAction::Delete)) => {
-                delete_core_isolation_value()
+                return recovery_result(
+                    "core-isolation",
+                    "failed",
+                    &previous_state,
+                    &previous_state,
+                    &actual,
+                    &previous_registry_value,
+                    "Core Isolation recovery was not applied.".to_string(),
+                    Some("Saved Core Isolation registry value is not restorable.".to_string()),
+                );
             }
-            (Some(_), Some(super::input_validation::RegistryRestoreAction::Set(value))) => {
+        };
+
+        let recovery = match action {
+            super::input_validation::RegistryRestoreAction::Delete => delete_core_isolation_value(),
+            super::input_validation::RegistryRestoreAction::Set(value) => {
                 set_core_isolation_value(value)
             }
-            _ => Err("Saved Core Isolation registry value is not restorable.".to_string()),
         };
 
         if let Err(message) = recovery {
@@ -3567,12 +3739,9 @@ mod windows_apply {
             );
         }
 
-        // expected_state is always Some here because the recovery above only
-        // runs after both validations pass.
-        let expected_state = expected_state.unwrap_or("Unknown");
         let requery = query_core_isolation_snapshot().map(|snapshot| snapshot.state);
 
-        match super::input_validation::confirm_registry_restore(requery, expected_state) {
+        match super::input_validation::confirm_registry_restore(requery, &previous_state) {
             super::input_validation::RestoreConfirmation::Confirmed { state } => recovery_result(
                 "core-isolation",
                 "success",
@@ -3852,20 +4021,38 @@ mod windows_apply {
     }
 
     pub fn restore_delivery_optimization(previous_state: String, previous_registry_value: String) -> RecoveryResult {
-        // Saved inputs are validated against the legal Delivery Optimization
-        // domain (source Policy/Config, DODownloadMode 0/1/2/3/99/100 or
-        // Missing, state Enabled/Disabled/Unknown) before any registry write.
-        let expected_state = super::input_validation::parse_registry_previous_state(&previous_state);
-        let parsed = super::input_validation::parse_delivery_optimization_restore(&previous_registry_value);
+        // Saved inputs must be a consistent DO pair (source/value domain plus
+        // detector state agreement) before any registry write happens.
+        let parsed = match super::input_validation::parse_delivery_optimization_restore_request(
+            &previous_state,
+            &previous_registry_value,
+        ) {
+            Some(parsed) => parsed,
+            None => {
+                let actual = query_delivery_optimization_snapshot()
+                    .map(|snapshot| snapshot.state)
+                    .unwrap_or_else(|_| "Unknown".to_string());
 
-        let recovery = match (expected_state, parsed) {
-            (Some(_), Some((source, super::input_validation::RegistryRestoreAction::Delete))) => {
+                return recovery_result(
+                    "delivery-optimization",
+                    "failed",
+                    &previous_state,
+                    &previous_state,
+                    &actual,
+                    &previous_registry_value,
+                    "Delivery Optimization recovery was not applied.".to_string(),
+                    Some("Saved Delivery Optimization registry value is not restorable.".to_string()),
+                );
+            }
+        };
+
+        let recovery = match parsed {
+            (source, super::input_validation::RegistryRestoreAction::Delete) => {
                 delete_delivery_optimization_value(source)
             }
-            (Some(_), Some((source, super::input_validation::RegistryRestoreAction::Set(value)))) => {
+            (source, super::input_validation::RegistryRestoreAction::Set(value)) => {
                 set_delivery_optimization_value(source, value)
             }
-            _ => Err("Saved Delivery Optimization registry value is not restorable.".to_string()),
         };
 
         if let Err(message) = recovery {
@@ -3885,12 +4072,9 @@ mod windows_apply {
             );
         }
 
-        // expected_state is always Some here because the recovery above only
-        // runs after both validations pass.
-        let expected_state = expected_state.unwrap_or("Unknown");
         let requery = query_delivery_optimization_snapshot().map(|snapshot| snapshot.state);
 
-        match super::input_validation::confirm_registry_restore(requery, expected_state) {
+        match super::input_validation::confirm_registry_restore(requery, &previous_state) {
             super::input_validation::RestoreConfirmation::Confirmed { state } => recovery_result(
                 "delivery-optimization",
                 "success",
