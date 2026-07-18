@@ -149,6 +149,183 @@ mod input_validation {
         }
     }
 
+    /// Validated target of a service recovery. Only combinations that the
+    /// detector can actually record are accepted, so saved history can never
+    /// request a contradictory or out-of-domain service configuration.
+    #[derive(Debug, PartialEq, Eq)]
+    pub struct ServiceRestoreRequest {
+        pub state: &'static str,
+        pub startup_type: &'static str,
+    }
+
+    /// Whitelist for service recovery inputs. Legal combinations mirror the
+    /// detector's output domain:
+    /// - `Running` / `Stopped` with startup type `Automatic` or `Manual`
+    /// - `Disabled` with startup type `Disabled`
+    /// Anything else (Unknown, empty strings, case variants, injection-style
+    /// strings, contradictory pairs) is rejected before the Service Control
+    /// Manager is touched.
+    pub fn parse_service_restore_request(
+        previous_state: &str,
+        previous_startup_type: &str,
+    ) -> Option<ServiceRestoreRequest> {
+        let state = match previous_state {
+            "Running" => "Running",
+            "Stopped" => "Stopped",
+            "Disabled" => "Disabled",
+            _ => return None,
+        };
+
+        let startup_type = match previous_startup_type {
+            "Automatic" => "Automatic",
+            "Manual" => "Manual",
+            "Disabled" => "Disabled",
+            _ => return None,
+        };
+
+        let consistent = match state {
+            "Disabled" => startup_type == "Disabled",
+            _ => startup_type != "Disabled",
+        };
+
+        if !consistent {
+            return None;
+        }
+
+        Some(ServiceRestoreRequest {
+            state,
+            startup_type,
+        })
+    }
+
+    /// Outcome of confirming a recovery through a post-restore re-query.
+    #[derive(Debug, PartialEq, Eq)]
+    pub enum RestoreConfirmation {
+        /// Re-query succeeded and the observed state matches the target.
+        Confirmed { state: String },
+        /// Re-query succeeded but the observed state does not match.
+        Mismatch { state: String },
+        /// Re-query failed; the recovery must not be reported as success.
+        QueryFailed { error: String },
+    }
+
+    /// Judges whether a service recovery may be reported as success. Success
+    /// requires a successful re-query whose startup type and state both match
+    /// the restored target exactly. Transitional or unknown states (including
+    /// START_PENDING / STOP_PENDING / PAUSED mapped to `Unknown`) must never
+    /// be treated as success for a `Stopped` target. A failed re-query is
+    /// never masked.
+    pub fn confirm_service_restore(
+        requery: Result<(String, String), String>,
+        expected_state: &str,
+        expected_startup_type: &str,
+    ) -> RestoreConfirmation {
+        match requery {
+            Ok((state, startup_type)) => {
+                if startup_type == expected_startup_type && state == expected_state {
+                    RestoreConfirmation::Confirmed { state }
+                } else {
+                    RestoreConfirmation::Mismatch { state }
+                }
+            }
+            Err(error) => RestoreConfirmation::QueryFailed { error },
+        }
+    }
+
+    /// Judges whether a registry-backed recovery (HAGS, Delivery
+    /// Optimization) may be reported as success. Success requires a
+    /// successful re-detection whose state matches the saved previous state;
+    /// a failed re-query is reported as a failure instead of being compared
+    /// against a fabricated `Unknown` snapshot.
+    pub fn confirm_registry_restore(
+        requery: Result<String, String>,
+        expected_state: &str,
+    ) -> RestoreConfirmation {
+        match requery {
+            Ok(state) => {
+                if state == expected_state {
+                    RestoreConfirmation::Confirmed { state }
+                } else {
+                    RestoreConfirmation::Mismatch { state }
+                }
+            }
+            Err(error) => RestoreConfirmation::QueryFailed { error },
+        }
+    }
+
+    /// Whitelist for the saved previous state of registry-backed
+    /// optimizations. The detectors only ever record these three states.
+    pub fn parse_registry_previous_state(value: &str) -> Option<&'static str> {
+        match value {
+            "Enabled" => Some("Enabled"),
+            "Disabled" => Some("Disabled"),
+            "Unknown" => Some("Unknown"),
+            _ => None,
+        }
+    }
+
+    /// Restore action for a registry-backed value.
+    #[derive(Debug, PartialEq, Eq)]
+    pub enum RegistryRestoreAction {
+        Set(u32),
+        Delete,
+    }
+
+    /// Whitelist parser for saved HAGS values. `HwSchMode` only ever holds
+    /// 1 (Enabled) or 2 (Disabled); `Missing` restores the deleted state.
+    pub fn parse_hags_restore_action(raw: &str) -> Option<RegistryRestoreAction> {
+        match raw {
+            "Missing" => Some(RegistryRestoreAction::Delete),
+            "DWORD:1" => Some(RegistryRestoreAction::Set(1)),
+            "DWORD:2" => Some(RegistryRestoreAction::Set(2)),
+            _ => None,
+        }
+    }
+
+    /// Documented value domain for `DODownloadMode`.
+    const DELIVERY_OPTIMIZATION_ALLOWED_VALUES: [u32; 6] = [0, 1, 2, 3, 99, 100];
+
+    /// Whitelist parser for saved Delivery Optimization values. The source
+    /// must be exactly `Policy` or `Config` (the only two registry targets)
+    /// and a restored `DODownloadMode` must be inside the documented Windows
+    /// value domain (0, 1, 2, 3, 99, 100). Everything else is rejected
+    /// before any registry key is opened.
+    pub fn parse_delivery_optimization_restore(
+        raw: &str,
+    ) -> Option<(&'static str, RegistryRestoreAction)> {
+        let (source, remainder) = raw.split_once(':')?;
+
+        let source = match source {
+            "Policy" => "Policy",
+            "Config" => "Config",
+            _ => return None,
+        };
+
+        if remainder == "Missing" {
+            return Some((source, RegistryRestoreAction::Delete));
+        }
+
+        let value_str = remainder.strip_prefix("DWORD:")?;
+
+        if value_str.is_empty() || !value_str.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+
+        let value = value_str.parse::<u32>().ok()?;
+
+        // Reject non-canonical encodings such as leading zeros; the detector
+        // only ever writes the canonical decimal form.
+        if value.to_string() != value_str {
+            return None;
+        }
+
+        if !DELIVERY_OPTIMIZATION_ALLOWED_VALUES.contains(&value) {
+            return None;
+        }
+
+        Some((source, RegistryRestoreAction::Set(value)))
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -275,6 +452,303 @@ mod input_validation {
                 ServiceApplyConfirmation::QueryFailed {
                     error: "Windows error 5".to_string()
                 }
+            );
+        }
+
+        #[test]
+        fn service_restore_request_accepts_legal_combinations() {
+            let legal = [
+                ("Running", "Automatic"),
+                ("Running", "Manual"),
+                ("Stopped", "Automatic"),
+                ("Stopped", "Manual"),
+                ("Disabled", "Disabled"),
+            ];
+
+            for (state, startup_type) in legal {
+                let request = parse_service_restore_request(state, startup_type)
+                    .unwrap_or_else(|| panic!("{state}/{startup_type} should be restorable"));
+                assert_eq!(request.state, state);
+                assert_eq!(request.startup_type, startup_type);
+            }
+        }
+
+        #[test]
+        fn service_restore_request_rejects_out_of_domain_states() {
+            assert_eq!(parse_service_restore_request("Unknown", "Automatic"), None);
+            assert_eq!(parse_service_restore_request("Enabled", "Automatic"), None);
+            assert_eq!(parse_service_restore_request("", "Automatic"), None);
+            assert_eq!(parse_service_restore_request("running", "Automatic"), None);
+            assert_eq!(parse_service_restore_request("Running ", "Automatic"), None);
+        }
+
+        #[test]
+        fn service_restore_request_rejects_out_of_domain_startup_types() {
+            assert_eq!(parse_service_restore_request("Running", "Unknown"), None);
+            assert_eq!(parse_service_restore_request("Running", "Boot"), None);
+            assert_eq!(parse_service_restore_request("Running", ""), None);
+            assert_eq!(parse_service_restore_request("Running", "automatic"), None);
+            assert_eq!(
+                parse_service_restore_request(
+                    "Running",
+                    "Automatic; sc.exe config WSearch start= auto"
+                ),
+                None
+            );
+        }
+
+        #[test]
+        fn service_restore_request_rejects_contradictory_combinations() {
+            assert_eq!(parse_service_restore_request("Disabled", "Automatic"), None);
+            assert_eq!(parse_service_restore_request("Disabled", "Manual"), None);
+            assert_eq!(parse_service_restore_request("Running", "Disabled"), None);
+            assert_eq!(parse_service_restore_request("Stopped", "Disabled"), None);
+        }
+
+        #[test]
+        fn service_restore_confirms_only_matching_requeries() {
+            let outcome = confirm_service_restore(
+                Ok(("Running".to_string(), "Automatic".to_string())),
+                "Running",
+                "Automatic",
+            );
+
+            assert_eq!(
+                outcome,
+                RestoreConfirmation::Confirmed {
+                    state: "Running".to_string()
+                }
+            );
+        }
+
+        #[test]
+        fn service_restore_requires_an_exact_stopped_state() {
+            let stopped = confirm_service_restore(
+                Ok(("Stopped".to_string(), "Manual".to_string())),
+                "Stopped",
+                "Manual",
+            );
+            assert_eq!(
+                stopped,
+                RestoreConfirmation::Confirmed {
+                    state: "Stopped".to_string()
+                }
+            );
+
+            let unknown = confirm_service_restore(
+                Ok(("Unknown".to_string(), "Manual".to_string())),
+                "Stopped",
+                "Manual",
+            );
+            assert_eq!(
+                unknown,
+                RestoreConfirmation::Mismatch {
+                    state: "Unknown".to_string()
+                }
+            );
+
+            let enabled = confirm_service_restore(
+                Ok(("Enabled".to_string(), "Manual".to_string())),
+                "Stopped",
+                "Manual",
+            );
+            assert_eq!(
+                enabled,
+                RestoreConfirmation::Mismatch {
+                    state: "Enabled".to_string()
+                }
+            );
+
+            let still_running = confirm_service_restore(
+                Ok(("Running".to_string(), "Manual".to_string())),
+                "Stopped",
+                "Manual",
+            );
+            assert_eq!(
+                still_running,
+                RestoreConfirmation::Mismatch {
+                    state: "Running".to_string()
+                }
+            );
+
+            let query_failed = confirm_service_restore(
+                Err("Unable to query WSearch".to_string()),
+                "Stopped",
+                "Manual",
+            );
+            assert_eq!(
+                query_failed,
+                RestoreConfirmation::QueryFailed {
+                    error: "Unable to query WSearch".to_string()
+                }
+            );
+        }
+
+        #[test]
+        fn service_restore_reports_mismatch_when_startup_type_differs() {
+            let outcome = confirm_service_restore(
+                Ok(("Running".to_string(), "Manual".to_string())),
+                "Running",
+                "Automatic",
+            );
+
+            assert!(matches!(outcome, RestoreConfirmation::Mismatch { .. }));
+        }
+
+        #[test]
+        fn service_restore_never_reports_success_when_the_requery_fails() {
+            let outcome = confirm_service_restore(
+                Err("Unable to query WSearch".to_string()),
+                "Running",
+                "Automatic",
+            );
+
+            assert_eq!(
+                outcome,
+                RestoreConfirmation::QueryFailed {
+                    error: "Unable to query WSearch".to_string()
+                }
+            );
+        }
+
+        #[test]
+        fn registry_restore_confirms_only_matching_states() {
+            assert_eq!(
+                confirm_registry_restore(Ok("Enabled".to_string()), "Enabled"),
+                RestoreConfirmation::Confirmed {
+                    state: "Enabled".to_string()
+                }
+            );
+            assert_eq!(
+                confirm_registry_restore(Ok("Disabled".to_string()), "Enabled"),
+                RestoreConfirmation::Mismatch {
+                    state: "Disabled".to_string()
+                }
+            );
+        }
+
+        #[test]
+        fn registry_restore_never_reports_success_when_the_requery_fails() {
+            let outcome = confirm_registry_restore(Err("Windows error 5".to_string()), "Unknown");
+
+            assert_eq!(
+                outcome,
+                RestoreConfirmation::QueryFailed {
+                    error: "Windows error 5".to_string()
+                }
+            );
+        }
+
+        #[test]
+        fn registry_previous_state_whitelist() {
+            assert_eq!(parse_registry_previous_state("Enabled"), Some("Enabled"));
+            assert_eq!(parse_registry_previous_state("Disabled"), Some("Disabled"));
+            assert_eq!(parse_registry_previous_state("Unknown"), Some("Unknown"));
+
+            assert_eq!(parse_registry_previous_state("Running"), None);
+            assert_eq!(parse_registry_previous_state(""), None);
+            assert_eq!(parse_registry_previous_state("enabled"), None);
+            assert_eq!(parse_registry_previous_state("Enabled;reg delete"), None);
+        }
+
+        #[test]
+        fn hags_restore_action_accepts_only_the_legal_domain() {
+            assert_eq!(
+                parse_hags_restore_action("Missing"),
+                Some(RegistryRestoreAction::Delete)
+            );
+            assert_eq!(
+                parse_hags_restore_action("DWORD:1"),
+                Some(RegistryRestoreAction::Set(1))
+            );
+            assert_eq!(
+                parse_hags_restore_action("DWORD:2"),
+                Some(RegistryRestoreAction::Set(2))
+            );
+        }
+
+        #[test]
+        fn hags_restore_action_rejects_everything_else() {
+            assert_eq!(parse_hags_restore_action("DWORD:0"), None);
+            assert_eq!(parse_hags_restore_action("DWORD:3"), None);
+            assert_eq!(parse_hags_restore_action("DWORD:01"), None);
+            assert_eq!(parse_hags_restore_action("DWORD:4294967295"), None);
+            assert_eq!(parse_hags_restore_action(""), None);
+            assert_eq!(parse_hags_restore_action("DWORD:"), None);
+            assert_eq!(parse_hags_restore_action("UnsupportedType"), None);
+            assert_eq!(parse_hags_restore_action("missing"), None);
+            assert_eq!(parse_hags_restore_action("DWORD:1;reg delete HKLM"), None);
+        }
+
+        #[test]
+        fn delivery_optimization_restore_accepts_the_documented_domain() {
+            assert_eq!(
+                parse_delivery_optimization_restore("Policy:Missing"),
+                Some(("Policy", RegistryRestoreAction::Delete))
+            );
+            assert_eq!(
+                parse_delivery_optimization_restore("Config:Missing"),
+                Some(("Config", RegistryRestoreAction::Delete))
+            );
+
+            for value in [0u32, 1, 2, 3, 99, 100] {
+                assert_eq!(
+                    parse_delivery_optimization_restore(&format!("Config:DWORD:{value}")),
+                    Some(("Config", RegistryRestoreAction::Set(value))),
+                    "DODownloadMode {value} should be restorable"
+                );
+            }
+
+            assert_eq!(
+                parse_delivery_optimization_restore("Policy:DWORD:3"),
+                Some(("Policy", RegistryRestoreAction::Set(3)))
+            );
+        }
+
+        #[test]
+        fn delivery_optimization_restore_rejects_unknown_sources() {
+            assert_eq!(parse_delivery_optimization_restore("Other:DWORD:1"), None);
+            assert_eq!(parse_delivery_optimization_restore("policy:DWORD:1"), None);
+            assert_eq!(parse_delivery_optimization_restore(":DWORD:1"), None);
+            assert_eq!(
+                parse_delivery_optimization_restore("Policy;rm -rf:DWORD:1"),
+                None
+            );
+            assert_eq!(
+                parse_delivery_optimization_restore("HKLM\\SOFTWARE\\Evil:DWORD:1"),
+                None
+            );
+        }
+
+        #[test]
+        fn delivery_optimization_restore_rejects_out_of_domain_values() {
+            assert_eq!(parse_delivery_optimization_restore("Config:DWORD:4"), None);
+            assert_eq!(parse_delivery_optimization_restore("Config:DWORD:98"), None);
+            assert_eq!(
+                parse_delivery_optimization_restore("Config:DWORD:101"),
+                None
+            );
+            assert_eq!(
+                parse_delivery_optimization_restore("Config:DWORD:4294967295"),
+                None
+            );
+            assert_eq!(parse_delivery_optimization_restore("Config:DWORD:-1"), None);
+            assert_eq!(parse_delivery_optimization_restore("Config:DWORD:03"), None);
+            assert_eq!(parse_delivery_optimization_restore("Config:DWORD:+1"), None);
+            assert_eq!(parse_delivery_optimization_restore("Config:DWORD:"), None);
+            assert_eq!(parse_delivery_optimization_restore("Config:DWORD:1x"), None);
+        }
+
+        #[test]
+        fn delivery_optimization_restore_rejects_malformed_shapes() {
+            assert_eq!(parse_delivery_optimization_restore(""), None);
+            assert_eq!(parse_delivery_optimization_restore("Policy"), None);
+            assert_eq!(parse_delivery_optimization_restore("Policy:"), None);
+            assert_eq!(parse_delivery_optimization_restore("Policy:DWORD"), None);
+            assert_eq!(parse_delivery_optimization_restore("Missing"), None);
+            assert_eq!(
+                parse_delivery_optimization_restore("Config:DWORD:1;reg delete HKLM"),
+                None
             );
         }
     }
@@ -1329,10 +1803,6 @@ mod windows_apply {
         }
     }
 
-    fn parse_hags_raw_value(value: &str) -> Option<u32> {
-        value.strip_prefix("DWORD:").and_then(|raw| raw.parse::<u32>().ok())
-    }
-
     fn query_hags_snapshot() -> Result<HagsSnapshot, String> {
         let key = open_hags_key(KEY_READ)?;
         let value_name = wide("HwSchMode");
@@ -1479,9 +1949,10 @@ mod windows_apply {
     fn wait_for_state(service: SC_HANDLE, expected_state: &str, service_label: &str) -> Option<ServiceSnapshot> {
         for _ in 0..20 {
             if let Ok(snapshot) = query_snapshot(service, service_label) {
-                if snapshot.state == expected_state
-                    || (expected_state == "Stopped" && snapshot.state != "Running" && snapshot.startup_type != "Disabled")
-                {
+                // Only an exact state match ends the wait early. Transitional
+                // or unknown states must not be treated as a reached Stopped
+                // (or any other) target.
+                if snapshot.state == expected_state {
                     return Some(snapshot);
                 }
             }
@@ -1638,6 +2109,27 @@ mod windows_apply {
         previous_state: String,
         previous_startup_type: String,
     ) -> RecoveryResult {
+        // Saved inputs are validated against the legal service state domain
+        // before the Service Control Manager is touched.
+        let request = match super::input_validation::parse_service_restore_request(
+            &previous_state,
+            &previous_startup_type,
+        ) {
+            Some(request) => request,
+            None => {
+                return recovery_result(
+                    optimization_id,
+                    "failed",
+                    &previous_state,
+                    &previous_state,
+                    "Unknown",
+                    &previous_startup_type,
+                    format!("{label} recovery was not applied."),
+                    Some("Saved service state is not restorable.".to_string()),
+                );
+            }
+        };
+
         let service_name = wide(service_name);
         let manager = unsafe { OpenSCManagerW(null(), null(), SC_MANAGER_CONNECT) };
 
@@ -1689,7 +2181,7 @@ mod windows_apply {
         }
 
         let service = ServiceHandle(service);
-        let startup_type = startup_type_code(&previous_startup_type, &previous_state);
+        let startup_type = startup_type_code(request.startup_type, request.state);
         let ok = unsafe {
             ChangeServiceConfigW(
                 service.0,
@@ -1723,11 +2215,11 @@ mod windows_apply {
             );
         }
 
-        if previous_state == "Running" {
+        if request.state == "Running" {
             unsafe {
                 StartServiceW(service.0, 0, null());
             }
-        } else if previous_state == "Stopped" || previous_state == "Disabled" {
+        } else if request.state == "Stopped" || request.state == "Disabled" {
             let current = query_snapshot(service.0, label).ok();
             if current.as_ref().is_some_and(|snapshot| snapshot.state == "Running") {
                 let mut service_status: SERVICE_STATUS = unsafe { std::mem::zeroed() };
@@ -1737,31 +2229,52 @@ mod windows_apply {
             }
         }
 
-        let after = wait_for_state(service.0, &previous_state, label).unwrap_or(ServiceSnapshot {
-            state: "Unknown".to_string(),
-            startup_type: previous_startup_type.clone(),
-        });
-        let success = after.state == previous_state
-            || (previous_state == "Stopped" && after.state != "Running" && after.startup_type != "Disabled");
+        // Success must be confirmed by a real re-query matching the restored
+        // startup type and expected state; a failed re-query is reported as
+        // a failure instead of being masked with a fabricated snapshot.
+        let requery = match wait_for_state(service.0, request.state, label) {
+            Some(snapshot) => Ok((snapshot.state, snapshot.startup_type)),
+            None => Err(format!(
+                "Unable to query {label} after recovery to confirm the restored state."
+            )),
+        };
 
-        recovery_result(
-            optimization_id,
-            if success { "success" } else { "failed" },
-            &previous_state,
-            &previous_state,
-            &after.state,
-            &previous_startup_type,
-            if success {
-                format!("{label} was restored to the saved previous state.")
-            } else {
-                format!("{label} recovery expected {previous_state}, but detected {}.", after.state)
-            },
-            if success {
-                None
-            } else {
-                Some("Recovered state did not match the saved previous state.".to_string())
-            },
-        )
+        match super::input_validation::confirm_service_restore(
+            requery,
+            request.state,
+            request.startup_type,
+        ) {
+            super::input_validation::RestoreConfirmation::Confirmed { state } => recovery_result(
+                optimization_id,
+                "success",
+                &previous_state,
+                &previous_state,
+                &state,
+                &previous_startup_type,
+                format!("{label} was restored to the saved previous state."),
+                None,
+            ),
+            super::input_validation::RestoreConfirmation::Mismatch { state } => recovery_result(
+                optimization_id,
+                "failed",
+                &previous_state,
+                &previous_state,
+                &state,
+                &previous_startup_type,
+                format!("{label} recovery expected {previous_state}, but detected {state}."),
+                Some("Recovered state did not match the saved previous state.".to_string()),
+            ),
+            super::input_validation::RestoreConfirmation::QueryFailed { error } => recovery_result(
+                optimization_id,
+                "failed",
+                &previous_state,
+                &previous_state,
+                "Unknown",
+                &previous_startup_type,
+                format!("{label} recovery could not be confirmed."),
+                Some(error),
+            ),
+        }
     }
 
     pub fn windows_search() -> ApplyResult {
@@ -1833,12 +2346,16 @@ mod windows_apply {
     }
 
     pub fn restore_hags(previous_state: String, previous_registry_value: String) -> RecoveryResult {
-        let recovery = if previous_registry_value == "Missing" {
-            delete_hags_value()
-        } else if let Some(value) = parse_hags_raw_value(&previous_registry_value) {
-            set_hags_value(value)
-        } else {
-            Err("Saved HAGS registry value is not restorable.".to_string())
+        // Saved inputs are validated against the legal HAGS domain (state
+        // Enabled/Disabled/Unknown, value 1/2/Missing) before any registry
+        // write happens.
+        let expected_state = super::input_validation::parse_registry_previous_state(&previous_state);
+        let action = super::input_validation::parse_hags_restore_action(&previous_registry_value);
+
+        let recovery = match (expected_state, action) {
+            (Some(_), Some(super::input_validation::RegistryRestoreAction::Delete)) => delete_hags_value(),
+            (Some(_), Some(super::input_validation::RegistryRestoreAction::Set(value))) => set_hags_value(value),
+            _ => Err("Saved HAGS registry value is not restorable.".to_string()),
         };
 
         if let Err(message) = recovery {
@@ -1858,30 +2375,44 @@ mod windows_apply {
             );
         }
 
-        let after = query_hags_snapshot().unwrap_or(HagsSnapshot {
-            state: "Unknown".to_string(),
-            raw_value: previous_registry_value.clone(),
-        });
-        let success = after.state == previous_state;
+        // expected_state is always Some here because the recovery above only
+        // runs after both validations pass.
+        let expected_state = expected_state.unwrap_or("Unknown");
+        let requery = query_hags_snapshot().map(|snapshot| snapshot.state);
 
-        recovery_result(
-            "hags",
-            if success { "success" } else { "failed" },
-            &previous_state,
-            &previous_state,
-            &after.state,
-            &previous_registry_value,
-            if success {
-                "HAGS was restored to the saved previous state. A restart may be required for full effect.".to_string()
-            } else {
-                format!("HAGS recovery expected {previous_state}, but detected {}.", after.state)
-            },
-            if success {
-                None
-            } else {
-                Some("Recovered state did not match the saved previous state.".to_string())
-            },
-        )
+        match super::input_validation::confirm_registry_restore(requery, expected_state) {
+            super::input_validation::RestoreConfirmation::Confirmed { state } => recovery_result(
+                "hags",
+                "success",
+                &previous_state,
+                &previous_state,
+                &state,
+                &previous_registry_value,
+                "HAGS was restored to the saved previous state. A restart may be required for full effect."
+                    .to_string(),
+                None,
+            ),
+            super::input_validation::RestoreConfirmation::Mismatch { state } => recovery_result(
+                "hags",
+                "failed",
+                &previous_state,
+                &previous_state,
+                &state,
+                &previous_registry_value,
+                format!("HAGS recovery expected {previous_state}, but detected {state}."),
+                Some("Recovered state did not match the saved previous state.".to_string()),
+            ),
+            super::input_validation::RestoreConfirmation::QueryFailed { error } => recovery_result(
+                "hags",
+                "failed",
+                &previous_state,
+                &previous_state,
+                "Unknown",
+                &previous_registry_value,
+                "HAGS recovery could not be confirmed.".to_string(),
+                Some(error),
+            ),
+        }
     }
 
     pub fn power_plan() -> ApplyResult {
@@ -2281,11 +2812,6 @@ mod windows_apply {
         write_source: String,
     }
 
-    enum DeliveryOptimizationRestoreAction {
-        Set(u32),
-        Delete,
-    }
-
     fn state_from_delivery_optimization_value(value: Option<u32>) -> String {
         match value {
             Some(0) | Some(100) => "Disabled".to_string(),
@@ -2438,22 +2964,6 @@ mod windows_apply {
         Err(format!("Delete Delivery Optimization registry value failed with Windows error {status}."))
     }
 
-    fn parse_delivery_optimization_raw(raw: &str) -> Result<(String, DeliveryOptimizationRestoreAction), String> {
-        if raw.ends_with(":Missing") {
-            let source = raw.trim_end_matches(":Missing").to_string();
-            return Ok((source, DeliveryOptimizationRestoreAction::Delete));
-        }
-
-        if let Some((source, value_str)) = raw.split_once(":DWORD:") {
-            let value = value_str
-                .parse::<u32>()
-                .map_err(|_| "Saved Delivery Optimization registry value is not restorable.".to_string())?;
-            return Ok((source.to_string(), DeliveryOptimizationRestoreAction::Set(value)));
-        }
-
-        Err("Saved Delivery Optimization registry value is not restorable.".to_string())
-    }
-
     pub fn delivery_optimization() -> ApplyResult {
         let before = match query_delivery_optimization_snapshot() {
             Ok(snapshot) => snapshot,
@@ -2511,12 +3021,20 @@ mod windows_apply {
     }
 
     pub fn restore_delivery_optimization(previous_state: String, previous_registry_value: String) -> RecoveryResult {
-        let recovery = match parse_delivery_optimization_raw(&previous_registry_value) {
-            Ok((source, DeliveryOptimizationRestoreAction::Delete)) => delete_delivery_optimization_value(&source),
-            Ok((source, DeliveryOptimizationRestoreAction::Set(value))) => {
-                set_delivery_optimization_value(&source, value)
+        // Saved inputs are validated against the legal Delivery Optimization
+        // domain (source Policy/Config, DODownloadMode 0/1/2/3/99/100 or
+        // Missing, state Enabled/Disabled/Unknown) before any registry write.
+        let expected_state = super::input_validation::parse_registry_previous_state(&previous_state);
+        let parsed = super::input_validation::parse_delivery_optimization_restore(&previous_registry_value);
+
+        let recovery = match (expected_state, parsed) {
+            (Some(_), Some((source, super::input_validation::RegistryRestoreAction::Delete))) => {
+                delete_delivery_optimization_value(source)
             }
-            Err(message) => Err(message),
+            (Some(_), Some((source, super::input_validation::RegistryRestoreAction::Set(value)))) => {
+                set_delivery_optimization_value(source, value)
+            }
+            _ => Err("Saved Delivery Optimization registry value is not restorable.".to_string()),
         };
 
         if let Err(message) = recovery {
@@ -2536,34 +3054,45 @@ mod windows_apply {
             );
         }
 
-        let after = query_delivery_optimization_snapshot().unwrap_or(DeliveryOptimizationSnapshot {
-            state: "Unknown".to_string(),
-            raw_value: previous_registry_value.clone(),
-            write_source: "Config".to_string(),
-        });
-        let success = after.state == previous_state;
+        // expected_state is always Some here because the recovery above only
+        // runs after both validations pass.
+        let expected_state = expected_state.unwrap_or("Unknown");
+        let requery = query_delivery_optimization_snapshot().map(|snapshot| snapshot.state);
 
-        recovery_result(
-            "delivery-optimization",
-            if success { "success" } else { "failed" },
-            &previous_state,
-            &previous_state,
-            &after.state,
-            &previous_registry_value,
-            if success {
-                "Delivery Optimization was restored to the saved previous state.".to_string()
-            } else {
+        match super::input_validation::confirm_registry_restore(requery, expected_state) {
+            super::input_validation::RestoreConfirmation::Confirmed { state } => recovery_result(
+                "delivery-optimization",
+                "success",
+                &previous_state,
+                &previous_state,
+                &state,
+                &previous_registry_value,
+                "Delivery Optimization was restored to the saved previous state.".to_string(),
+                None,
+            ),
+            super::input_validation::RestoreConfirmation::Mismatch { state } => recovery_result(
+                "delivery-optimization",
+                "failed",
+                &previous_state,
+                &previous_state,
+                &state,
+                &previous_registry_value,
                 format!(
-                    "Delivery Optimization recovery expected {previous_state}, but detected {}.",
-                    after.state
-                )
-            },
-            if success {
-                None
-            } else {
-                Some("Recovered state did not match the saved previous state.".to_string())
-            },
-        )
+                    "Delivery Optimization recovery expected {previous_state}, but detected {state}."
+                ),
+                Some("Recovered state did not match the saved previous state.".to_string()),
+            ),
+            super::input_validation::RestoreConfirmation::QueryFailed { error } => recovery_result(
+                "delivery-optimization",
+                "failed",
+                &previous_state,
+                &previous_state,
+                "Unknown",
+                &previous_registry_value,
+                "Delivery Optimization recovery could not be confirmed.".to_string(),
+                Some(error),
+            ),
+        }
     }
 }
 
