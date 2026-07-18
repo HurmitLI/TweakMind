@@ -241,6 +241,17 @@ mod input_validation {
         requery: Result<String, String>,
         expected_state: &str,
     ) -> RestoreConfirmation {
+        confirm_apply_state(requery, expected_state)
+    }
+
+    /// Confirms that a post-apply re-detection matches the intended target
+    /// state. A failed re-query or a mismatched state must never be reported
+    /// as success, and callers must never fabricate a target snapshot when
+    /// the re-query fails.
+    pub fn confirm_apply_state(
+        requery: Result<String, String>,
+        expected_state: &str,
+    ) -> RestoreConfirmation {
         match requery {
             Ok(state) => {
                 if state == expected_state {
@@ -635,6 +646,71 @@ mod input_validation {
                 outcome,
                 RestoreConfirmation::QueryFailed {
                     error: "Windows error 5".to_string()
+                }
+            );
+        }
+
+        #[test]
+        fn apply_state_confirms_only_an_exact_match() {
+            assert_eq!(
+                confirm_apply_state(Ok("Enabled".to_string()), "Enabled"),
+                RestoreConfirmation::Confirmed {
+                    state: "Enabled".to_string()
+                }
+            );
+            assert_eq!(
+                confirm_apply_state(Ok("Disabled".to_string()), "Disabled"),
+                RestoreConfirmation::Confirmed {
+                    state: "Disabled".to_string()
+                }
+            );
+            assert_eq!(
+                confirm_apply_state(Ok("High Performance".to_string()), "High Performance"),
+                RestoreConfirmation::Confirmed {
+                    state: "High Performance".to_string()
+                }
+            );
+        }
+
+        #[test]
+        fn apply_state_reports_mismatch_for_wrong_detected_state() {
+            assert_eq!(
+                confirm_apply_state(Ok("Disabled".to_string()), "Enabled"),
+                RestoreConfirmation::Mismatch {
+                    state: "Disabled".to_string()
+                }
+            );
+            assert_eq!(
+                confirm_apply_state(Ok("Enabled".to_string()), "Disabled"),
+                RestoreConfirmation::Mismatch {
+                    state: "Enabled".to_string()
+                }
+            );
+            assert_eq!(
+                confirm_apply_state(Ok("Balanced".to_string()), "High Performance"),
+                RestoreConfirmation::Mismatch {
+                    state: "Balanced".to_string()
+                }
+            );
+            assert_eq!(
+                confirm_apply_state(Ok("Unknown".to_string()), "Enabled"),
+                RestoreConfirmation::Mismatch {
+                    state: "Unknown".to_string()
+                }
+            );
+        }
+
+        #[test]
+        fn apply_state_never_reports_success_when_the_requery_fails() {
+            let outcome = confirm_apply_state(
+                Err("Read Game Mode registry value failed with Windows error 5.".to_string()),
+                "Enabled",
+            );
+
+            assert_eq!(
+                outcome,
+                RestoreConfirmation::QueryFailed {
+                    error: "Read Game Mode registry value failed with Windows error 5.".to_string()
                 }
             );
         }
@@ -2321,28 +2397,39 @@ mod windows_apply {
             );
         }
 
-        let after = query_hags_snapshot().unwrap_or(HagsSnapshot {
-            state: "Enabled".to_string(),
-            raw_value: "DWORD:1".to_string(),
-        });
+        // Success requires a real re-query that detects Enabled; a failed
+        // re-query must never be masked with a fabricated target snapshot.
+        let requery = query_hags_snapshot().map(|snapshot| snapshot.state);
 
-        apply_result(
-            "hags",
-            if after.state == "Enabled" { "success" } else { "failed" },
-            &before.state,
-            &after.state,
-            &before.raw_value,
-            if after.state == "Enabled" {
-                "HAGS was enabled through the native Tauri executor. A restart may be required for full effect.".to_string()
-            } else {
-                format!("HAGS apply expected Enabled, but detected {}.", after.state)
-            },
-            if after.state == "Enabled" {
-                None
-            } else {
-                Some("Applied registry value did not produce the expected detected state.".to_string())
-            },
-        )
+        match super::input_validation::confirm_apply_state(requery, "Enabled") {
+            super::input_validation::RestoreConfirmation::Confirmed { state } => apply_result(
+                "hags",
+                "success",
+                &before.state,
+                &state,
+                &before.raw_value,
+                "HAGS was enabled through the native Tauri executor. A restart may be required for full effect.".to_string(),
+                None,
+            ),
+            super::input_validation::RestoreConfirmation::Mismatch { state } => apply_result(
+                "hags",
+                "failed",
+                &before.state,
+                &state,
+                &before.raw_value,
+                format!("HAGS apply expected Enabled, but detected {state}."),
+                Some("Applied registry value did not produce the expected detected state.".to_string()),
+            ),
+            super::input_validation::RestoreConfirmation::QueryFailed { error } => apply_result(
+                "hags",
+                "failed",
+                &before.state,
+                "Unknown",
+                &before.raw_value,
+                "HAGS could not be confirmed after apply.".to_string(),
+                Some(error),
+            ),
+        }
     }
 
     pub fn restore_hags(previous_state: String, previous_registry_value: String) -> RecoveryResult {
@@ -2477,37 +2564,68 @@ mod windows_apply {
             );
         }
 
-        let after = super::power_plan_ops::query_active_power_plan().unwrap_or(super::power_plan_ops::PowerPlanSnapshot {
-            state: "Enabled".to_string(),
-            label: "High Performance".to_string(),
-            guid_raw: format!(
-                "GUID:{{{}}}",
-                super::power_plan_ops::recommended_high_performance_guid()
+        // Success requires a real re-query that confirms the High Performance
+        // scheme GUID; a failed re-query must never be masked with a
+        // fabricated High Performance snapshot. Other Enabled schemes
+        // (e.g. Ultimate Performance) are reported as a mismatch via label.
+        match super::power_plan_ops::query_active_power_plan() {
+            Err(error) => apply_result(
+                "power-plan",
+                "failed",
+                &before.state,
+                "Unknown",
+                &before.guid_raw,
+                "Power plan could not be confirmed after apply.".to_string(),
+                Some(error),
             ),
-            message: "High performance power plan detected.".to_string(),
-        });
-        let success = super::power_plan_ops::is_high_performance(&after);
+            Ok(snapshot) => {
+                let detected = if super::power_plan_ops::is_high_performance(&snapshot) {
+                    "High Performance".to_string()
+                } else {
+                    snapshot.label.clone()
+                };
 
-        apply_result(
-            "power-plan",
-            if success { "success" } else { "failed" },
-            &before.state,
-            &after.state,
-            &before.guid_raw,
-            if success {
-                "Power plan was switched to High performance through the native Tauri executor.".to_string()
-            } else {
-                format!(
-                    "Power plan apply expected High performance, but detected {}.",
-                    after.label
-                )
-            },
-            if success {
-                None
-            } else {
-                Some("Applied power plan did not produce the expected detected state.".to_string())
-            },
-        )
+                match super::input_validation::confirm_apply_state(Ok(detected), "High Performance")
+                {
+                    super::input_validation::RestoreConfirmation::Confirmed { .. } => apply_result(
+                        "power-plan",
+                        "success",
+                        &before.state,
+                        &snapshot.state,
+                        &before.guid_raw,
+                        "Power plan was switched to High performance through the native Tauri executor.".to_string(),
+                        None,
+                    ),
+                    super::input_validation::RestoreConfirmation::Mismatch { state: label } => {
+                        apply_result(
+                            "power-plan",
+                            "failed",
+                            &before.state,
+                            &snapshot.state,
+                            &before.guid_raw,
+                            format!(
+                                "Power plan apply expected High performance, but detected {label}."
+                            ),
+                            Some(
+                                "Applied power plan did not produce the expected detected state."
+                                    .to_string(),
+                            ),
+                        )
+                    }
+                    super::input_validation::RestoreConfirmation::QueryFailed { error } => {
+                        apply_result(
+                            "power-plan",
+                            "failed",
+                            &before.state,
+                            "Unknown",
+                            &before.guid_raw,
+                            "Power plan could not be confirmed after apply.".to_string(),
+                            Some(error),
+                        )
+                    }
+                }
+            }
+        }
     }
 
     pub fn restore_power_plan(previous_state: String, previous_guid_raw: String) -> RecoveryResult {
@@ -2616,28 +2734,39 @@ mod windows_apply {
             );
         }
 
-        let after = query_game_mode_snapshot().unwrap_or(GameModeSnapshot {
-            state: "Enabled".to_string(),
-            raw_value: "DWORD:1".to_string(),
-        });
+        // Success requires a real re-query that detects Enabled; a failed
+        // re-query must never be masked with a fabricated target snapshot.
+        let requery = query_game_mode_snapshot().map(|snapshot| snapshot.state);
 
-        apply_result(
-            "game-mode",
-            if after.state == "Enabled" { "success" } else { "failed" },
-            &before.state,
-            &after.state,
-            &before.raw_value,
-            if after.state == "Enabled" {
-                "Game Mode was enabled through the native Tauri executor.".to_string()
-            } else {
-                format!("Game Mode apply expected Enabled, but detected {}.", after.state)
-            },
-            if after.state == "Enabled" {
-                None
-            } else {
-                Some("Applied registry value did not produce the expected detected state.".to_string())
-            },
-        )
+        match super::input_validation::confirm_apply_state(requery, "Enabled") {
+            super::input_validation::RestoreConfirmation::Confirmed { state } => apply_result(
+                "game-mode",
+                "success",
+                &before.state,
+                &state,
+                &before.raw_value,
+                "Game Mode was enabled through the native Tauri executor.".to_string(),
+                None,
+            ),
+            super::input_validation::RestoreConfirmation::Mismatch { state } => apply_result(
+                "game-mode",
+                "failed",
+                &before.state,
+                &state,
+                &before.raw_value,
+                format!("Game Mode apply expected Enabled, but detected {state}."),
+                Some("Applied registry value did not produce the expected detected state.".to_string()),
+            ),
+            super::input_validation::RestoreConfirmation::QueryFailed { error } => apply_result(
+                "game-mode",
+                "failed",
+                &before.state,
+                "Unknown",
+                &before.raw_value,
+                "Game Mode could not be confirmed after apply.".to_string(),
+                Some(error),
+            ),
+        }
     }
 
     pub fn restore_game_mode(previous_state: String, previous_registry_value: String) -> RecoveryResult {
@@ -2720,31 +2849,39 @@ mod windows_apply {
             );
         }
 
-        let after = query_core_isolation_snapshot().unwrap_or(CoreIsolationSnapshot {
-            state: "Enabled".to_string(),
-            raw_value: "DWORD:1".to_string(),
-        });
+        // Success requires a real re-query that detects Enabled; a failed
+        // re-query must never be masked with a fabricated target snapshot.
+        let requery = query_core_isolation_snapshot().map(|snapshot| snapshot.state);
 
-        apply_result(
-            "core-isolation",
-            if after.state == "Enabled" { "success" } else { "failed" },
-            &before.state,
-            &after.state,
-            &before.raw_value,
-            if after.state == "Enabled" {
-                "Core Isolation (Memory Integrity) was enabled through the native Tauri executor. A restart may be required for full effect.".to_string()
-            } else {
-                format!(
-                    "Core Isolation apply expected Enabled, but detected {}.",
-                    after.state
-                )
-            },
-            if after.state == "Enabled" {
-                None
-            } else {
-                Some("Applied registry value did not produce the expected detected state.".to_string())
-            },
-        )
+        match super::input_validation::confirm_apply_state(requery, "Enabled") {
+            super::input_validation::RestoreConfirmation::Confirmed { state } => apply_result(
+                "core-isolation",
+                "success",
+                &before.state,
+                &state,
+                &before.raw_value,
+                "Core Isolation (Memory Integrity) was enabled through the native Tauri executor. A restart may be required for full effect.".to_string(),
+                None,
+            ),
+            super::input_validation::RestoreConfirmation::Mismatch { state } => apply_result(
+                "core-isolation",
+                "failed",
+                &before.state,
+                &state,
+                &before.raw_value,
+                format!("Core Isolation apply expected Enabled, but detected {state}."),
+                Some("Applied registry value did not produce the expected detected state.".to_string()),
+            ),
+            super::input_validation::RestoreConfirmation::QueryFailed { error } => apply_result(
+                "core-isolation",
+                "failed",
+                &before.state,
+                "Unknown",
+                &before.raw_value,
+                "Core Isolation could not be confirmed after apply.".to_string(),
+                Some(error),
+            ),
+        }
     }
 
     pub fn restore_core_isolation(previous_state: String, previous_registry_value: String) -> RecoveryResult {
@@ -2992,32 +3129,39 @@ mod windows_apply {
             );
         }
 
-        let after = query_delivery_optimization_snapshot().unwrap_or(DeliveryOptimizationSnapshot {
-            state: "Disabled".to_string(),
-            raw_value: encode_delivery_optimization_raw(&before.write_source, Some(DO_APPLY_TARGET)),
-            write_source: before.write_source.clone(),
-        });
+        // Success requires a real re-query that detects Disabled; a failed
+        // re-query must never be masked with a fabricated target snapshot.
+        let requery = query_delivery_optimization_snapshot().map(|snapshot| snapshot.state);
 
-        apply_result(
-            "delivery-optimization",
-            if after.state == "Disabled" { "success" } else { "failed" },
-            &before.state,
-            &after.state,
-            &before.raw_value,
-            if after.state == "Disabled" {
-                "Delivery Optimization was limited to HTTP-only mode (no peer sharing) through the native Tauri executor.".to_string()
-            } else {
-                format!(
-                    "Delivery Optimization apply expected Disabled, but detected {}.",
-                    after.state
-                )
-            },
-            if after.state == "Disabled" {
-                None
-            } else {
-                Some("Applied registry value did not produce the expected detected state.".to_string())
-            },
-        )
+        match super::input_validation::confirm_apply_state(requery, "Disabled") {
+            super::input_validation::RestoreConfirmation::Confirmed { state } => apply_result(
+                "delivery-optimization",
+                "success",
+                &before.state,
+                &state,
+                &before.raw_value,
+                "Delivery Optimization was limited to HTTP-only mode (no peer sharing) through the native Tauri executor.".to_string(),
+                None,
+            ),
+            super::input_validation::RestoreConfirmation::Mismatch { state } => apply_result(
+                "delivery-optimization",
+                "failed",
+                &before.state,
+                &state,
+                &before.raw_value,
+                format!("Delivery Optimization apply expected Disabled, but detected {state}."),
+                Some("Applied registry value did not produce the expected detected state.".to_string()),
+            ),
+            super::input_validation::RestoreConfirmation::QueryFailed { error } => apply_result(
+                "delivery-optimization",
+                "failed",
+                &before.state,
+                "Unknown",
+                &before.raw_value,
+                "Delivery Optimization could not be confirmed after apply.".to_string(),
+                Some(error),
+            ),
+        }
     }
 
     pub fn restore_delivery_optimization(previous_state: String, previous_registry_value: String) -> RecoveryResult {
