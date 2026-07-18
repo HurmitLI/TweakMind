@@ -1,9 +1,27 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OptimizationId, OptimizationRecommendation } from "../../types/optimization";
+import { LocalizationService } from "../localization/LocalizationService";
 import type { RuntimeScanSnapshot, RuntimeScanStatus } from "../scan/RuntimeScanModel";
 import type { OptimizationScanResult, ScanResult } from "../scan/ScanResult";
+import { SettingsService } from "../settings/SettingsService";
 import type { DecisionReportItem } from "./DecisionReportTypes";
 import { DecisionReportService } from "./DecisionReportService";
+
+function stubMatchMedia() {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn()
+    }))
+  });
+}
 
 function buildRuntimeScan(
   optimizationId: OptimizationId,
@@ -52,9 +70,9 @@ function buildScanResult(entries: OptimizationScanResult[]): ScanResult {
       optional: 0,
       recommended: 0
     },
-    estimatedImpact: "Medium",
-    estimatedRisk: "Low",
-    executionEstimate: "About 1 minute"
+    estimatedImpact: "Unknown",
+    estimatedRisk: "Unknown",
+    executionEstimate: "Unknown"
   };
 }
 
@@ -114,6 +132,12 @@ describe("buildModel", () => {
       "unavailable"
     ]);
     expect(model.sections.every((section) => section.items.length === 0)).toBe(true);
+    expect(model.hero).toEqual({
+      totalRecommendations: 0,
+      estimatedImpact: "Unknown",
+      estimatedRisk: "Unknown",
+      estimatedExecutionMinutes: null
+    });
   });
 
   it("classifies items into sections by recommendation and scan status", () => {
@@ -294,5 +318,130 @@ describe("summarizeSelection", () => {
     expect(single.estimatedExecutionTime.length).toBeGreaterThan(0);
     expect(multiple.estimatedExecutionTime.length).toBeGreaterThan(0);
     expect(multiple.estimatedExecutionTime).not.toBe(single.estimatedExecutionTime);
+  });
+
+  it("does not invent execution time when selected minutes are unknown", () => {
+    const unknownTime = buildReportItem({
+      id: "hags",
+      canRealApply: true,
+      selectable: true,
+      estimatedMinutes: null
+    });
+    const summary = DecisionReportService.summarizeSelection(["hags"], [unknownTime]);
+
+    expect(summary.estimatedExecutionTime).toBe(
+      LocalizationService.translate("report.metric.pendingEvaluation")
+    );
+  });
+});
+
+describe("summarizeHeroMetrics", () => {
+  beforeEach(() => {
+    stubMatchMedia();
+    SettingsService.updateSettings({ language: "en" });
+  });
+
+  afterEach(() => {
+    SettingsService.updateSettings({ language: "en" });
+  });
+
+  it("derives highest known impact and risk without hardcoded Medium/Low placeholders", () => {
+    const hero = DecisionReportService.summarizeHeroMetrics([
+      buildReportItem({
+        id: "windows-search",
+        expectedBenefit: "Medium",
+        riskLevel: "Low",
+        section: "recommended",
+        estimatedMinutes: 1
+      }),
+      buildReportItem({
+        id: "core-isolation",
+        expectedBenefit: "Low",
+        riskLevel: "High",
+        section: "optional",
+        estimatedMinutes: 5
+      }),
+      buildReportItem({
+        id: "startup-apps",
+        expectedBenefit: "Unknown",
+        riskLevel: "Unknown",
+        section: "keep-current",
+        estimatedMinutes: null
+      })
+    ]);
+
+    expect(hero.totalRecommendations).toBe(3);
+    expect(hero.estimatedImpact).toBe("Medium");
+    expect(hero.estimatedRisk).toBe("High");
+    expect(hero.estimatedExecutionMinutes).toBe(1);
+  });
+
+  it("returns unknown/pending hero values for empty or unknown-only inputs", () => {
+    expect(DecisionReportService.summarizeHeroMetrics([])).toEqual({
+      totalRecommendations: 0,
+      estimatedImpact: "Unknown",
+      estimatedRisk: "Unknown",
+      estimatedExecutionMinutes: null
+    });
+
+    const unknownOnly = DecisionReportService.summarizeHeroMetrics([
+      buildReportItem({
+        expectedBenefit: "Unknown",
+        riskLevel: "Unknown",
+        section: "recommended",
+        estimatedMinutes: null
+      })
+    ]);
+
+    expect(unknownOnly.estimatedImpact).toBe("Unknown");
+    expect(unknownOnly.estimatedRisk).toBe("Unknown");
+    expect(unknownOnly.estimatedExecutionMinutes).toBeNull();
+  });
+
+  it("does not invent execution minutes when any recommended item lacks a known estimate", () => {
+    const hero = DecisionReportService.summarizeHeroMetrics([
+      buildReportItem({
+        id: "windows-search",
+        section: "recommended",
+        estimatedMinutes: 1
+      }),
+      buildReportItem({
+        id: "hags",
+        section: "recommended",
+        estimatedMinutes: null
+      })
+    ]);
+
+    expect(hero.estimatedExecutionMinutes).toBeNull();
+  });
+
+  it("exposes localized pending evaluation text after language switches", () => {
+    const hero = DecisionReportService.summarizeHeroMetrics([]);
+    expect(hero.estimatedImpact).toBe("Unknown");
+    expect(hero.estimatedRisk).toBe("Unknown");
+    expect(hero.estimatedExecutionMinutes).toBeNull();
+
+    SettingsService.updateSettings({ language: "zh-CN" });
+    expect(LocalizationService.translate("report.metric.pendingEvaluation")).toBe("待评估");
+    expect(LocalizationService.translate("common.value.unknown")).toBe("未知");
+
+    SettingsService.updateSettings({ language: "en" });
+    expect(LocalizationService.translate("report.metric.pendingEvaluation")).toBe("Pending evaluation");
+    expect(LocalizationService.translate("report.metric.pendingEvaluation")).not.toBe("Medium");
+    expect(LocalizationService.translate("report.metric.pendingEvaluation")).not.toBe("3 min");
+  });
+
+  it("builds hero summary on the report model from real scan items", () => {
+    const model = DecisionReportService.buildModel(
+      buildScanResult([
+        buildScanEntry("windows-search", "Recommended"),
+        buildScanEntry("core-isolation", "Optional")
+      ])
+    );
+
+    expect(model.hero.totalRecommendations).toBe(2);
+    expect(model.hero.estimatedImpact).not.toBe("Unknown");
+    expect(model.hero.estimatedRisk).toBe("High");
+    expect(model.hero.estimatedExecutionMinutes).toBeTypeOf("number");
   });
 });

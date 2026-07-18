@@ -18,6 +18,7 @@ import { WindowsOptimizationService } from "../windows/WindowsOptimizationServic
 import type {
   DecisionReportApplyState,
   DecisionReportFilterId,
+  DecisionReportHeroSummary,
   DecisionReportItem,
   DecisionReportModel,
   DecisionReportSection,
@@ -73,13 +74,64 @@ const benefitOrder: Record<OptimizationBenefitLevel | "Unknown", number> = {
   Unknown: 3
 };
 
-function parseEstimatedMinutes(value: string | undefined): number {
+function parseEstimatedMinutes(value: string | undefined): number | null {
   if (!value || value === "Unknown") {
-    return 1;
+    return null;
   }
 
   const match = value.match(/(\d+)/);
-  return match ? Number(match[1]) : 1;
+  return match ? Number(match[1]) : null;
+}
+
+function highestKnownLevel<T extends "Low" | "Medium" | "High">(
+  values: Array<T | "Unknown">,
+  order: Record<T | "Unknown", number>
+): T | "Unknown" {
+  return values.reduce<T | "Unknown">((current, value) => {
+    if (value === "Unknown") {
+      return current;
+    }
+
+    if (current === "Unknown") {
+      return value;
+    }
+
+    return order[value] < order[current] ? value : current;
+  }, "Unknown");
+}
+
+function summarizeHero(items: DecisionReportItem[]): DecisionReportHeroSummary {
+  const estimatedImpact = highestKnownLevel(
+    items.map((item) => item.expectedBenefit),
+    benefitOrder
+  );
+  const estimatedRisk = highestKnownLevel(
+    items.map((item) => item.riskLevel),
+    riskOrder
+  );
+
+  const recommendedItems = items.filter((item) => item.section === "recommended");
+  const recommendedMinutes = recommendedItems.map((item) => item.estimatedMinutes);
+  const estimatedExecutionMinutes =
+    recommendedItems.length > 0 && recommendedMinutes.every((value): value is number => value !== null)
+      ? recommendedMinutes.reduce((total, value) => total + value, 0)
+      : null;
+
+  return {
+    totalRecommendations: items.length,
+    estimatedImpact,
+    estimatedRisk,
+    estimatedExecutionMinutes
+  };
+}
+
+function emptyHeroSummary(): DecisionReportHeroSummary {
+  return {
+    totalRecommendations: 0,
+    estimatedImpact: "Unknown",
+    estimatedRisk: "Unknown",
+    estimatedExecutionMinutes: null
+  };
 }
 
 function classifySection(
@@ -182,6 +234,11 @@ function buildSections(items: DecisionReportItem[]): DecisionReportSection[] {
 }
 
 export class DecisionReportService {
+  /** Deterministic hero metrics from report items; never invents missing levels or times. */
+  static summarizeHeroMetrics(items: DecisionReportItem[]): DecisionReportHeroSummary {
+    return summarizeHero(items);
+  }
+
   static buildModel(scanResult: ScanResult | null, language: AppLanguage = LocalizationService.getLanguage()): DecisionReportModel {
     void language;
     if (!scanResult) {
@@ -192,7 +249,8 @@ export class DecisionReportService {
           ...getSectionMeta(id),
           items: []
         })),
-        allItems: []
+        allItems: [],
+        hero: emptyHeroSummary()
       };
     }
 
@@ -205,7 +263,8 @@ export class DecisionReportService {
     return {
       hasScan: true,
       sections: buildSections(allItems),
-      allItems
+      allItems,
+      hero: summarizeHero(allItems)
     };
   }
 
@@ -262,13 +321,20 @@ export class DecisionReportService {
       return riskOrder[item.riskLevel] < riskOrder[current] ? item.riskLevel : current;
     }, "None");
 
-    const estimatedMinutes = selectedItems.reduce((total, item) => total + item.estimatedMinutes, 0);
+    const selectedMinutes = selectedItems.map((item) => item.estimatedMinutes);
+    const allSelectedMinutesKnown =
+      selectedItems.length > 0 && selectedMinutes.every((value): value is number => value !== null);
+    const estimatedMinutes = allSelectedMinutesKnown
+      ? selectedMinutes.reduce((total, value) => total + value, 0)
+      : null;
     const estimatedExecutionTime =
       selectedItems.length === 0
         ? LocalizationService.translate("report.selection.noneSelected")
-        : estimatedMinutes <= 1
-          ? LocalizationService.translate("report.selection.aboutOneMinute")
-          : LocalizationService.translate("report.selection.aboutMinutes", { count: estimatedMinutes });
+        : estimatedMinutes === null
+          ? LocalizationService.translate("report.metric.pendingEvaluation")
+          : estimatedMinutes <= 1
+            ? LocalizationService.translate("report.selection.aboutOneMinute")
+            : LocalizationService.translate("report.selection.aboutMinutes", { count: estimatedMinutes });
 
     let applyState: DecisionReportApplyState = "disabled-none";
     let applyMessage = LocalizationService.translate("report.selection.applyMessage.selectSupported");

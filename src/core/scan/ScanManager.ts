@@ -121,9 +121,10 @@ export class ScanManager {
       duration: Date.now() - startedAt,
       optimizationResults,
       recommendationSummary: buildRecommendationSummary(optimizationResults),
-      estimatedImpact: "Medium",
-      estimatedRisk: "Low",
-      executionEstimate: "3 min"
+      // Hero metrics are derived from DecisionReport items; do not persist placeholders.
+      estimatedImpact: "Unknown",
+      estimatedRisk: "Unknown",
+      executionEstimate: "Unknown"
     };
 
     storeScanResult(scanResult);
