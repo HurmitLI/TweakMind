@@ -195,7 +195,10 @@ mod input_validation {
             assert_eq!(parsed.data1, 0x381b4222);
             assert_eq!(parsed.data2, 0xf694);
             assert_eq!(parsed.data3, 0x41f0);
-            assert_eq!(parsed.data4, [0x96, 0x85, 0xff, 0x1b, 0xb1, 0x92, 0x0f, 0xa1]);
+            assert_eq!(
+                parsed.data4,
+                [0x96, 0x85, 0xff, 0x1b, 0xb1, 0x92, 0x0f, 0xa1]
+            );
         }
 
         #[test]
@@ -209,34 +212,80 @@ mod input_validation {
         fn guid_rejects_missing_or_malformed_wrappers() {
             assert_eq!(parse_guid_raw_strict(""), None);
             assert_eq!(parse_guid_raw_strict("GUID:{}"), None);
-            assert_eq!(parse_guid_raw_strict("381b4222-f694-41f0-9685-ff1bb1920fa1"), None);
-            assert_eq!(parse_guid_raw_strict("GUID:381b4222-f694-41f0-9685-ff1bb1920fa1"), None);
-            assert_eq!(parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1bb1920fa1"), None);
-            assert_eq!(parse_guid_raw_strict("GUID:{{381b4222-f694-41f0-9685-ff1bb1920fa1}}"), None);
-            assert_eq!(parse_guid_raw_strict("guid:{381b4222-f694-41f0-9685-ff1bb1920fa1}"), None);
+            assert_eq!(
+                parse_guid_raw_strict("381b4222-f694-41f0-9685-ff1bb1920fa1"),
+                None
+            );
+            assert_eq!(
+                parse_guid_raw_strict("GUID:381b4222-f694-41f0-9685-ff1bb1920fa1"),
+                None
+            );
+            assert_eq!(
+                parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1bb1920fa1"),
+                None
+            );
+            assert_eq!(
+                parse_guid_raw_strict("GUID:{{381b4222-f694-41f0-9685-ff1bb1920fa1}}"),
+                None
+            );
+            assert_eq!(
+                parse_guid_raw_strict("guid:{381b4222-f694-41f0-9685-ff1bb1920fa1}"),
+                None
+            );
         }
 
         #[test]
         fn guid_rejects_wrong_group_shapes() {
-            assert_eq!(parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685}"), None);
-            assert_eq!(parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1b-b1920fa1}"), None);
-            assert_eq!(parse_guid_raw_strict("GUID:{381b422-f694-41f0-9685-ff1bb1920fa1}"), None);
-            assert_eq!(parse_guid_raw_strict("GUID:{381b4222-f69-41f0-9685-ff1bb1920fa1}"), None);
-            assert_eq!(parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1bb1920fa}"), None);
+            assert_eq!(
+                parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685}"),
+                None
+            );
+            assert_eq!(
+                parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1b-b1920fa1}"),
+                None
+            );
+            assert_eq!(
+                parse_guid_raw_strict("GUID:{381b422-f694-41f0-9685-ff1bb1920fa1}"),
+                None
+            );
+            assert_eq!(
+                parse_guid_raw_strict("GUID:{381b4222-f69-41f0-9685-ff1bb1920fa1}"),
+                None
+            );
+            assert_eq!(
+                parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1bb1920fa}"),
+                None
+            );
         }
 
         #[test]
         fn guid_rejects_non_hex_and_injection_attempts() {
-            assert_eq!(parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1bb1920fzz}"), None);
-            assert_eq!(parse_guid_raw_strict("GUID:{+81b4222-f694-41f0-9685-ff1bb1920fa1}"), None);
-            assert_eq!(parse_guid_raw_strict("GUID:{ 81b4222-f694-41f0-9685-ff1bb1920fa1}"), None);
-            assert_eq!(parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1bb1920fa1} "), None);
-            assert_eq!(parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1bb1920fa1};rm"), None);
+            assert_eq!(
+                parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1bb1920fzz}"),
+                None
+            );
+            assert_eq!(
+                parse_guid_raw_strict("GUID:{+81b4222-f694-41f0-9685-ff1bb1920fa1}"),
+                None
+            );
+            assert_eq!(
+                parse_guid_raw_strict("GUID:{ 81b4222-f694-41f0-9685-ff1bb1920fa1}"),
+                None
+            );
+            assert_eq!(
+                parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1bb1920fa1} "),
+                None
+            );
+            assert_eq!(
+                parse_guid_raw_strict("GUID:{381b4222-f694-41f0-9685-ff1bb1920fa1};rm"),
+                None
+            );
         }
 
         #[test]
         fn service_apply_confirms_only_a_disabled_requery() {
-            let outcome = confirm_service_apply(Ok(("Disabled".to_string(), "Disabled".to_string())));
+            let outcome =
+                confirm_service_apply(Ok(("Disabled".to_string(), "Disabled".to_string())));
 
             assert_eq!(
                 outcome,
@@ -349,10 +398,12 @@ mod power_plan_ops {
     use std::iter::once;
     use std::os::windows::ffi::OsStrExt;
     use std::ptr::null_mut;
-    use windows_sys::Win32::Foundation::{ERROR_SUCCESS, LocalFree};
-    use windows_sys::Win32::System::Power::{PowerGetActiveScheme, PowerSetActiveScheme};
-    use windows_sys::Win32::System::Registry::{RegCloseKey, RegOpenKeyExW, HKEY_LOCAL_MACHINE, KEY_READ};
     use windows_sys::core::GUID;
+    use windows_sys::Win32::Foundation::{LocalFree, ERROR_SUCCESS};
+    use windows_sys::Win32::System::Power::{PowerGetActiveScheme, PowerSetActiveScheme};
+    use windows_sys::Win32::System::Registry::{
+        RegCloseKey, RegOpenKeyExW, HKEY_LOCAL_MACHINE, KEY_READ,
+    };
 
     fn wide(value: &str) -> Vec<u16> {
         OsStr::new(value).encode_wide().chain(once(0)).collect()
@@ -375,13 +426,23 @@ mod power_plan_ops {
     }
 
     fn normalize_guid(value: &str) -> String {
-        value.trim().trim_matches('{').trim_matches('}').to_lowercase()
+        value
+            .trim()
+            .trim_matches('{')
+            .trim_matches('}')
+            .to_lowercase()
     }
 
     fn guid_from_str(value: &str) -> Option<GUID> {
         let normalized = normalize_guid(value);
         let parts: Vec<&str> = normalized.split('-').collect();
-        if parts.len() != 5 || parts[0].len() != 8 || parts[1].len() != 4 || parts[2].len() != 4 || parts[3].len() != 4 || parts[4].len() != 12 {
+        if parts.len() != 5
+            || parts[0].len() != 8
+            || parts[1].len() != 4
+            || parts[2].len() != 4
+            || parts[3].len() != 4
+            || parts[4].len() != 12
+        {
             return None;
         }
 
@@ -475,7 +536,9 @@ mod power_plan_ops {
         let status = unsafe { PowerGetActiveScheme(null_mut(), &mut guid_ptr) };
 
         if status != ERROR_SUCCESS {
-            return Err(format!("PowerGetActiveScheme failed with Windows error {status}."));
+            return Err(format!(
+                "PowerGetActiveScheme failed with Windows error {status}."
+            ));
         }
 
         if guid_ptr.is_null() {
@@ -500,10 +563,20 @@ mod power_plan_ops {
 
     pub fn scheme_exists(guid: &GUID) -> bool {
         let guid_string = guid_to_string(guid);
-        let path = format!("SYSTEM\\CurrentControlSet\\Control\\Power\\User\\PowerSchemes\\{{{guid_string}}}");
+        let path = format!(
+            "SYSTEM\\CurrentControlSet\\Control\\Power\\User\\PowerSchemes\\{{{guid_string}}}"
+        );
         let path_wide = wide(&path);
         let mut key = null_mut();
-        let status = unsafe { RegOpenKeyExW(HKEY_LOCAL_MACHINE, path_wide.as_ptr(), 0, KEY_READ, &mut key) };
+        let status = unsafe {
+            RegOpenKeyExW(
+                HKEY_LOCAL_MACHINE,
+                path_wide.as_ptr(),
+                0,
+                KEY_READ,
+                &mut key,
+            )
+        };
 
         if status == ERROR_SUCCESS {
             unsafe {
@@ -519,7 +592,9 @@ mod power_plan_ops {
         let status = unsafe { PowerSetActiveScheme(null_mut(), guid) };
 
         if status != ERROR_SUCCESS {
-            return Err(format!("PowerSetActiveScheme failed with Windows error {status}."));
+            return Err(format!(
+                "PowerSetActiveScheme failed with Windows error {status}."
+            ));
         }
 
         Ok(())
@@ -552,14 +627,14 @@ mod windows_detect {
         ERROR_FILE_NOT_FOUND, ERROR_INSUFFICIENT_BUFFER, ERROR_SUCCESS,
     };
     use windows_sys::Win32::System::Registry::{
-        RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER,
-        HKEY_LOCAL_MACHINE, KEY_READ, REG_DWORD, REG_SZ,
+        RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE,
+        KEY_READ, REG_DWORD, REG_SZ,
     };
     use windows_sys::Win32::System::Services::{
         CloseServiceHandle, OpenSCManagerW, OpenServiceW, QueryServiceConfigW,
-        QueryServiceStatusEx, SC_HANDLE, SC_MANAGER_CONNECT, SC_STATUS_PROCESS_INFO,
-        SERVICE_DISABLED, SERVICE_QUERY_CONFIG, SERVICE_QUERY_STATUS, SERVICE_RUNNING,
-        SERVICE_STATUS_PROCESS, SERVICE_STOPPED, QUERY_SERVICE_CONFIGW,
+        QueryServiceStatusEx, QUERY_SERVICE_CONFIGW, SC_HANDLE, SC_MANAGER_CONNECT,
+        SC_STATUS_PROCESS_INFO, SERVICE_DISABLED, SERVICE_QUERY_CONFIG, SERVICE_QUERY_STATUS,
+        SERVICE_RUNNING, SERVICE_STATUS_PROCESS, SERVICE_STOPPED,
     };
 
     struct ServiceHandle(SC_HANDLE);
@@ -696,7 +771,11 @@ mod windows_detect {
         Ok(Some(text.trim_end_matches('\0').trim().to_string()))
     }
 
-    fn detect_service_optimization(service_name: &str, label: &str, success_message: &str) -> DetectionResult {
+    fn detect_service_optimization(
+        service_name: &str,
+        label: &str,
+        success_message: &str,
+    ) -> DetectionResult {
         let result = (|| -> Result<String, String> {
             let service_name = wide(service_name);
             let manager = unsafe { OpenSCManagerW(null(), null(), SC_MANAGER_CONNECT) };
@@ -776,7 +855,11 @@ mod windows_detect {
     }
 
     pub fn windows_search() -> DetectionResult {
-        detect_service_optimization("WSearch", "Windows Search", "Windows Search state detected.")
+        detect_service_optimization(
+            "WSearch",
+            "Windows Search",
+            "Windows Search state detected.",
+        )
     }
 
     pub fn sysmain() -> DetectionResult {
@@ -789,10 +872,22 @@ mod windows_detect {
             "Software\\Microsoft\\GameBar",
             "AutoGameModeEnabled",
         ) {
-            Ok(Some(1)) => detection_result(true, "Enabled", "Game Mode state detected.".to_string()),
-            Ok(Some(0)) => detection_result(true, "Disabled", "Game Mode state detected.".to_string()),
-            Ok(Some(_)) => detection_result(true, "Unknown", "Game Mode registry value is not recognized.".to_string()),
-            Ok(None) => detection_result(true, "Unknown", "Game Mode registry value is not present.".to_string()),
+            Ok(Some(1)) => {
+                detection_result(true, "Enabled", "Game Mode state detected.".to_string())
+            }
+            Ok(Some(0)) => {
+                detection_result(true, "Disabled", "Game Mode state detected.".to_string())
+            }
+            Ok(Some(_)) => detection_result(
+                true,
+                "Unknown",
+                "Game Mode registry value is not recognized.".to_string(),
+            ),
+            Ok(None) => detection_result(
+                true,
+                "Unknown",
+                "Game Mode registry value is not present.".to_string(),
+            ),
             Err(message) => detection_result(false, "Unknown", message),
         }
     }
@@ -828,13 +923,21 @@ mod windows_detect {
         };
 
         match value {
-            Ok(Some(0)) | Ok(Some(100)) => {
-                detection_result(true, "Disabled", "Delivery Optimization state detected.".to_string())
-            }
-            Ok(Some(_)) => {
-                detection_result(true, "Enabled", "Delivery Optimization state detected.".to_string())
-            }
-            Ok(None) => detection_result(true, "Unknown", "Delivery Optimization registry value is not present.".to_string()),
+            Ok(Some(0)) | Ok(Some(100)) => detection_result(
+                true,
+                "Disabled",
+                "Delivery Optimization state detected.".to_string(),
+            ),
+            Ok(Some(_)) => detection_result(
+                true,
+                "Enabled",
+                "Delivery Optimization state detected.".to_string(),
+            ),
+            Ok(None) => detection_result(
+                true,
+                "Unknown",
+                "Delivery Optimization registry value is not present.".to_string(),
+            ),
             Err(message) => detection_result(false, "Unknown", message),
         }
     }
@@ -847,8 +950,16 @@ mod windows_detect {
         ) {
             Ok(Some(1)) => detection_result(true, "Enabled", "HAGS state detected.".to_string()),
             Ok(Some(2)) => detection_result(true, "Disabled", "HAGS state detected.".to_string()),
-            Ok(Some(_)) => detection_result(true, "Unknown", "HAGS registry value is not recognized.".to_string()),
-            Ok(None) => detection_result(true, "Unknown", "HAGS registry value is not present.".to_string()),
+            Ok(Some(_)) => detection_result(
+                true,
+                "Unknown",
+                "HAGS registry value is not recognized.".to_string(),
+            ),
+            Ok(None) => detection_result(
+                true,
+                "Unknown",
+                "HAGS registry value is not present.".to_string(),
+            ),
             Err(message) => detection_result(false, "Unknown", message),
         }
     }
@@ -859,12 +970,36 @@ mod windows_detect {
             "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects",
             "VisualFXSetting",
         ) {
-            Ok(Some(0)) => detection_result(true, "Default", "Visual effects set to let Windows decide.".to_string()),
-            Ok(Some(1)) => detection_result(true, "Enabled", "Visual effects set for best appearance.".to_string()),
-            Ok(Some(2)) => detection_result(true, "Disabled", "Visual effects set for best performance.".to_string()),
-            Ok(Some(3)) => detection_result(true, "Unknown", "Custom visual effects setting detected.".to_string()),
-            Ok(Some(_)) => detection_result(true, "Unknown", "Visual effects registry value is not recognized.".to_string()),
-            Ok(None) => detection_result(true, "Unknown", "Visual effects registry value is not present.".to_string()),
+            Ok(Some(0)) => detection_result(
+                true,
+                "Default",
+                "Visual effects set to let Windows decide.".to_string(),
+            ),
+            Ok(Some(1)) => detection_result(
+                true,
+                "Enabled",
+                "Visual effects set for best appearance.".to_string(),
+            ),
+            Ok(Some(2)) => detection_result(
+                true,
+                "Disabled",
+                "Visual effects set for best performance.".to_string(),
+            ),
+            Ok(Some(3)) => detection_result(
+                true,
+                "Unknown",
+                "Custom visual effects setting detected.".to_string(),
+            ),
+            Ok(Some(_)) => detection_result(
+                true,
+                "Unknown",
+                "Visual effects registry value is not recognized.".to_string(),
+            ),
+            Ok(None) => detection_result(
+                true,
+                "Unknown",
+                "Visual effects registry value is not present.".to_string(),
+            ),
             Err(message) => detection_result(false, "Unknown", message),
         }
     }
@@ -948,15 +1083,16 @@ mod windows_apply {
     };
     use windows_sys::Win32::System::Registry::{
         RegCloseKey, RegCreateKeyW, RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW,
-        RegSetValueExW, HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_SET_VALUE, REG_DWORD,
+        RegSetValueExW, HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_SET_VALUE,
+        REG_DWORD,
     };
     use windows_sys::Win32::System::Services::{
         ChangeServiceConfigW, CloseServiceHandle, ControlService, OpenSCManagerW, OpenServiceW,
-        QueryServiceConfigW, QueryServiceStatusEx, SC_HANDLE, SC_MANAGER_CONNECT,
-        SC_STATUS_PROCESS_INFO, SERVICE_AUTO_START, SERVICE_CHANGE_CONFIG, SERVICE_CONTROL_STOP,
-        SERVICE_DEMAND_START, SERVICE_DISABLED, SERVICE_NO_CHANGE, SERVICE_QUERY_CONFIG,
-        SERVICE_QUERY_STATUS, SERVICE_RUNNING, SERVICE_START, SERVICE_STOP, SERVICE_STOPPED,
-        SERVICE_STATUS, SERVICE_STATUS_PROCESS, StartServiceW, QUERY_SERVICE_CONFIGW,
+        QueryServiceConfigW, QueryServiceStatusEx, StartServiceW, QUERY_SERVICE_CONFIGW, SC_HANDLE,
+        SC_MANAGER_CONNECT, SC_STATUS_PROCESS_INFO, SERVICE_AUTO_START, SERVICE_CHANGE_CONFIG,
+        SERVICE_CONTROL_STOP, SERVICE_DEMAND_START, SERVICE_DISABLED, SERVICE_NO_CHANGE,
+        SERVICE_QUERY_CONFIG, SERVICE_QUERY_STATUS, SERVICE_RUNNING, SERVICE_START, SERVICE_STATUS,
+        SERVICE_STATUS_PROCESS, SERVICE_STOP, SERVICE_STOPPED,
     };
 
     struct ServiceHandle(SC_HANDLE);
@@ -1054,7 +1190,9 @@ mod windows_apply {
         };
 
         if status != ERROR_SUCCESS {
-            return Err(format!("Open Game Mode registry key failed with Windows error {status}."));
+            return Err(format!(
+                "Open Game Mode registry key failed with Windows error {status}."
+            ));
         }
 
         Ok(RegistryKey(key))
@@ -1106,7 +1244,9 @@ mod windows_apply {
         }
 
         if status != ERROR_SUCCESS {
-            return Err(format!("Read Game Mode registry value failed with Windows error {status}."));
+            return Err(format!(
+                "Read Game Mode registry value failed with Windows error {status}."
+            ));
         }
 
         if data_type != REG_DWORD {
@@ -1137,7 +1277,9 @@ mod windows_apply {
         };
 
         if status != ERROR_SUCCESS {
-            return Err(format!("Write Game Mode registry value failed with Windows error {status}."));
+            return Err(format!(
+                "Write Game Mode registry value failed with Windows error {status}."
+            ));
         }
 
         Ok(())
@@ -1152,7 +1294,9 @@ mod windows_apply {
             return Ok(());
         }
 
-        Err(format!("Delete Game Mode registry value failed with Windows error {status}."))
+        Err(format!(
+            "Delete Game Mode registry value failed with Windows error {status}."
+        ))
     }
 
     fn open_core_isolation_key(access: u32) -> Result<RegistryKey, String> {
@@ -1175,7 +1319,9 @@ mod windows_apply {
         }
 
         if status != ERROR_SUCCESS {
-            return Err(format!("Open Core Isolation registry key failed with Windows error {status}."));
+            return Err(format!(
+                "Open Core Isolation registry key failed with Windows error {status}."
+            ));
         }
 
         Ok(RegistryKey(key))
@@ -1227,7 +1373,9 @@ mod windows_apply {
         }
 
         if status != ERROR_SUCCESS {
-            return Err(format!("Read Core Isolation registry value failed with Windows error {status}."));
+            return Err(format!(
+                "Read Core Isolation registry value failed with Windows error {status}."
+            ));
         }
 
         if data_type != REG_DWORD {
@@ -1265,7 +1413,9 @@ mod windows_apply {
         }
 
         if status != ERROR_SUCCESS {
-            return Err(format!("Write Core Isolation registry value failed with Windows error {status}."));
+            return Err(format!(
+                "Write Core Isolation registry value failed with Windows error {status}."
+            ));
         }
 
         Ok(())
@@ -1287,7 +1437,9 @@ mod windows_apply {
             return Ok(());
         }
 
-        Err(format!("Delete Core Isolation registry value failed with Windows error {status}."))
+        Err(format!(
+            "Delete Core Isolation registry value failed with Windows error {status}."
+        ))
     }
 
     fn open_hags_key(access: u32) -> Result<RegistryKey, String> {
@@ -1297,7 +1449,15 @@ mod windows_apply {
         let status = if access == KEY_READ {
             unsafe { RegOpenKeyExW(HKEY_LOCAL_MACHINE, key_path.as_ptr(), 0, KEY_READ, &mut key) }
         } else {
-            unsafe { RegOpenKeyExW(HKEY_LOCAL_MACHINE, key_path.as_ptr(), 0, KEY_SET_VALUE, &mut key) }
+            unsafe {
+                RegOpenKeyExW(
+                    HKEY_LOCAL_MACHINE,
+                    key_path.as_ptr(),
+                    0,
+                    KEY_SET_VALUE,
+                    &mut key,
+                )
+            }
         };
 
         if status == ERROR_ACCESS_DENIED {
@@ -1308,7 +1468,9 @@ mod windows_apply {
         }
 
         if status != ERROR_SUCCESS {
-            return Err(format!("Open HAGS registry key failed with Windows error {status}."));
+            return Err(format!(
+                "Open HAGS registry key failed with Windows error {status}."
+            ));
         }
 
         Ok(RegistryKey(key))
@@ -1330,7 +1492,9 @@ mod windows_apply {
     }
 
     fn parse_hags_raw_value(value: &str) -> Option<u32> {
-        value.strip_prefix("DWORD:").and_then(|raw| raw.parse::<u32>().ok())
+        value
+            .strip_prefix("DWORD:")
+            .and_then(|raw| raw.parse::<u32>().ok())
     }
 
     fn query_hags_snapshot() -> Result<HagsSnapshot, String> {
@@ -1358,7 +1522,9 @@ mod windows_apply {
         }
 
         if status != ERROR_SUCCESS {
-            return Err(format!("Read HAGS registry value failed with Windows error {status}."));
+            return Err(format!(
+                "Read HAGS registry value failed with Windows error {status}."
+            ));
         }
 
         if data_type != REG_DWORD {
@@ -1400,7 +1566,9 @@ mod windows_apply {
         }
 
         if status != ERROR_SUCCESS {
-            return Err(format!("Write HAGS registry value failed with Windows error {status}."));
+            return Err(format!(
+                "Write HAGS registry value failed with Windows error {status}."
+            ));
         }
 
         Ok(())
@@ -1422,7 +1590,9 @@ mod windows_apply {
             return Ok(());
         }
 
-        Err(format!("Delete HAGS registry value failed with Windows error {status}."))
+        Err(format!(
+            "Delete HAGS registry value failed with Windows error {status}."
+        ))
     }
 
     fn query_snapshot(service: SC_HANDLE, service_label: &str) -> Result<ServiceSnapshot, String> {
@@ -1434,7 +1604,9 @@ mod windows_apply {
         if bytes_needed == 0 {
             let code = last_error();
             if code != ERROR_INSUFFICIENT_BUFFER {
-                return Err(format!("Unable to query {service_label} startup type. Windows error {code}."));
+                return Err(format!(
+                    "Unable to query {service_label} startup type. Windows error {code}."
+                ));
             }
         }
 
@@ -1476,11 +1648,17 @@ mod windows_apply {
         })
     }
 
-    fn wait_for_state(service: SC_HANDLE, expected_state: &str, service_label: &str) -> Option<ServiceSnapshot> {
+    fn wait_for_state(
+        service: SC_HANDLE,
+        expected_state: &str,
+        service_label: &str,
+    ) -> Option<ServiceSnapshot> {
         for _ in 0..20 {
             if let Ok(snapshot) = query_snapshot(service, service_label) {
                 if snapshot.state == expected_state
-                    || (expected_state == "Stopped" && snapshot.state != "Running" && snapshot.startup_type != "Disabled")
+                    || (expected_state == "Stopped"
+                        && snapshot.state != "Running"
+                        && snapshot.startup_type != "Disabled")
                 {
                     return Some(snapshot);
                 }
@@ -1578,7 +1756,9 @@ mod windows_apply {
                 &before.state,
                 &before.startup_type,
                 format!("{label} was not changed."),
-                Some(format!("ChangeServiceConfigW failed with Windows error {code}.")),
+                Some(format!(
+                    "ChangeServiceConfigW failed with Windows error {code}."
+                )),
             );
         }
 
@@ -1619,15 +1799,17 @@ mod windows_apply {
                     "Post-apply query detected startup type {startup_type} instead of Disabled."
                 )),
             ),
-            super::input_validation::ServiceApplyConfirmation::QueryFailed { error } => apply_result(
-                optimization_id,
-                "failed",
-                &before.state,
-                "Unknown",
-                &before.startup_type,
-                format!("{label} could not be confirmed after apply."),
-                Some(error),
-            ),
+            super::input_validation::ServiceApplyConfirmation::QueryFailed { error } => {
+                apply_result(
+                    optimization_id,
+                    "failed",
+                    &before.state,
+                    "Unknown",
+                    &before.startup_type,
+                    format!("{label} could not be confirmed after apply."),
+                    Some(error),
+                )
+            }
         }
     }
 
@@ -1719,7 +1901,9 @@ mod windows_apply {
                 &actual,
                 &previous_startup_type,
                 format!("{label} recovery was not applied."),
-                Some(format!("ChangeServiceConfigW failed with Windows error {code}.")),
+                Some(format!(
+                    "ChangeServiceConfigW failed with Windows error {code}."
+                )),
             );
         }
 
@@ -1729,7 +1913,10 @@ mod windows_apply {
             }
         } else if previous_state == "Stopped" || previous_state == "Disabled" {
             let current = query_snapshot(service.0, label).ok();
-            if current.as_ref().is_some_and(|snapshot| snapshot.state == "Running") {
+            if current
+                .as_ref()
+                .is_some_and(|snapshot| snapshot.state == "Running")
+            {
                 let mut service_status: SERVICE_STATUS = unsafe { std::mem::zeroed() };
                 unsafe {
                     ControlService(service.0, SERVICE_CONTROL_STOP, &mut service_status);
@@ -1742,7 +1929,9 @@ mod windows_apply {
             startup_type: previous_startup_type.clone(),
         });
         let success = after.state == previous_state
-            || (previous_state == "Stopped" && after.state != "Running" && after.startup_type != "Disabled");
+            || (previous_state == "Stopped"
+                && after.state != "Running"
+                && after.startup_type != "Disabled");
 
         recovery_result(
             optimization_id,
@@ -1754,7 +1943,10 @@ mod windows_apply {
             if success {
                 format!("{label} was restored to the saved previous state.")
             } else {
-                format!("{label} recovery expected {previous_state}, but detected {}.", after.state)
+                format!(
+                    "{label} recovery expected {previous_state}, but detected {}.",
+                    after.state
+                )
             },
             if success {
                 None
@@ -1768,16 +1960,34 @@ mod windows_apply {
         apply_service("WSearch", "windows-search", "Windows Search")
     }
 
-    pub fn restore_windows_search(previous_state: String, previous_startup_type: String) -> RecoveryResult {
-        restore_service("WSearch", "windows-search", "Windows Search", previous_state, previous_startup_type)
+    pub fn restore_windows_search(
+        previous_state: String,
+        previous_startup_type: String,
+    ) -> RecoveryResult {
+        restore_service(
+            "WSearch",
+            "windows-search",
+            "Windows Search",
+            previous_state,
+            previous_startup_type,
+        )
     }
 
     pub fn sysmain() -> ApplyResult {
         apply_service("SysMain", "sysmain", "SysMain")
     }
 
-    pub fn restore_sysmain(previous_state: String, previous_startup_type: String) -> RecoveryResult {
-        restore_service("SysMain", "sysmain", "SysMain", previous_state, previous_startup_type)
+    pub fn restore_sysmain(
+        previous_state: String,
+        previous_startup_type: String,
+    ) -> RecoveryResult {
+        restore_service(
+            "SysMain",
+            "sysmain",
+            "SysMain",
+            previous_state,
+            previous_startup_type,
+        )
     }
 
     pub fn hags() -> ApplyResult {
@@ -1815,7 +2025,11 @@ mod windows_apply {
 
         apply_result(
             "hags",
-            if after.state == "Enabled" { "success" } else { "failed" },
+            if after.state == "Enabled" {
+                "success"
+            } else {
+                "failed"
+            },
             &before.state,
             &after.state,
             &before.raw_value,
@@ -1827,7 +2041,10 @@ mod windows_apply {
             if after.state == "Enabled" {
                 None
             } else {
-                Some("Applied registry value did not produce the expected detected state.".to_string())
+                Some(
+                    "Applied registry value did not produce the expected detected state."
+                        .to_string(),
+                )
             },
         )
     }
@@ -1874,7 +2091,10 @@ mod windows_apply {
             if success {
                 "HAGS was restored to the saved previous state. A restart may be required for full effect.".to_string()
             } else {
-                format!("HAGS recovery expected {previous_state}, but detected {}.", after.state)
+                format!(
+                    "HAGS recovery expected {previous_state}, but detected {}.",
+                    after.state
+                )
             },
             if success {
                 None
@@ -1946,15 +2166,17 @@ mod windows_apply {
             );
         }
 
-        let after = super::power_plan_ops::query_active_power_plan().unwrap_or(super::power_plan_ops::PowerPlanSnapshot {
-            state: "Enabled".to_string(),
-            label: "High Performance".to_string(),
-            guid_raw: format!(
-                "GUID:{{{}}}",
-                super::power_plan_ops::recommended_high_performance_guid()
-            ),
-            message: "High performance power plan detected.".to_string(),
-        });
+        let after = super::power_plan_ops::query_active_power_plan().unwrap_or(
+            super::power_plan_ops::PowerPlanSnapshot {
+                state: "Enabled".to_string(),
+                label: "High Performance".to_string(),
+                guid_raw: format!(
+                    "GUID:{{{}}}",
+                    super::power_plan_ops::recommended_high_performance_guid()
+                ),
+                message: "High performance power plan detected.".to_string(),
+            },
+        );
         let success = super::power_plan_ops::is_high_performance(&after);
 
         apply_result(
@@ -1964,7 +2186,8 @@ mod windows_apply {
             &after.state,
             &before.guid_raw,
             if success {
-                "Power plan was switched to High performance through the native Tauri executor.".to_string()
+                "Power plan was switched to High performance through the native Tauri executor."
+                    .to_string()
             } else {
                 format!(
                     "Power plan apply expected High performance, but detected {}.",
@@ -2026,12 +2249,14 @@ mod windows_apply {
             );
         }
 
-        let after = super::power_plan_ops::query_active_power_plan().unwrap_or(super::power_plan_ops::PowerPlanSnapshot {
-            state: "Unknown".to_string(),
-            label: "Unknown".to_string(),
-            guid_raw: previous_guid_raw.clone(),
-            message: "Active power plan could not be confirmed after recovery.".to_string(),
-        });
+        let after = super::power_plan_ops::query_active_power_plan().unwrap_or(
+            super::power_plan_ops::PowerPlanSnapshot {
+                state: "Unknown".to_string(),
+                label: "Unknown".to_string(),
+                guid_raw: previous_guid_raw.clone(),
+                message: "Active power plan could not be confirmed after recovery.".to_string(),
+            },
+        );
         let success = after.state == previous_state;
 
         recovery_result(
@@ -2092,24 +2317,37 @@ mod windows_apply {
 
         apply_result(
             "game-mode",
-            if after.state == "Enabled" { "success" } else { "failed" },
+            if after.state == "Enabled" {
+                "success"
+            } else {
+                "failed"
+            },
             &before.state,
             &after.state,
             &before.raw_value,
             if after.state == "Enabled" {
                 "Game Mode was enabled through the native Tauri executor.".to_string()
             } else {
-                format!("Game Mode apply expected Enabled, but detected {}.", after.state)
+                format!(
+                    "Game Mode apply expected Enabled, but detected {}.",
+                    after.state
+                )
             },
             if after.state == "Enabled" {
                 None
             } else {
-                Some("Applied registry value did not produce the expected detected state.".to_string())
+                Some(
+                    "Applied registry value did not produce the expected detected state."
+                        .to_string(),
+                )
             },
         )
     }
 
-    pub fn restore_game_mode(previous_state: String, previous_registry_value: String) -> RecoveryResult {
+    pub fn restore_game_mode(
+        previous_state: String,
+        previous_registry_value: String,
+    ) -> RecoveryResult {
         let recovery = if previous_registry_value == "Missing" {
             delete_game_mode_value()
         } else if let Some(value) = parse_game_mode_raw_value(&previous_registry_value) {
@@ -2151,7 +2389,10 @@ mod windows_apply {
             if success {
                 "Game Mode was restored to the saved previous state.".to_string()
             } else {
-                format!("Game Mode recovery expected {previous_state}, but detected {}.", after.state)
+                format!(
+                    "Game Mode recovery expected {previous_state}, but detected {}.",
+                    after.state
+                )
             },
             if success {
                 None
@@ -2196,7 +2437,11 @@ mod windows_apply {
 
         apply_result(
             "core-isolation",
-            if after.state == "Enabled" { "success" } else { "failed" },
+            if after.state == "Enabled" {
+                "success"
+            } else {
+                "failed"
+            },
             &before.state,
             &after.state,
             &before.raw_value,
@@ -2211,12 +2456,18 @@ mod windows_apply {
             if after.state == "Enabled" {
                 None
             } else {
-                Some("Applied registry value did not produce the expected detected state.".to_string())
+                Some(
+                    "Applied registry value did not produce the expected detected state."
+                        .to_string(),
+                )
             },
         )
     }
 
-    pub fn restore_core_isolation(previous_state: String, previous_registry_value: String) -> RecoveryResult {
+    pub fn restore_core_isolation(
+        previous_state: String,
+        previous_registry_value: String,
+    ) -> RecoveryResult {
         let recovery = if previous_registry_value == "Missing" {
             delete_core_isolation_value()
         } else if let Some(value) = parse_core_isolation_raw_value(&previous_registry_value) {
@@ -2272,7 +2523,8 @@ mod windows_apply {
     }
 
     const DO_POLICY_PATH: &str = "SOFTWARE\\Policies\\Microsoft\\Windows\\DeliveryOptimization";
-    const DO_CONFIG_PATH: &str = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DeliveryOptimization\\Config";
+    const DO_CONFIG_PATH: &str =
+        "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DeliveryOptimization\\Config";
     const DO_APPLY_TARGET: u32 = 0;
 
     struct DeliveryOptimizationSnapshot {
@@ -2325,7 +2577,9 @@ mod windows_apply {
         }
 
         if status != ERROR_SUCCESS {
-            return Err(format!("Open Delivery Optimization registry key failed with Windows error {status}."));
+            return Err(format!(
+                "Open Delivery Optimization registry key failed with Windows error {status}."
+            ));
         }
 
         Ok(RegistryKey(key))
@@ -2357,7 +2611,9 @@ mod windows_apply {
         }
 
         if status != ERROR_SUCCESS {
-            return Err(format!("Read Delivery Optimization registry value failed with Windows error {status}."));
+            return Err(format!(
+                "Read Delivery Optimization registry value failed with Windows error {status}."
+            ));
         }
 
         if data_type != REG_DWORD {
@@ -2413,7 +2669,9 @@ mod windows_apply {
         }
 
         if status != ERROR_SUCCESS {
-            return Err(format!("Write Delivery Optimization registry value failed with Windows error {status}."));
+            return Err(format!(
+                "Write Delivery Optimization registry value failed with Windows error {status}."
+            ));
         }
 
         Ok(())
@@ -2435,20 +2693,27 @@ mod windows_apply {
             return Ok(());
         }
 
-        Err(format!("Delete Delivery Optimization registry value failed with Windows error {status}."))
+        Err(format!(
+            "Delete Delivery Optimization registry value failed with Windows error {status}."
+        ))
     }
 
-    fn parse_delivery_optimization_raw(raw: &str) -> Result<(String, DeliveryOptimizationRestoreAction), String> {
+    fn parse_delivery_optimization_raw(
+        raw: &str,
+    ) -> Result<(String, DeliveryOptimizationRestoreAction), String> {
         if raw.ends_with(":Missing") {
             let source = raw.trim_end_matches(":Missing").to_string();
             return Ok((source, DeliveryOptimizationRestoreAction::Delete));
         }
 
         if let Some((source, value_str)) = raw.split_once(":DWORD:") {
-            let value = value_str
-                .parse::<u32>()
-                .map_err(|_| "Saved Delivery Optimization registry value is not restorable.".to_string())?;
-            return Ok((source.to_string(), DeliveryOptimizationRestoreAction::Set(value)));
+            let value = value_str.parse::<u32>().map_err(|_| {
+                "Saved Delivery Optimization registry value is not restorable.".to_string()
+            })?;
+            return Ok((
+                source.to_string(),
+                DeliveryOptimizationRestoreAction::Set(value),
+            ));
         }
 
         Err("Saved Delivery Optimization registry value is not restorable.".to_string())
@@ -2470,7 +2735,8 @@ mod windows_apply {
             }
         };
 
-        if let Err(message) = set_delivery_optimization_value(&before.write_source, DO_APPLY_TARGET) {
+        if let Err(message) = set_delivery_optimization_value(&before.write_source, DO_APPLY_TARGET)
+        {
             return apply_result(
                 "delivery-optimization",
                 "failed",
@@ -2482,15 +2748,23 @@ mod windows_apply {
             );
         }
 
-        let after = query_delivery_optimization_snapshot().unwrap_or(DeliveryOptimizationSnapshot {
-            state: "Disabled".to_string(),
-            raw_value: encode_delivery_optimization_raw(&before.write_source, Some(DO_APPLY_TARGET)),
-            write_source: before.write_source.clone(),
-        });
+        let after =
+            query_delivery_optimization_snapshot().unwrap_or(DeliveryOptimizationSnapshot {
+                state: "Disabled".to_string(),
+                raw_value: encode_delivery_optimization_raw(
+                    &before.write_source,
+                    Some(DO_APPLY_TARGET),
+                ),
+                write_source: before.write_source.clone(),
+            });
 
         apply_result(
             "delivery-optimization",
-            if after.state == "Disabled" { "success" } else { "failed" },
+            if after.state == "Disabled" {
+                "success"
+            } else {
+                "failed"
+            },
             &before.state,
             &after.state,
             &before.raw_value,
@@ -2505,14 +2779,22 @@ mod windows_apply {
             if after.state == "Disabled" {
                 None
             } else {
-                Some("Applied registry value did not produce the expected detected state.".to_string())
+                Some(
+                    "Applied registry value did not produce the expected detected state."
+                        .to_string(),
+                )
             },
         )
     }
 
-    pub fn restore_delivery_optimization(previous_state: String, previous_registry_value: String) -> RecoveryResult {
+    pub fn restore_delivery_optimization(
+        previous_state: String,
+        previous_registry_value: String,
+    ) -> RecoveryResult {
         let recovery = match parse_delivery_optimization_raw(&previous_registry_value) {
-            Ok((source, DeliveryOptimizationRestoreAction::Delete)) => delete_delivery_optimization_value(&source),
+            Ok((source, DeliveryOptimizationRestoreAction::Delete)) => {
+                delete_delivery_optimization_value(&source)
+            }
             Ok((source, DeliveryOptimizationRestoreAction::Set(value))) => {
                 set_delivery_optimization_value(&source, value)
             }
@@ -2536,11 +2818,12 @@ mod windows_apply {
             );
         }
 
-        let after = query_delivery_optimization_snapshot().unwrap_or(DeliveryOptimizationSnapshot {
-            state: "Unknown".to_string(),
-            raw_value: previous_registry_value.clone(),
-            write_source: "Config".to_string(),
-        });
+        let after =
+            query_delivery_optimization_snapshot().unwrap_or(DeliveryOptimizationSnapshot {
+                state: "Unknown".to_string(),
+                raw_value: previous_registry_value.clone(),
+                write_source: "Config".to_string(),
+            });
         let success = after.state == previous_state;
 
         recovery_result(
@@ -2583,7 +2866,10 @@ mod windows_apply {
         )
     }
 
-    pub fn restore_windows_search(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+    pub fn restore_windows_search(
+        previous_state: String,
+        previous_startup_type: String,
+    ) -> RecoveryResult {
         recovery_result(
             "windows-search",
             "failed",
@@ -2608,7 +2894,10 @@ mod windows_apply {
         )
     }
 
-    pub fn restore_game_mode(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+    pub fn restore_game_mode(
+        previous_state: String,
+        previous_startup_type: String,
+    ) -> RecoveryResult {
         recovery_result(
             "game-mode",
             "failed",
@@ -2633,7 +2922,10 @@ mod windows_apply {
         )
     }
 
-    pub fn restore_core_isolation(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+    pub fn restore_core_isolation(
+        previous_state: String,
+        previous_startup_type: String,
+    ) -> RecoveryResult {
         recovery_result(
             "core-isolation",
             "failed",
@@ -2658,7 +2950,10 @@ mod windows_apply {
         )
     }
 
-    pub fn restore_delivery_optimization(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+    pub fn restore_delivery_optimization(
+        previous_state: String,
+        previous_startup_type: String,
+    ) -> RecoveryResult {
         recovery_result(
             "delivery-optimization",
             "failed",
@@ -2683,7 +2978,10 @@ mod windows_apply {
         )
     }
 
-    pub fn restore_sysmain(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+    pub fn restore_sysmain(
+        previous_state: String,
+        previous_startup_type: String,
+    ) -> RecoveryResult {
         recovery_result(
             "sysmain",
             "failed",
@@ -2733,7 +3031,10 @@ mod windows_apply {
         )
     }
 
-    pub fn restore_power_plan(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+    pub fn restore_power_plan(
+        previous_state: String,
+        previous_startup_type: String,
+    ) -> RecoveryResult {
         recovery_result(
             "power-plan",
             "failed",
@@ -2752,7 +3053,11 @@ mod windows_detect {
     use super::{detection_result, DetectionResult};
 
     fn unsupported(name: &str) -> DetectionResult {
-        detection_result(false, "Unknown", format!("{name} detection is only available on Windows."))
+        detection_result(
+            false,
+            "Unknown",
+            format!("{name} detection is only available on Windows."),
+        )
     }
 
     pub fn windows_search() -> DetectionResult {
@@ -2882,7 +3187,10 @@ fn apply_delivery_optimization() -> ApplyResult {
 }
 
 #[tauri::command]
-fn restore_delivery_optimization(previous_state: String, previous_startup_type: String) -> RecoveryResult {
+fn restore_delivery_optimization(
+    previous_state: String,
+    previous_startup_type: String,
+) -> RecoveryResult {
     windows_apply::restore_delivery_optimization(previous_state, previous_startup_type)
 }
 
