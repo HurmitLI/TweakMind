@@ -245,6 +245,11 @@ export function readPendingApplyResult(optimizationId: OptimizationId): Optimiza
   return result.optimizationId === optimizationId ? result : null;
 }
 
+export function clearPendingApplyResult() {
+  window.sessionStorage.removeItem(pendingApplyResultStorageKey);
+  window.localStorage.removeItem(pendingApplyResultStorageKey);
+}
+
 export function storePendingRecoveryResult(result: OptimizationRecoveryResult) {
   storePendingValue(pendingRecoveryResultStorageKey, result);
 }
@@ -262,15 +267,17 @@ export function readPendingRecoveryResult(historyEntryId: string): OptimizationR
 }
 
 export function storePendingRecoveryAuthorization(historyEntryId: string) {
+  // Authorization is a one-session confirm gate. Persisting it in localStorage
+  // would let /recovery?historyId=… auto-run after an app restart without a
+  // fresh confirmation click.
   window.sessionStorage.setItem(pendingRecoveryAuthorizationStorageKey, historyEntryId);
-  window.localStorage.setItem(pendingRecoveryAuthorizationStorageKey, historyEntryId);
+  window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
 }
 
 export function hasPendingRecoveryAuthorization(historyEntryId: string) {
-  return (
-    window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey) === historyEntryId ||
-    window.localStorage.getItem(pendingRecoveryAuthorizationStorageKey) === historyEntryId
-  );
+  // Drop any legacy durable authorization left by older builds.
+  window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+  return window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey) === historyEntryId;
 }
 
 export function clearPendingRecoveryAuthorization() {

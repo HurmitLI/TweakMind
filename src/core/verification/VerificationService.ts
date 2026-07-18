@@ -2,6 +2,7 @@ import type { OptimizationId } from "../../types/optimization";
 import { toErrorMessage } from "../error/errorMessage";
 import { OptimizationPluginManager } from "../plugins/OptimizationPluginManager";
 import {
+  clearPendingApplyResult,
   readPendingApplyResult,
   WindowsOptimizationService
 } from "../windows/WindowsOptimizationService";
@@ -31,14 +32,38 @@ function failedVerification(
   };
 }
 
+function consumePendingApplyResult(optimizationId: OptimizationId, verificationResult: VerificationResult) {
+  if (verificationResult.status !== "Verified" && verificationResult.status !== "Failed") {
+    return;
+  }
+
+  const pendingApplyResult = readPendingApplyResult(optimizationId);
+
+  if (!pendingApplyResult) {
+    return;
+  }
+
+  // Keep the pending slot when verification targeted a different history entry.
+  if (
+    pendingApplyResult.historyEntryId &&
+    verificationResult.historyEntryId &&
+    pendingApplyResult.historyEntryId !== verificationResult.historyEntryId
+  ) {
+    return;
+  }
+
+  clearPendingApplyResult();
+}
+
 export class VerificationService {
   static async verify(optimizationId: OptimizationId, options: VerificationOptions = {}): Promise<VerificationResult> {
+    const mode = options.mode ?? "apply";
     let result: VerificationResult;
 
     try {
       result = await OptimizationPluginManager.verify(optimizationId, {
         historyEntryId: options.historyEntryId,
-        verificationMode: options.mode ?? "apply"
+        verificationMode: mode
       });
     } catch (error) {
       return failedVerification(
@@ -47,7 +72,7 @@ export class VerificationService {
         `Verification failed: native invoke error (${toErrorMessage(error)}).`
       );
     }
-    const pendingApplyResult = (options.mode ?? "apply") === "apply" ? readPendingApplyResult(optimizationId) : null;
+    const pendingApplyResult = mode === "apply" ? readPendingApplyResult(optimizationId) : null;
     const historyEntryId = options.historyEntryId ?? result.historyEntryId ?? pendingApplyResult?.historyEntryId;
     const verificationResult = historyEntryId && !result.historyEntryId
       ? {
@@ -58,6 +83,10 @@ export class VerificationService {
 
     if (verificationResult.historyEntryId) {
       WindowsOptimizationService.recordVerification(verificationResult);
+    }
+
+    if (mode === "apply") {
+      consumePendingApplyResult(optimizationId, verificationResult);
     }
 
     return verificationResult;
