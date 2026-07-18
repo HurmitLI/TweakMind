@@ -210,10 +210,11 @@ mod input_validation {
     }
 
     /// Judges whether a service recovery may be reported as success. Success
-    /// requires a successful re-query whose startup type matches the restored
-    /// target exactly and whose state matches the expected state (with the
-    /// existing tolerance that a service restored to `Stopped` may report any
-    /// non-running state). A failed re-query is never masked.
+    /// requires a successful re-query whose startup type and state both match
+    /// the restored target exactly. Transitional or unknown states (including
+    /// START_PENDING / STOP_PENDING / PAUSED mapped to `Unknown`) must never
+    /// be treated as success for a `Stopped` target. A failed re-query is
+    /// never masked.
     pub fn confirm_service_restore(
         requery: Result<(String, String), String>,
         expected_state: &str,
@@ -221,11 +222,7 @@ mod input_validation {
     ) -> RestoreConfirmation {
         match requery {
             Ok((state, startup_type)) => {
-                if startup_type != expected_startup_type {
-                    return RestoreConfirmation::Mismatch { state };
-                }
-
-                if state == expected_state || (expected_state == "Stopped" && state != "Running") {
+                if startup_type == expected_startup_type && state == expected_state {
                     RestoreConfirmation::Confirmed { state }
                 } else {
                     RestoreConfirmation::Mismatch { state }
@@ -525,30 +522,66 @@ mod input_validation {
         }
 
         #[test]
-        fn service_restore_keeps_the_stopped_tolerance() {
+        fn service_restore_requires_an_exact_stopped_state() {
             let stopped = confirm_service_restore(
                 Ok(("Stopped".to_string(), "Manual".to_string())),
                 "Stopped",
                 "Manual",
             );
-            assert!(matches!(stopped, RestoreConfirmation::Confirmed { .. }));
+            assert_eq!(
+                stopped,
+                RestoreConfirmation::Confirmed {
+                    state: "Stopped".to_string()
+                }
+            );
 
-            let pending = confirm_service_restore(
+            let unknown = confirm_service_restore(
                 Ok(("Unknown".to_string(), "Manual".to_string())),
                 "Stopped",
                 "Manual",
             );
-            assert!(matches!(pending, RestoreConfirmation::Confirmed { .. }));
+            assert_eq!(
+                unknown,
+                RestoreConfirmation::Mismatch {
+                    state: "Unknown".to_string()
+                }
+            );
+
+            let enabled = confirm_service_restore(
+                Ok(("Enabled".to_string(), "Manual".to_string())),
+                "Stopped",
+                "Manual",
+            );
+            assert_eq!(
+                enabled,
+                RestoreConfirmation::Mismatch {
+                    state: "Enabled".to_string()
+                }
+            );
 
             let still_running = confirm_service_restore(
                 Ok(("Running".to_string(), "Manual".to_string())),
                 "Stopped",
                 "Manual",
             );
-            assert!(matches!(
+            assert_eq!(
                 still_running,
-                RestoreConfirmation::Mismatch { .. }
-            ));
+                RestoreConfirmation::Mismatch {
+                    state: "Running".to_string()
+                }
+            );
+
+            let query_failed = confirm_service_restore(
+                Err("Unable to query WSearch".to_string()),
+                "Stopped",
+                "Manual",
+            );
+            assert_eq!(
+                query_failed,
+                RestoreConfirmation::QueryFailed {
+                    error: "Unable to query WSearch".to_string()
+                }
+            );
         }
 
         #[test]
@@ -1916,9 +1949,10 @@ mod windows_apply {
     fn wait_for_state(service: SC_HANDLE, expected_state: &str, service_label: &str) -> Option<ServiceSnapshot> {
         for _ in 0..20 {
             if let Ok(snapshot) = query_snapshot(service, service_label) {
-                if snapshot.state == expected_state
-                    || (expected_state == "Stopped" && snapshot.state != "Running" && snapshot.startup_type != "Disabled")
-                {
+                // Only an exact state match ends the wait early. Transitional
+                // or unknown states must not be treated as a reached Stopped
+                // (or any other) target.
+                if snapshot.state == expected_state {
                     return Some(snapshot);
                 }
             }
