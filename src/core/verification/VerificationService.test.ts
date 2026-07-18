@@ -123,4 +123,30 @@ describe("VerificationService.verify", () => {
 
     expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-pending");
   });
+
+  it("clears matching pending apply when apply-mode plugin verification throws", async () => {
+    storePendingApplyResult(buildApplyResult({ historyEntryId: "entry-1" }));
+    verifyMock.mockRejectedValue(new Error("native invoke aborted"));
+
+    const result = await VerificationService.verify("windows-search");
+
+    expect(result.status).toBe("Failed");
+    expect(result.historyEntryId).toBe("entry-1");
+    expect(result.message).toContain("native invoke aborted");
+    expect(readPendingApplyResult("windows-search")).toBeNull();
+  });
+
+  it("does not clear pending apply when recovery-mode plugin verification throws", async () => {
+    storePendingApplyResult(buildApplyResult({ historyEntryId: "entry-1" }));
+    verifyMock.mockRejectedValue(new Error("recovery verify crashed"));
+
+    const result = await VerificationService.verify("windows-search", {
+      mode: "recovery",
+      historyEntryId: "entry-recovery"
+    });
+
+    expect(result.status).toBe("Failed");
+    expect(result.historyEntryId).toBe("entry-recovery");
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-1");
+  });
 });

@@ -66,7 +66,7 @@ export class VerificationService {
         verificationMode: mode
       });
     } catch (error) {
-      return failedVerification(
+      result = failedVerification(
         optimizationId,
         options.historyEntryId,
         `Verification failed: native invoke error (${toErrorMessage(error)}).`
