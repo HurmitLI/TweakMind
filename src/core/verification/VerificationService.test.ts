@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { VerificationExecutionResult } from "../execution/OptimizationExecutionTypes";
+import {
+  readPendingApplyResult,
+  storePendingApplyResult,
+  type OptimizationApplyResult
+} from "../windows/WindowsOptimizationService";
 import { VerificationService } from "./VerificationService";
 
 const verifyMock = vi.hoisted(() => vi.fn());
@@ -19,6 +24,21 @@ function buildVerificationResult(overrides: Partial<VerificationExecutionResult>
     expectedState: "Disabled",
     actualState: "Disabled",
     message: "Windows Search is now detected as Disabled.",
+    timestamp: "1700000000",
+    ...overrides
+  };
+}
+
+function buildApplyResult(overrides: Partial<OptimizationApplyResult> = {}): OptimizationApplyResult {
+  return {
+    historyEntryId: "entry-1",
+    optimizationId: "windows-search",
+    applyMode: "real",
+    status: "success",
+    previousState: "Running",
+    currentState: "Disabled",
+    message: "Applied.",
+    error: null,
     timestamp: "1700000000",
     ...overrides
   };
@@ -70,5 +90,63 @@ describe("VerificationService.verify", () => {
     });
     expect(result.status).toBe("Failed");
     expect(result.message).toContain("verify handler missing");
+  });
+
+  it("clears the matching pending apply slot after a terminal apply verification", async () => {
+    storePendingApplyResult(buildApplyResult({ historyEntryId: "entry-1" }));
+    verifyMock.mockResolvedValue(buildVerificationResult({ status: "Failed", actualState: "Running" }));
+
+    await VerificationService.verify("windows-search", { historyEntryId: "entry-1" });
+
+    expect(readPendingApplyResult("windows-search")).toBeNull();
+  });
+
+  it("keeps pending apply when verification stays pending", async () => {
+    storePendingApplyResult(buildApplyResult({ historyEntryId: "entry-1" }));
+    verifyMock.mockResolvedValue(
+      buildVerificationResult({
+        status: "Pending / Not Available",
+        message: "No completed Apply result was found. Verification is pending."
+      })
+    );
+
+    await VerificationService.verify("windows-search", { historyEntryId: "entry-1" });
+
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-1");
+  });
+
+  it("does not clear a pending apply that belongs to a different history entry", async () => {
+    storePendingApplyResult(buildApplyResult({ historyEntryId: "entry-pending" }));
+    verifyMock.mockResolvedValue(buildVerificationResult({ historyEntryId: "entry-other" }));
+
+    await VerificationService.verify("windows-search", { historyEntryId: "entry-other" });
+
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-pending");
+  });
+
+  it("clears matching pending apply when apply-mode plugin verification throws", async () => {
+    storePendingApplyResult(buildApplyResult({ historyEntryId: "entry-1" }));
+    verifyMock.mockRejectedValue(new Error("native invoke aborted"));
+
+    const result = await VerificationService.verify("windows-search");
+
+    expect(result.status).toBe("Failed");
+    expect(result.historyEntryId).toBe("entry-1");
+    expect(result.message).toContain("native invoke aborted");
+    expect(readPendingApplyResult("windows-search")).toBeNull();
+  });
+
+  it("does not clear pending apply when recovery-mode plugin verification throws", async () => {
+    storePendingApplyResult(buildApplyResult({ historyEntryId: "entry-1" }));
+    verifyMock.mockRejectedValue(new Error("recovery verify crashed"));
+
+    const result = await VerificationService.verify("windows-search", {
+      mode: "recovery",
+      historyEntryId: "entry-recovery"
+    });
+
+    expect(result.status).toBe("Failed");
+    expect(result.historyEntryId).toBe("entry-recovery");
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-1");
   });
 });

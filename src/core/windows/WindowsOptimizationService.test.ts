@@ -5,15 +5,20 @@ import type {
   OptimizationRecoveryResult
 } from "./WindowsOptimizationService";
 import {
+  clearPendingApplyResult,
+  clearPendingRecoveryAuthorization,
+  hasPendingRecoveryAuthorization,
   isValidApplyResult,
   isValidHistoryEntry,
   isValidRecoveryResult,
   optimizationHistoryStorageKey,
   pendingApplyResultStorageKey,
+  pendingRecoveryAuthorizationStorageKey,
   pendingRecoveryResultStorageKey,
   readPendingApplyResult,
   readPendingRecoveryResult,
   storePendingApplyResult,
+  storePendingRecoveryAuthorization,
   storePendingRecoveryResult,
   WindowsOptimizationService
 } from "./WindowsOptimizationService";
@@ -162,6 +167,43 @@ describe("pending apply result validation", () => {
   it("validates status against the execution status enum", () => {
     expect(isValidApplyResult(buildApplyResult({ status: "pending" as unknown as "success" }))).toBe(false);
     expect(isValidApplyResult(buildApplyResult({ status: "unsupported" }))).toBe(true);
+  });
+
+  it("clears both session and local pending apply slots", () => {
+    storePendingApplyResult(buildApplyResult());
+    clearPendingApplyResult();
+
+    expect(readPendingApplyResult("windows-search")).toBeNull();
+    expect(window.sessionStorage.getItem(pendingApplyResultStorageKey)).toBeNull();
+    expect(window.localStorage.getItem(pendingApplyResultStorageKey)).toBeNull();
+  });
+});
+
+describe("pending recovery authorization lifecycle", () => {
+  it("keeps authorization in session storage only", () => {
+    storePendingRecoveryAuthorization("entry-1");
+
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(true);
+    expect(window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBe("entry-1");
+    expect(window.localStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBeNull();
+  });
+
+  it("ignores and clears legacy localStorage authorization after restart-equivalent session loss", () => {
+    window.localStorage.setItem(pendingRecoveryAuthorizationStorageKey, "entry-1");
+
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+    expect(window.localStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBeNull();
+  });
+
+  it("clears authorization from both storages", () => {
+    window.sessionStorage.setItem(pendingRecoveryAuthorizationStorageKey, "entry-1");
+    window.localStorage.setItem(pendingRecoveryAuthorizationStorageKey, "entry-1");
+
+    clearPendingRecoveryAuthorization();
+
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+    expect(window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBeNull();
+    expect(window.localStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBeNull();
   });
 });
 
