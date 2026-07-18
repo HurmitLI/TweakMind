@@ -293,6 +293,81 @@ mod input_validation {
         }
     }
 
+    /// Whitelist parser for saved Game Mode / Core Isolation values. These
+    /// keys only ever hold 0 or 1; `Missing` restores the deleted state.
+    /// Anything else is rejected before a registry write can happen.
+    pub fn parse_binary_registry_restore_action(raw: &str) -> Option<RegistryRestoreAction> {
+        if raw == "Missing" {
+            return Some(RegistryRestoreAction::Delete);
+        }
+
+        parse_binary_dword_raw(raw).map(RegistryRestoreAction::Set)
+    }
+
+    /// Whitelist for the saved previous state of the power plan optimization.
+    /// The detector records Default / Enabled / Disabled / Unknown.
+    pub fn parse_power_plan_previous_state(value: &str) -> Option<&'static str> {
+        match value {
+            "Enabled" => Some("Enabled"),
+            "Disabled" => Some("Disabled"),
+            "Default" => Some("Default"),
+            "Unknown" => Some("Unknown"),
+            _ => None,
+        }
+    }
+
+    /// Canonicalizes a detector-shaped `GUID:{...}` string for equality
+    /// checks. Invalid shapes return `None`.
+    pub fn normalize_guid_raw(value: &str) -> Option<String> {
+        let parts = parse_guid_raw_strict(value)?;
+
+        Some(format!(
+            "GUID:{{{:08x}-{:04x}-{:04x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}}}",
+            parts.data1,
+            parts.data2,
+            parts.data3,
+            parts.data4[0],
+            parts.data4[1],
+            parts.data4[2],
+            parts.data4[3],
+            parts.data4[4],
+            parts.data4[5],
+            parts.data4[6],
+            parts.data4[7]
+        ))
+    }
+
+    /// Confirms power-plan recovery by exact GUID match. Label or coarse
+    /// state equality (e.g. two different `Enabled` schemes) is never enough.
+    pub fn confirm_power_plan_restore(
+        requery_guid_raw: Result<String, String>,
+        expected_guid_raw: &str,
+    ) -> RestoreConfirmation {
+        let expected = match normalize_guid_raw(expected_guid_raw) {
+            Some(value) => value,
+            None => {
+                return RestoreConfirmation::QueryFailed {
+                    error: "Saved power plan GUID is not restorable.".to_string(),
+                };
+            }
+        };
+
+        match requery_guid_raw {
+            Ok(actual_raw) => match normalize_guid_raw(&actual_raw) {
+                Some(actual) if actual == expected => RestoreConfirmation::Confirmed {
+                    state: actual_raw,
+                },
+                Some(_) => RestoreConfirmation::Mismatch {
+                    state: actual_raw,
+                },
+                None => RestoreConfirmation::Mismatch {
+                    state: actual_raw,
+                },
+            },
+            Err(error) => RestoreConfirmation::QueryFailed { error },
+        }
+    }
+
     /// Documented value domain for `DODownloadMode`.
     const DELIVERY_OPTIMIZATION_ALLOWED_VALUES: [u32; 6] = [0, 1, 2, 3, 99, 100];
 
@@ -754,6 +829,102 @@ mod input_validation {
             assert_eq!(parse_hags_restore_action("UnsupportedType"), None);
             assert_eq!(parse_hags_restore_action("missing"), None);
             assert_eq!(parse_hags_restore_action("DWORD:1;reg delete HKLM"), None);
+        }
+
+        #[test]
+        fn binary_registry_restore_action_accepts_only_zero_one_or_missing() {
+            assert_eq!(
+                parse_binary_registry_restore_action("Missing"),
+                Some(RegistryRestoreAction::Delete)
+            );
+            assert_eq!(
+                parse_binary_registry_restore_action("DWORD:0"),
+                Some(RegistryRestoreAction::Set(0))
+            );
+            assert_eq!(
+                parse_binary_registry_restore_action("DWORD:1"),
+                Some(RegistryRestoreAction::Set(1))
+            );
+        }
+
+        #[test]
+        fn binary_registry_restore_action_rejects_illegal_saved_values() {
+            assert_eq!(parse_binary_registry_restore_action("DWORD:2"), None);
+            assert_eq!(parse_binary_registry_restore_action("DWORD:01"), None);
+            assert_eq!(parse_binary_registry_restore_action(""), None);
+            assert_eq!(parse_binary_registry_restore_action("missing"), None);
+            assert_eq!(parse_binary_registry_restore_action("UnsupportedType"), None);
+            assert_eq!(
+                parse_binary_registry_restore_action("DWORD:1;reg delete HKLM"),
+                None
+            );
+        }
+
+        #[test]
+        fn power_plan_previous_state_whitelist() {
+            assert_eq!(parse_power_plan_previous_state("Enabled"), Some("Enabled"));
+            assert_eq!(parse_power_plan_previous_state("Disabled"), Some("Disabled"));
+            assert_eq!(parse_power_plan_previous_state("Default"), Some("Default"));
+            assert_eq!(parse_power_plan_previous_state("Unknown"), Some("Unknown"));
+
+            assert_eq!(parse_power_plan_previous_state("Running"), None);
+            assert_eq!(parse_power_plan_previous_state("Balanced"), None);
+            assert_eq!(parse_power_plan_previous_state(""), None);
+            assert_eq!(parse_power_plan_previous_state("enabled"), None);
+        }
+
+        #[test]
+        fn power_plan_restore_confirms_only_exact_guid_match() {
+            let balanced = "GUID:{381b4222-f694-41f0-9685-ff1bb1920fa1}";
+            let high = "GUID:{8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c}";
+
+            assert_eq!(
+                confirm_power_plan_restore(Ok(balanced.to_string()), balanced),
+                RestoreConfirmation::Confirmed {
+                    state: balanced.to_string()
+                }
+            );
+
+            // Case differences in hex digits still match after normalization.
+            assert!(matches!(
+                confirm_power_plan_restore(
+                    Ok("GUID:{381B4222-F694-41F0-9685-FF1BB1920FA1}".to_string()),
+                    balanced
+                ),
+                RestoreConfirmation::Confirmed { .. }
+            ));
+
+            assert_eq!(
+                confirm_power_plan_restore(Ok(high.to_string()), balanced),
+                RestoreConfirmation::Mismatch {
+                    state: high.to_string()
+                }
+            );
+        }
+
+        #[test]
+        fn power_plan_restore_never_reports_success_when_the_requery_fails() {
+            let outcome = confirm_power_plan_restore(
+                Err("PowerGetActiveScheme failed with Windows error 5.".to_string()),
+                "GUID:{381b4222-f694-41f0-9685-ff1bb1920fa1}",
+            );
+
+            assert_eq!(
+                outcome,
+                RestoreConfirmation::QueryFailed {
+                    error: "PowerGetActiveScheme failed with Windows error 5.".to_string()
+                }
+            );
+        }
+
+        #[test]
+        fn power_plan_restore_rejects_an_invalid_expected_guid() {
+            let outcome = confirm_power_plan_restore(
+                Ok("GUID:{381b4222-f694-41f0-9685-ff1bb1920fa1}".to_string()),
+                "not-a-guid",
+            );
+
+            assert!(matches!(outcome, RestoreConfirmation::QueryFailed { .. }));
         }
 
         #[test]
@@ -1625,12 +1796,6 @@ mod windows_apply {
         }
     }
 
-    fn parse_game_mode_raw_value(value: &str) -> Option<u32> {
-        // Game Mode only ever stores 0 or 1; any other saved value is
-        // rejected before it can reach the registry.
-        super::input_validation::parse_binary_dword_raw(value)
-    }
-
     fn query_game_mode_snapshot() -> Result<GameModeSnapshot, String> {
         let key = open_game_mode_key(KEY_READ)?;
         let value_name = wide("AutoGameModeEnabled");
@@ -1744,12 +1909,6 @@ mod windows_apply {
             Some(value) => format!("DWORD:{value}"),
             None => "Missing".to_string(),
         }
-    }
-
-    fn parse_core_isolation_raw_value(value: &str) -> Option<u32> {
-        // HVCI Enabled only ever stores 0 or 1; any other saved value is
-        // rejected before it can reach the registry.
-        super::input_validation::parse_binary_dword_raw(value)
     }
 
     fn query_core_isolation_snapshot() -> Result<CoreIsolationSnapshot, String> {
@@ -2629,6 +2788,22 @@ mod windows_apply {
     }
 
     pub fn restore_power_plan(previous_state: String, previous_guid_raw: String) -> RecoveryResult {
+        // Saved state and GUID are validated before any power scheme is
+        // activated. Success later requires an exact GUID re-query match,
+        // never coarse Enabled/label equality.
+        if super::input_validation::parse_power_plan_previous_state(&previous_state).is_none() {
+            return recovery_result(
+                "power-plan",
+                "failed",
+                &previous_state,
+                &previous_state,
+                "Unknown",
+                &previous_guid_raw,
+                "Power plan recovery was not applied.".to_string(),
+                Some("Saved power plan state is not restorable.".to_string()),
+            );
+        }
+
         let target_guid = match super::power_plan_ops::parse_guid_raw(&previous_guid_raw) {
             Some(guid) => guid,
             None => {
@@ -2675,35 +2850,67 @@ mod windows_apply {
             );
         }
 
-        let after = super::power_plan_ops::query_active_power_plan().unwrap_or(super::power_plan_ops::PowerPlanSnapshot {
-            state: "Unknown".to_string(),
-            label: "Unknown".to_string(),
-            guid_raw: previous_guid_raw.clone(),
-            message: "Active power plan could not be confirmed after recovery.".to_string(),
-        });
-        let success = after.state == previous_state;
-
-        recovery_result(
-            "power-plan",
-            if success { "success" } else { "failed" },
-            &previous_state,
-            &previous_state,
-            &after.state,
-            &previous_guid_raw,
-            if success {
-                "Power plan was restored to the saved previous state.".to_string()
-            } else {
-                format!(
-                    "Power plan recovery expected {previous_state}, but detected {} ({}).",
-                    after.state, after.label
-                )
-            },
-            if success {
-                None
-            } else {
-                Some("Recovered power plan did not match the saved previous state.".to_string())
-            },
-        )
+        match super::power_plan_ops::query_active_power_plan() {
+            Err(error) => recovery_result(
+                "power-plan",
+                "failed",
+                &previous_state,
+                &previous_state,
+                "Unknown",
+                &previous_guid_raw,
+                "Power plan recovery could not be confirmed.".to_string(),
+                Some(error),
+            ),
+            Ok(snapshot) => {
+                match super::input_validation::confirm_power_plan_restore(
+                    Ok(snapshot.guid_raw.clone()),
+                    &previous_guid_raw,
+                ) {
+                    super::input_validation::RestoreConfirmation::Confirmed { .. } => {
+                        recovery_result(
+                            "power-plan",
+                            "success",
+                            &previous_state,
+                            &previous_state,
+                            &snapshot.state,
+                            &previous_guid_raw,
+                            "Power plan was restored to the saved previous state.".to_string(),
+                            None,
+                        )
+                    }
+                    super::input_validation::RestoreConfirmation::Mismatch { .. } => {
+                        recovery_result(
+                            "power-plan",
+                            "failed",
+                            &previous_state,
+                            &previous_state,
+                            &snapshot.state,
+                            &previous_guid_raw,
+                            format!(
+                                "Power plan recovery expected {previous_state}, but detected {} ({}).",
+                                snapshot.state, snapshot.label
+                            ),
+                            Some(
+                                "Recovered power plan did not match the saved previous state."
+                                    .to_string(),
+                            ),
+                        )
+                    }
+                    super::input_validation::RestoreConfirmation::QueryFailed { error } => {
+                        recovery_result(
+                            "power-plan",
+                            "failed",
+                            &previous_state,
+                            &previous_state,
+                            "Unknown",
+                            &previous_guid_raw,
+                            "Power plan recovery could not be confirmed.".to_string(),
+                            Some(error),
+                        )
+                    }
+                }
+            }
+        }
     }
 
     pub fn game_mode() -> ApplyResult {
@@ -2770,12 +2977,21 @@ mod windows_apply {
     }
 
     pub fn restore_game_mode(previous_state: String, previous_registry_value: String) -> RecoveryResult {
-        let recovery = if previous_registry_value == "Missing" {
-            delete_game_mode_value()
-        } else if let Some(value) = parse_game_mode_raw_value(&previous_registry_value) {
-            set_game_mode_value(value)
-        } else {
-            Err("Saved Game Mode registry value is not restorable.".to_string())
+        // Saved inputs are validated against the legal Game Mode domain
+        // (state Enabled/Disabled/Unknown, value 0/1/Missing) before any
+        // registry write happens.
+        let expected_state = super::input_validation::parse_registry_previous_state(&previous_state);
+        let action =
+            super::input_validation::parse_binary_registry_restore_action(&previous_registry_value);
+
+        let recovery = match (expected_state, action) {
+            (Some(_), Some(super::input_validation::RegistryRestoreAction::Delete)) => {
+                delete_game_mode_value()
+            }
+            (Some(_), Some(super::input_validation::RegistryRestoreAction::Set(value))) => {
+                set_game_mode_value(value)
+            }
+            _ => Err("Saved Game Mode registry value is not restorable.".to_string()),
         };
 
         if let Err(message) = recovery {
@@ -2795,30 +3011,43 @@ mod windows_apply {
             );
         }
 
-        let after = query_game_mode_snapshot().unwrap_or(GameModeSnapshot {
-            state: "Unknown".to_string(),
-            raw_value: previous_registry_value.clone(),
-        });
-        let success = after.state == previous_state;
+        // expected_state is always Some here because the recovery above only
+        // runs after both validations pass.
+        let expected_state = expected_state.unwrap_or("Unknown");
+        let requery = query_game_mode_snapshot().map(|snapshot| snapshot.state);
 
-        recovery_result(
-            "game-mode",
-            if success { "success" } else { "failed" },
-            &previous_state,
-            &previous_state,
-            &after.state,
-            &previous_registry_value,
-            if success {
-                "Game Mode was restored to the saved previous state.".to_string()
-            } else {
-                format!("Game Mode recovery expected {previous_state}, but detected {}.", after.state)
-            },
-            if success {
-                None
-            } else {
-                Some("Recovered state did not match the saved previous state.".to_string())
-            },
-        )
+        match super::input_validation::confirm_registry_restore(requery, expected_state) {
+            super::input_validation::RestoreConfirmation::Confirmed { state } => recovery_result(
+                "game-mode",
+                "success",
+                &previous_state,
+                &previous_state,
+                &state,
+                &previous_registry_value,
+                "Game Mode was restored to the saved previous state.".to_string(),
+                None,
+            ),
+            super::input_validation::RestoreConfirmation::Mismatch { state } => recovery_result(
+                "game-mode",
+                "failed",
+                &previous_state,
+                &previous_state,
+                &state,
+                &previous_registry_value,
+                format!("Game Mode recovery expected {previous_state}, but detected {state}."),
+                Some("Recovered state did not match the saved previous state.".to_string()),
+            ),
+            super::input_validation::RestoreConfirmation::QueryFailed { error } => recovery_result(
+                "game-mode",
+                "failed",
+                &previous_state,
+                &previous_state,
+                "Unknown",
+                &previous_registry_value,
+                "Game Mode recovery could not be confirmed.".to_string(),
+                Some(error),
+            ),
+        }
     }
 
     pub fn core_isolation() -> ApplyResult {
@@ -2885,12 +3114,21 @@ mod windows_apply {
     }
 
     pub fn restore_core_isolation(previous_state: String, previous_registry_value: String) -> RecoveryResult {
-        let recovery = if previous_registry_value == "Missing" {
-            delete_core_isolation_value()
-        } else if let Some(value) = parse_core_isolation_raw_value(&previous_registry_value) {
-            set_core_isolation_value(value)
-        } else {
-            Err("Saved Core Isolation registry value is not restorable.".to_string())
+        // Saved inputs are validated against the legal Core Isolation domain
+        // (state Enabled/Disabled/Unknown, value 0/1/Missing) before any
+        // registry write happens.
+        let expected_state = super::input_validation::parse_registry_previous_state(&previous_state);
+        let action =
+            super::input_validation::parse_binary_registry_restore_action(&previous_registry_value);
+
+        let recovery = match (expected_state, action) {
+            (Some(_), Some(super::input_validation::RegistryRestoreAction::Delete)) => {
+                delete_core_isolation_value()
+            }
+            (Some(_), Some(super::input_validation::RegistryRestoreAction::Set(value))) => {
+                set_core_isolation_value(value)
+            }
+            _ => Err("Saved Core Isolation registry value is not restorable.".to_string()),
         };
 
         if let Err(message) = recovery {
@@ -2910,33 +3148,45 @@ mod windows_apply {
             );
         }
 
-        let after = query_core_isolation_snapshot().unwrap_or(CoreIsolationSnapshot {
-            state: "Unknown".to_string(),
-            raw_value: previous_registry_value.clone(),
-        });
-        let success = after.state == previous_state;
+        // expected_state is always Some here because the recovery above only
+        // runs after both validations pass.
+        let expected_state = expected_state.unwrap_or("Unknown");
+        let requery = query_core_isolation_snapshot().map(|snapshot| snapshot.state);
 
-        recovery_result(
-            "core-isolation",
-            if success { "success" } else { "failed" },
-            &previous_state,
-            &previous_state,
-            &after.state,
-            &previous_registry_value,
-            if success {
-                "Core Isolation was restored to the saved previous state. A restart may be required for full effect.".to_string()
-            } else {
+        match super::input_validation::confirm_registry_restore(requery, expected_state) {
+            super::input_validation::RestoreConfirmation::Confirmed { state } => recovery_result(
+                "core-isolation",
+                "success",
+                &previous_state,
+                &previous_state,
+                &state,
+                &previous_registry_value,
+                "Core Isolation was restored to the saved previous state. A restart may be required for full effect.".to_string(),
+                None,
+            ),
+            super::input_validation::RestoreConfirmation::Mismatch { state } => recovery_result(
+                "core-isolation",
+                "failed",
+                &previous_state,
+                &previous_state,
+                &state,
+                &previous_registry_value,
                 format!(
-                    "Core Isolation recovery expected {previous_state}, but detected {}.",
-                    after.state
-                )
-            },
-            if success {
-                None
-            } else {
-                Some("Recovered state did not match the saved previous state.".to_string())
-            },
-        )
+                    "Core Isolation recovery expected {previous_state}, but detected {state}."
+                ),
+                Some("Recovered state did not match the saved previous state.".to_string()),
+            ),
+            super::input_validation::RestoreConfirmation::QueryFailed { error } => recovery_result(
+                "core-isolation",
+                "failed",
+                &previous_state,
+                &previous_state,
+                "Unknown",
+                &previous_registry_value,
+                "Core Isolation recovery could not be confirmed.".to_string(),
+                Some(error),
+            ),
+        }
     }
 
     const DO_POLICY_PATH: &str = "SOFTWARE\\Policies\\Microsoft\\Windows\\DeliveryOptimization";
