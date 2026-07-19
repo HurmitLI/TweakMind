@@ -17,6 +17,7 @@ import {
 import { translateRuntimeMessage } from "../core/localization/RuntimeMessageLocalizationService";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
 import { RuntimeScanService } from "../core/scan/RuntimeScanService";
+import { startVerificationPageLifecycle } from "../core/verification/VerificationPageLifecycle";
 import { VerificationService } from "../core/verification/VerificationService";
 import type { VerificationResult, VerificationStatus } from "../core/verification/VerificationResult";
 import type { OptimizationId } from "../types/optimization";
@@ -71,31 +72,32 @@ export function VerificationPage() {
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    let isMounted = true;
-
     setIsVerifying(true);
     setUnexpectedFailure(null);
-    VerificationService.verify(optimization.id, { mode, historyEntryId })
-      .then((verificationResult) => {
-        if (!isMounted) {
-          return;
-        }
+    setResult(null);
 
+    const lifecycle = startVerificationPageLifecycle({
+      runVerify: () =>
+        VerificationService.verify(optimization.id, {
+          mode,
+          historyEntryId,
+          // Defer pending consume + history write until this attempt is still current.
+          commitSideEffects: false
+        }),
+      onSettled(verificationResult) {
+        VerificationService.commitVerification(optimization.id, mode, verificationResult);
         setResult(verificationResult);
         setIsVerifying(false);
-      })
-      .catch((error: unknown) => {
-        if (!isMounted) {
-          return;
-        }
-
+      },
+      onUnexpectedFailure(errorMessage) {
         setResult(null);
-        setUnexpectedFailure(error instanceof Error ? error.message : String(error));
+        setUnexpectedFailure(errorMessage);
         setIsVerifying(false);
-      });
+      }
+    });
 
     return () => {
-      isMounted = false;
+      lifecycle.dispose();
     };
   }, [historyEntryId, mode, optimization.id, retryCount]);
 

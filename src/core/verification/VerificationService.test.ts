@@ -253,4 +253,48 @@ describe("VerificationService.verify", () => {
 
     expect(readPendingRecoveryResult("entry-1")?.historyEntryId).toBe("entry-1");
   });
+
+  it("does not consume pending when commitSideEffects is false until commitVerification runs", async () => {
+    storePendingApplyResult(buildApplyResult({ historyEntryId: "entry-1" }));
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-recovery" }));
+    verifyMock.mockResolvedValue(buildVerificationResult({ historyEntryId: "entry-1", status: "Verified" }));
+
+    const result = await VerificationService.verify("windows-search", {
+      historyEntryId: "entry-1",
+      commitSideEffects: false
+    });
+
+    expect(result.status).toBe("Verified");
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-1");
+    expect(readPendingRecoveryResult("entry-recovery")?.historyEntryId).toBe("entry-recovery");
+
+    VerificationService.commitVerification("windows-search", "apply", result);
+
+    expect(readPendingApplyResult("windows-search")).toBeNull();
+    expect(readPendingRecoveryResult("entry-recovery")?.historyEntryId).toBe("entry-recovery");
+  });
+
+  it("stale discarded verify without commit leaves matching pending slots intact", async () => {
+    storePendingApplyResult(buildApplyResult({ historyEntryId: "entry-a" }));
+    storePendingApplyResult(
+      buildApplyResult({ optimizationId: "sysmain", historyEntryId: "entry-b", previousState: "Stopped" })
+    );
+    verifyMock.mockResolvedValue(
+      buildVerificationResult({
+        optimizationId: "windows-search",
+        historyEntryId: "entry-a",
+        status: "Verified"
+      })
+    );
+
+    const stale = await VerificationService.verify("windows-search", {
+      historyEntryId: "entry-a",
+      commitSideEffects: false
+    });
+
+    // Simulate VerificationPage dispose: never commit the stale attempt.
+    expect(stale.historyEntryId).toBe("entry-a");
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-a");
+    expect(readPendingApplyResult("sysmain")?.historyEntryId).toBe("entry-b");
+  });
 });
