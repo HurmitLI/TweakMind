@@ -319,8 +319,101 @@ describe("subscribeRecoveryPageLifecycle authorization safety", () => {
     first.unsubscribe();
     await Promise.resolve();
 
-    expect(hasInFlightRecoveryLifecycle("entry-1")).toBe(false);
+    // Keep the in-flight gate while native restore is still pending (anti-duplicate).
+    expect(hasInFlightRecoveryLifecycle("entry-1")).toBe(true);
     expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+    expect(runRestore).toHaveBeenCalledTimes(1);
+  });
+
+  it("navigate-away then re-confirm joins the pending restore instead of starting a second real run", async () => {
+    storePendingRecoveryAuthorization("entry-1");
+
+    let resolveRestore!: (value: OptimizationRecoveryResult) => void;
+    const runRestore = vi.fn(
+      () =>
+        new Promise<OptimizationRecoveryResult>((resolve) => {
+          resolveRestore = resolve;
+        })
+    );
+
+    const first = subscribeRecoveryPageLifecycle({
+      historyEntryId: "entry-1",
+      runRestore,
+      recoveryDurationMs: 1000,
+      recoveryTickMs: 100,
+      onStartFresh: () => startFreshLikeRecoveryPage("entry-1"),
+      onProgress: vi.fn(),
+      onSucceeded: vi.fn(),
+      onFailed: vi.fn()
+    });
+
+    first.unsubscribe();
+    await Promise.resolve();
+    expect(hasInFlightRecoveryLifecycle("entry-1")).toBe(true);
+    expect(runRestore).toHaveBeenCalledTimes(1);
+
+    // History still allows confirm while recoveryStatus is Started; a new auth write
+    // must not start a second native restore.
+    storePendingRecoveryAuthorization("entry-1");
+    const onSucceeded = vi.fn();
+    const reentry = subscribeRecoveryPageLifecycle({
+      historyEntryId: "entry-1",
+      runRestore,
+      recoveryDurationMs: 1000,
+      recoveryTickMs: 100,
+      onStartFresh: () => startFreshLikeRecoveryPage("entry-1"),
+      onProgress: vi.fn(),
+      onSucceeded,
+      onFailed: vi.fn()
+    });
+
+    expect(reentry.didStartFresh).toBe(false);
+    expect(runRestore).toHaveBeenCalledTimes(1);
+    // Joining must not re-run onStartFresh / consume the freshly written auth as a new start.
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(true);
+
+    resolveRestore(buildResult({ historyEntryId: "entry-1", message: "once" }));
+    await Promise.resolve();
+
+    expect(onSucceeded).toHaveBeenCalledTimes(1);
+    expect(onSucceeded.mock.calls[0][0].message).toBe("once");
+    expect(runRestore).toHaveBeenCalledTimes(1);
+
+    reentry.unsubscribe();
+    await Promise.resolve();
+    expect(hasInFlightRecoveryLifecycle("entry-1")).toBe(false);
+  });
+
+  it("releases the in-flight gate after dispose once the pending restore settles", async () => {
+    storePendingRecoveryAuthorization("entry-1");
+
+    let resolveRestore!: (value: OptimizationRecoveryResult) => void;
+    const runRestore = vi.fn(
+      () =>
+        new Promise<OptimizationRecoveryResult>((resolve) => {
+          resolveRestore = resolve;
+        })
+    );
+
+    const first = subscribeRecoveryPageLifecycle({
+      historyEntryId: "entry-1",
+      runRestore,
+      recoveryDurationMs: 400,
+      recoveryTickMs: 100,
+      onStartFresh: () => startFreshLikeRecoveryPage("entry-1"),
+      onProgress: vi.fn(),
+      onSucceeded: vi.fn(),
+      onFailed: vi.fn()
+    });
+
+    first.unsubscribe();
+    await Promise.resolve();
+    expect(hasInFlightRecoveryLifecycle("entry-1")).toBe(true);
+
+    resolveRestore(buildResult({ status: "failed", error: "late fail" }));
+    await Promise.resolve();
+
+    expect(hasInFlightRecoveryLifecycle("entry-1")).toBe(false);
     expect(runRestore).toHaveBeenCalledTimes(1);
   });
 

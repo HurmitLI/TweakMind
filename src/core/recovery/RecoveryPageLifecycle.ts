@@ -17,6 +17,12 @@ export interface RecoveryPageLifecycleOptions {
   onProgress: (progress: number) => void;
   onSucceeded: (result: OptimizationRecoveryResult) => void;
   onFailed: (failure: RecoveryPageLifecycleFailure) => void;
+  /**
+   * When true, settle callbacks still fire after dispose so session owners can
+   * release in-flight gates. Progress updates remain suppressed. Default false
+   * preserves page-level dispose semantics for direct callers.
+   */
+  notifySettleWhenDisposed?: boolean;
 }
 
 export interface RecoveryPageLifecycleHandle {
@@ -106,18 +112,30 @@ export function startRecoveryPageLifecycle(options: RecoveryPageLifecycleOptions
   };
 
   const markSucceeded = (result: OptimizationRecoveryResult) => {
-    if (disposed || status !== "recovering") {
+    if (status !== "recovering") {
+      return;
+    }
+
+    if (disposed && !options.notifySettleWhenDisposed) {
       return;
     }
 
     status = "succeeded";
     clearTimers();
-    options.onProgress(100);
+
+    if (!disposed) {
+      options.onProgress(100);
+    }
+
     options.onSucceeded(result);
   };
 
   const markFailed = (failure: RecoveryPageLifecycleFailure) => {
-    if (disposed || status !== "recovering") {
+    if (status !== "recovering") {
+      return;
+    }
+
+    if (disposed && !options.notifySettleWhenDisposed) {
       return;
     }
 
@@ -186,12 +204,30 @@ export function startRecoveryPageLifecycle(options: RecoveryPageLifecycleOptions
 }
 
 /**
+ * Drop a settled session once no UI subscribers remain. Unsettled restores keep
+ * the map entry so navigate-away cannot open a second real runRestore.
+ */
+function releaseRecoverySessionIfIdle(historyEntryId: string, session: InFlightSession): void {
+  if (session.subscribers.size > 0 || session.settlement === null) {
+    return;
+  }
+
+  if (inflightByHistoryEntryId.get(historyEntryId) !== session) {
+    return;
+  }
+
+  session.handle.dispose();
+  inflightByHistoryEntryId.delete(historyEntryId);
+}
+
+/**
  * historyEntryId-keyed subscribe API for RecoveryPage.
  *
  * StrictMode: effect cleanup unsubscribes, then the remount resubscribes in the
  * same turn and joins the existing in-flight restore (no second runRestore, no
- * authorization rewrite). Real navigation: the deferred teardown disposes the
- * session without re-arming confirmation auth.
+ * authorization rewrite). Real navigation: dispose stops UI updates but keeps
+ * the in-flight gate until the restore Promise settles, matching apply's
+ * anti-duplicate semantics.
  */
 export function subscribeRecoveryPageLifecycle(
   options: SubscribeRecoveryPageLifecycleOptions
@@ -203,6 +239,7 @@ export function subscribeRecoveryPageLifecycle(
     didStartFresh = true;
 
     const subscribers = new Set<Subscriber>();
+    const historyEntryIdForSession = options.historyEntryId;
     // Establish the in-flight restore session before consuming authorization /
     // clearing pending storage so a storage throw cannot leave auth consumed
     // without a real restore running.
@@ -218,6 +255,9 @@ export function subscribeRecoveryPageLifecycle(
         now: options.now,
         setIntervalFn: options.setIntervalFn,
         clearIntervalFn: options.clearIntervalFn,
+        // Session owner must observe settle after UI dispose to keep/release the
+        // anti-duplicate in-flight gate (progress fan-out stays suppressed).
+        notifySettleWhenDisposed: true,
         onProgress(progress) {
           created.lastProgress = progress;
 
@@ -232,6 +272,8 @@ export function subscribeRecoveryPageLifecycle(
           for (const subscriber of subscribers) {
             subscriber.onSucceeded(result);
           }
+
+          releaseRecoverySessionIfIdle(historyEntryIdForSession, created);
         },
         onFailed(failure) {
           created.settlement = { kind: "failed", failure };
@@ -239,6 +281,8 @@ export function subscribeRecoveryPageLifecycle(
           for (const subscriber of subscribers) {
             subscriber.onFailed(failure);
           }
+
+          releaseRecoverySessionIfIdle(historyEntryIdForSession, created);
         }
       })
     };
@@ -252,7 +296,7 @@ export function subscribeRecoveryPageLifecycle(
       // Restore is already running; never re-grant authorization here.
     }
   } else {
-    // Cancel any deferred teardown scheduled by a StrictMode cleanup.
+    // Cancel any deferred UI teardown scheduled by a StrictMode cleanup.
     session.epoch += 1;
   }
 
@@ -306,8 +350,10 @@ export function subscribeRecoveryPageLifecycle(
           return;
         }
 
+        // Stop progress timers / UI callbacks, but keep the in-flight gate until
+        // the native restore settles so History → Confirm cannot start a second run.
         current.handle.dispose();
-        inflightByHistoryEntryId.delete(historyEntryId);
+        releaseRecoverySessionIfIdle(historyEntryId, current);
       });
     }
   };
