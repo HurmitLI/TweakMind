@@ -1,5 +1,6 @@
 import type { OptimizationId } from "../../types/optimization";
 import { toErrorMessage } from "../error/errorMessage";
+import { resolveRecoveryVerificationAssociation } from "../execution/targets/RecoveryVerificationSupport";
 import { OptimizationPluginManager } from "../plugins/OptimizationPluginManager";
 import {
   clearPendingApplyResult,
@@ -64,7 +65,27 @@ function consumePendingApplyResult(optimizationId: OptimizationId, verificationR
   clearPendingApplyResult(optimizationId);
 }
 
-function consumePendingRecoveryResult(verificationResult: VerificationResult) {
+function unavailableRecoveryVerification(
+  optimizationId: OptimizationId,
+  historyEntryId: string | undefined,
+  message: string
+): VerificationResult {
+  return {
+    historyEntryId,
+    optimizationId,
+    status: "Pending / Not Available",
+    previousState: "Unknown",
+    expectedState: "Unknown",
+    actualState: "Unknown",
+    message,
+    timestamp: Math.floor(Date.now() / 1000).toString()
+  };
+}
+
+function consumePendingRecoveryResult(
+  optimizationId: OptimizationId,
+  verificationResult: VerificationResult
+) {
   if (verificationResult.status !== "Verified" && verificationResult.status !== "Failed") {
     return;
   }
@@ -75,9 +96,18 @@ function consumePendingRecoveryResult(verificationResult: VerificationResult) {
     return;
   }
 
+  // Refuse consume when the terminal result is associated with a different optimization.
+  if (verificationResult.optimizationId !== optimizationId) {
+    return;
+  }
+
   const pendingRecoveryResult = readPendingRecoveryResult(historyEntryId);
 
   if (!pendingRecoveryResult) {
+    return;
+  }
+
+  if (pendingRecoveryResult.optimizationId !== optimizationId) {
     return;
   }
 
@@ -89,6 +119,26 @@ export class VerificationService {
     const mode = options.mode ?? "apply";
     const commitSideEffects = options.commitSideEffects !== false;
     let result: VerificationResult;
+
+    if (mode === "recovery") {
+      const association = resolveRecoveryVerificationAssociation(optimizationId, options.historyEntryId);
+
+      if (!association.ok) {
+        result = unavailableRecoveryVerification(
+          optimizationId,
+          options.historyEntryId,
+          association.reason === "mismatch"
+            ? "Recovery verification target does not match this optimization or history entry."
+            : "No completed Recovery result was found. Verification is pending."
+        );
+
+        if (commitSideEffects) {
+          this.commitVerification(optimizationId, mode, result);
+        }
+
+        return result;
+      }
+    }
 
     try {
       result = await OptimizationPluginManager.verify(optimizationId, {
@@ -131,7 +181,7 @@ export class VerificationService {
     if (mode === "apply") {
       consumePendingApplyResult(optimizationId, verificationResult);
     } else {
-      consumePendingRecoveryResult(verificationResult);
+      consumePendingRecoveryResult(optimizationId, verificationResult);
     }
   }
 }
