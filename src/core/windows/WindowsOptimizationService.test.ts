@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   OptimizationApplyResult,
   OptimizationHistoryEntry,
@@ -73,6 +73,10 @@ function buildRecoveryResult(overrides: Partial<OptimizationRecoveryResult> = {}
 beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe("isValidHistoryEntry", () => {
@@ -240,6 +244,24 @@ describe("pending recovery authorization lifecycle", () => {
 
     expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
     expect(window.localStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBeNull();
+  });
+
+  it("still matches session authorization when legacy localStorage cleanup throws", () => {
+    window.sessionStorage.setItem(pendingRecoveryAuthorizationStorageKey, "entry-1");
+    window.localStorage.setItem(pendingRecoveryAuthorizationStorageKey, "entry-legacy");
+
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.localStorage) {
+        throw new Error("localStorage remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(true);
+    expect(hasPendingRecoveryAuthorization("entry-other")).toBe(false);
+    expect(window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBe("entry-1");
   });
 
   it("clears authorization from both storages", () => {

@@ -167,4 +167,27 @@ describe("beginRecoveryConfirmationTransition", () => {
 
     expect(readPendingRecoveryResult("entry-a")?.message).toBe("A");
   });
+
+  it("survives persistent localStorage.removeItem failures end-to-end for auth write and read", () => {
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-a", message: "A" }));
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-b", message: "B" }));
+
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.localStorage) {
+        throw new Error("localStorage remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    expect(beginRecoveryConfirmationTransition("entry-a")).toEqual({ ok: true });
+    expect(readPendingRecoveryResult("entry-a")).toBeNull();
+    expect(readPendingRecoveryResult("entry-b")?.message).toBe("B");
+
+    // RecoveryPage reads authorization immediately after navigation.
+    expect(hasPendingRecoveryAuthorization("entry-a")).toBe(true);
+    expect(hasPendingRecoveryAuthorization("entry-b")).toBe(false);
+    expect(window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBe("entry-a");
+  });
 });

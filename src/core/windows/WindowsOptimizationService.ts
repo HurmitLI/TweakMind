@@ -393,7 +393,14 @@ export function storePendingRecoveryAuthorization(historyEntryId: string) {
 
 export function hasPendingRecoveryAuthorization(historyEntryId: string) {
   // Drop any legacy durable authorization left by older builds.
-  window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+  // Best-effort only: privacy/storage policies that reject removeItem must not
+  // block reading a valid one-session authorization from sessionStorage.
+  try {
+    window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+  } catch {
+    // Ignore — sessionStorage remains the sole authorization authority.
+  }
+
   return window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey) === historyEntryId;
 }
 
