@@ -8,7 +8,9 @@ import {
   clearPendingApplyResult,
   clearPendingRecoveryAuthorization,
   clearPendingRecoveryResult,
+  consumePendingRecoveryAuthorization,
   hasPendingRecoveryAuthorization,
+  resetConsumedRecoveryAuthorizationForTests,
   isValidApplyResult,
   isValidHistoryEntry,
   isValidRecoveryResult,
@@ -73,10 +75,12 @@ function buildRecoveryResult(overrides: Partial<OptimizationRecoveryResult> = {}
 beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
+  resetConsumedRecoveryAuthorizationForTests();
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
+  resetConsumedRecoveryAuthorizationForTests();
 });
 
 describe("isValidHistoryEntry", () => {
@@ -273,6 +277,46 @@ describe("pending recovery authorization lifecycle", () => {
     expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
     expect(window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBeNull();
     expect(window.localStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBeNull();
+  });
+
+  it("consumePendingRecoveryAuthorization removes only the matching session gate", () => {
+    storePendingRecoveryAuthorization("entry-1");
+
+    expect(consumePendingRecoveryAuthorization("entry-other")).toBe(false);
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(true);
+    expect(consumePendingRecoveryAuthorization("entry-1")).toBe(true);
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+  });
+
+  it("tombstones consumed auth when sessionStorage.removeItem keeps failing", () => {
+    storePendingRecoveryAuthorization("entry-1");
+
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.sessionStorage && key === pendingRecoveryAuthorizationStorageKey) {
+        throw new Error("session remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    expect(consumePendingRecoveryAuthorization("entry-other")).toBe(false);
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(true);
+
+    expect(consumePendingRecoveryAuthorization("entry-1")).toBe(true);
+    // Residue may remain physically, but runtime tombstone blocks replay.
+    expect(window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBe("entry-1");
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+
+    // A different history id can still be freshly authorized without clearing entry-1's tombstone.
+    vi.mocked(Storage.prototype.removeItem).mockRestore();
+    storePendingRecoveryAuthorization("entry-2");
+    expect(hasPendingRecoveryAuthorization("entry-2")).toBe(true);
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+
+    // Re-confirming entry-1 clears only that id's tombstone.
+    storePendingRecoveryAuthorization("entry-1");
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(true);
   });
 });
 

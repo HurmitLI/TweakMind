@@ -377,11 +377,27 @@ export function readPendingRecoveryResult(historyEntryId: string): OptimizationR
   return result;
 }
 
+/**
+ * Runtime tombstones for recovery authorizations that were matched and consumed
+ * in this JS session. In-memory only — never persisted to localStorage — so a
+ * failed sessionStorage.removeItem cannot allow the same confirmation to replay
+ * after the restore lifecycle settles. App restart clears this Set naturally.
+ */
+const consumedRecoveryAuthorizationIds = new Set<string>();
+
+/** Test-only: drop runtime consumed marks between cases. */
+export function resetConsumedRecoveryAuthorizationForTests(): void {
+  consumedRecoveryAuthorizationIds.clear();
+}
+
 export function storePendingRecoveryAuthorization(historyEntryId: string) {
   // Authorization is a one-session confirm gate. Persisting it in localStorage
   // would let /recovery?historyId=… auto-run after an app restart without a
   // fresh confirmation click.
   window.sessionStorage.setItem(pendingRecoveryAuthorizationStorageKey, historyEntryId);
+
+  // A fresh confirmation successfully rewritten for this id may be used again.
+  consumedRecoveryAuthorizationIds.delete(historyEntryId);
 
   try {
     window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
@@ -401,12 +417,63 @@ export function hasPendingRecoveryAuthorization(historyEntryId: string) {
     // Ignore — sessionStorage remains the sole authorization authority.
   }
 
+  if (consumedRecoveryAuthorizationIds.has(historyEntryId)) {
+    return false;
+  }
+
   return window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey) === historyEntryId;
 }
 
+/**
+ * Precisely consume a one-session recovery authorization for historyEntryId.
+ * On match: mark runtime-consumed first, then best-effort remove session/local
+ * copies. Never throws. Returns true when the matching authorization was
+ * accepted for consume (including when physical removeItem fails).
+ */
+export function consumePendingRecoveryAuthorization(historyEntryId: string): boolean {
+  if (consumedRecoveryAuthorizationIds.has(historyEntryId)) {
+    return false;
+  }
+
+  try {
+    window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+  } catch {
+    // Best-effort legacy cleanup only.
+  }
+
+  try {
+    if (window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey) !== historyEntryId) {
+      return false;
+    }
+
+    // Tombstone before remove so a persistent remove failure cannot replay later.
+    consumedRecoveryAuthorizationIds.add(historyEntryId);
+
+    try {
+      window.sessionStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+    } catch {
+      // Physical remove failed; runtime tombstone still blocks replay.
+    }
+
+    return true;
+  } catch {
+    // Could not confirm a match; do not tombstone an unverified id.
+    return false;
+  }
+}
+
 export function clearPendingRecoveryAuthorization() {
-  window.sessionStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
-  window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+  try {
+    window.sessionStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+  } catch {
+    // Best-effort: continue clearing the other storage.
+  }
+
+  try {
+    window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+  } catch {
+    // Best-effort legacy cleanup.
+  }
 }
 
 export function clearPendingRecoveryResult(historyEntryId?: string) {

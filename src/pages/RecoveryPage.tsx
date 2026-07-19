@@ -13,8 +13,8 @@ import {
 } from "../core/recovery/RecoveryPageLifecycle";
 import { OptimizationExecutor } from "../core/windows/OptimizationExecutor";
 import {
-  clearPendingRecoveryAuthorization,
   clearPendingRecoveryResult,
+  consumePendingRecoveryAuthorization,
   hasPendingRecoveryAuthorization,
   storePendingRecoveryResult,
   type OptimizationRecoveryResult,
@@ -59,9 +59,16 @@ export function RecoveryPage() {
       recoveryDurationMs,
       recoveryTickMs,
       onStartFresh() {
-        // Consume the one-session confirmation gate exactly once per restore attempt.
-        clearPendingRecoveryAuthorization();
-        clearPendingRecoveryResult(entry.id);
+        // Called only after the in-flight restore session exists. Session auth
+        // consume is precise; legacy local + matched pending clears are best-effort
+        // and must never block the already-started runRestore.
+        consumePendingRecoveryAuthorization(entry.id);
+
+        try {
+          clearPendingRecoveryResult(entry.id);
+        } catch {
+          // Pending map rewrite failures must not abort recovery.
+        }
       },
       onProgress: setProgress,
       onSucceeded(recoveryResult) {
