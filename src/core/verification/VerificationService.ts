@@ -52,7 +52,7 @@ function consumePendingApplyResult(optimizationId: OptimizationId, verificationR
     return;
   }
 
-  clearPendingApplyResult();
+  clearPendingApplyResult(optimizationId);
 }
 
 export class VerificationService {

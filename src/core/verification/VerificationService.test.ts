@@ -149,4 +149,44 @@ describe("VerificationService.verify", () => {
     expect(result.historyEntryId).toBe("entry-recovery");
     expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-1");
   });
+
+  it("isolates pending consumption across interleaved apply/verify for different optimizations", async () => {
+    storePendingApplyResult(
+      buildApplyResult({ optimizationId: "windows-search", historyEntryId: "entry-search" })
+    );
+    storePendingApplyResult(
+      buildApplyResult({ optimizationId: "sysmain", historyEntryId: "entry-sysmain", previousState: "Stopped" })
+    );
+
+    verifyMock.mockResolvedValue(
+      buildVerificationResult({
+        optimizationId: "windows-search",
+        historyEntryId: "entry-search",
+        status: "Verified"
+      })
+    );
+
+    await VerificationService.verify("windows-search", { historyEntryId: "entry-search" });
+
+    expect(readPendingApplyResult("windows-search")).toBeNull();
+    expect(readPendingApplyResult("sysmain")?.historyEntryId).toBe("entry-sysmain");
+  });
+
+  it("does not consume a pending apply for the wrong optimization id", async () => {
+    storePendingApplyResult(
+      buildApplyResult({ optimizationId: "sysmain", historyEntryId: "entry-sysmain" })
+    );
+    verifyMock.mockResolvedValue(
+      buildVerificationResult({
+        optimizationId: "windows-search",
+        historyEntryId: "entry-search",
+        status: "Verified"
+      })
+    );
+
+    await VerificationService.verify("windows-search", { historyEntryId: "entry-search" });
+
+    expect(readPendingApplyResult("sysmain")?.historyEntryId).toBe("entry-sysmain");
+    expect(readPendingApplyResult("windows-search")).toBeNull();
+  });
 });
