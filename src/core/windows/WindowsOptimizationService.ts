@@ -208,21 +208,6 @@ export class WindowsOptimizationService {
   }
 }
 
-function readPendingValue<T>(storage: Storage, storageKey: string, isValid: (value: unknown) => value is T): T | null {
-  try {
-    const stored = storage.getItem(storageKey);
-
-    if (!stored) {
-      return null;
-    }
-
-    const parsed = JSON.parse(stored) as unknown;
-    return isValid(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
 function storePendingValue(storageKey: string, value: unknown) {
   const serialized = JSON.stringify(value);
   window.sessionStorage.setItem(storageKey, serialized);
