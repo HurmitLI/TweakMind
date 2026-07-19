@@ -1,14 +1,14 @@
 import { ArrowLeft, ShieldCheck } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ErrorPresentation } from "../components/error/ErrorPresentation";
 import { OptimizationCapabilityRegistry } from "../core/execution/OptimizationCapabilityRegistry";
+import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
 import { useTranslation } from "../core/localization/LanguageProvider";
 import { translateOptimizationStatus, translateRiskLevel } from "../core/localization/localizationHelpers";
 import { translateRuntimeMessage } from "../core/localization/RuntimeMessageLocalizationService";
-import {
-  clearPendingRecoveryResult,
-  storePendingRecoveryAuthorization,
-  WindowsOptimizationService
-} from "../core/windows/WindowsOptimizationService";
+import { beginRecoveryConfirmationTransition } from "../core/recovery/RecoveryConfirmationTransition";
+import { WindowsOptimizationService } from "../core/windows/WindowsOptimizationService";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -41,8 +41,16 @@ function canRecover(entryId: string | undefined) {
 
 export function RecoveryConfirmationPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { historyId } = useParams();
   const entry = canRecover(historyId);
+  const [confirmError, setConfirmError] = useState<ReturnType<
+    typeof ErrorPresentationService.fromTechnicalError
+  > | null>(null);
+
+  useEffect(() => {
+    setConfirmError(null);
+  }, [historyId]);
 
   if (!entry) {
     return (
@@ -56,6 +64,28 @@ export function RecoveryConfirmationPage() {
         </section>
       </div>
     );
+  }
+
+  const confirmedHistoryEntryId = entry.id;
+
+  function confirmAndContinue() {
+    const transition = beginRecoveryConfirmationTransition(confirmedHistoryEntryId);
+
+    if (!transition.ok) {
+      if (transition.reason === "duplicate") {
+        return;
+      }
+
+      setConfirmError(
+        ErrorPresentationService.fromTechnicalError(transition.errorMessage, "recovery", {
+          type: "recovery-failed"
+        })
+      );
+      return;
+    }
+
+    setConfirmError(null);
+    navigate(`/recovery?historyId=${confirmedHistoryEntryId}`);
   }
 
   return (
@@ -116,24 +146,25 @@ export function RecoveryConfirmationPage() {
         </section>
       </div>
 
+      {confirmError ? (
+        <ErrorPresentation
+          actions={{
+            goBackHref: "/history",
+            onDismiss: () => setConfirmError(null),
+            onRetry: confirmAndContinue
+          }}
+          descriptor={confirmError}
+        />
+      ) : null}
+
       <footer className="tm-footer">
-        <Link
-          className="tm-button-secondary"
-          to="/history"
-        >
+        <Link className="tm-button-secondary" to="/history">
           <ArrowLeft size={17} aria-hidden="true" />
           {t("common.action.cancel")}
         </Link>
-        <Link
-          className="tm-button-primary"
-          onClick={() => {
-            clearPendingRecoveryResult(entry.id);
-            storePendingRecoveryAuthorization(entry.id);
-          }}
-          to={`/recovery?historyId=${entry.id}`}
-        >
+        <button className="tm-button-primary" onClick={confirmAndContinue} type="button">
           {t("recoveryConfirm.action.confirmRecovery")}
-        </Link>
+        </button>
       </footer>
     </div>
   );

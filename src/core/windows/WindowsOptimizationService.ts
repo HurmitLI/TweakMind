@@ -382,7 +382,13 @@ export function storePendingRecoveryAuthorization(historyEntryId: string) {
   // would let /recovery?historyId=… auto-run after an app restart without a
   // fresh confirmation click.
   window.sessionStorage.setItem(pendingRecoveryAuthorizationStorageKey, historyEntryId);
-  window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+
+  try {
+    window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+  } catch {
+    // Session auth is authoritative; a localStorage cleanup failure must not
+    // roll back a successful authorization write.
+  }
 }
 
 export function hasPendingRecoveryAuthorization(historyEntryId: string) {
