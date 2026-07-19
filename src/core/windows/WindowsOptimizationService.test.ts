@@ -521,12 +521,38 @@ describe("pending apply result validation", () => {
 });
 
 describe("pending recovery authorization lifecycle", () => {
-  it("keeps authorization in session storage only", () => {
+  it("keeps authorization in session storage only as a keyed map", () => {
     storePendingRecoveryAuthorization("entry-1");
 
     expect(hasPendingRecoveryAuthorization("entry-1")).toBe(true);
-    expect(window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBe("entry-1");
+    expect(JSON.parse(window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey) ?? "{}")).toEqual({
+      "entry-1": true
+    });
     expect(window.localStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBeNull();
+  });
+
+  it("keeps interleaved history-entry authorizations isolated", () => {
+    storePendingRecoveryAuthorization("entry-a");
+    storePendingRecoveryAuthorization("entry-b");
+
+    expect(hasPendingRecoveryAuthorization("entry-a")).toBe(true);
+    expect(hasPendingRecoveryAuthorization("entry-b")).toBe(true);
+    expect(hasPendingRecoveryAuthorization("entry-missing")).toBe(false);
+
+    expect(consumePendingRecoveryAuthorization("entry-a")).toBe(true);
+    expect(hasPendingRecoveryAuthorization("entry-a")).toBe(false);
+    expect(hasPendingRecoveryAuthorization("entry-b")).toBe(true);
+  });
+
+  it("migrates a legacy single-string session authorization without granting other ids", () => {
+    window.sessionStorage.setItem(pendingRecoveryAuthorizationStorageKey, "entry-legacy");
+
+    expect(hasPendingRecoveryAuthorization("entry-legacy")).toBe(true);
+    expect(hasPendingRecoveryAuthorization("entry-other")).toBe(false);
+
+    storePendingRecoveryAuthorization("entry-other");
+    expect(hasPendingRecoveryAuthorization("entry-legacy")).toBe(true);
+    expect(hasPendingRecoveryAuthorization("entry-other")).toBe(true);
   });
 
   it("ignores and clears legacy localStorage authorization after restart-equivalent session loss", () => {
@@ -555,29 +581,43 @@ describe("pending recovery authorization lifecycle", () => {
   });
 
   it("clears authorization from both storages", () => {
-    window.sessionStorage.setItem(pendingRecoveryAuthorizationStorageKey, "entry-1");
+    storePendingRecoveryAuthorization("entry-1");
+    storePendingRecoveryAuthorization("entry-2");
     window.localStorage.setItem(pendingRecoveryAuthorizationStorageKey, "entry-1");
 
     clearPendingRecoveryAuthorization();
 
     expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+    expect(hasPendingRecoveryAuthorization("entry-2")).toBe(false);
     expect(window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBeNull();
     expect(window.localStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBeNull();
   });
 
   it("consumePendingRecoveryAuthorization removes only the matching session gate", () => {
     storePendingRecoveryAuthorization("entry-1");
+    storePendingRecoveryAuthorization("entry-2");
 
     expect(consumePendingRecoveryAuthorization("entry-other")).toBe(false);
     expect(hasPendingRecoveryAuthorization("entry-1")).toBe(true);
+    expect(hasPendingRecoveryAuthorization("entry-2")).toBe(true);
     expect(consumePendingRecoveryAuthorization("entry-1")).toBe(true);
     expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+    expect(hasPendingRecoveryAuthorization("entry-2")).toBe(true);
   });
 
-  it("tombstones consumed auth when sessionStorage.removeItem keeps failing", () => {
+  it("tombstones consumed auth when sessionStorage rewrite keeps failing", () => {
     storePendingRecoveryAuthorization("entry-1");
+    storePendingRecoveryAuthorization("entry-keep");
 
+    const originalSetItem = Storage.prototype.setItem;
     const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.sessionStorage && key === pendingRecoveryAuthorizationStorageKey) {
+        throw new Error("session rewrite blocked");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
     vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
       if (this === window.sessionStorage && key === pendingRecoveryAuthorizationStorageKey) {
         throw new Error("session remove blocked");
@@ -591,10 +631,12 @@ describe("pending recovery authorization lifecycle", () => {
 
     expect(consumePendingRecoveryAuthorization("entry-1")).toBe(true);
     // Residue may remain physically, but runtime tombstone blocks replay.
-    expect(window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBe("entry-1");
     expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+    // Other authorized ids remain readable from the leftover keyed map.
+    expect(hasPendingRecoveryAuthorization("entry-keep")).toBe(true);
 
     // A different history id can still be freshly authorized without clearing entry-1's tombstone.
+    vi.mocked(Storage.prototype.setItem).mockRestore();
     vi.mocked(Storage.prototype.removeItem).mockRestore();
     storePendingRecoveryAuthorization("entry-2");
     expect(hasPendingRecoveryAuthorization("entry-2")).toBe(true);
@@ -603,6 +645,14 @@ describe("pending recovery authorization lifecycle", () => {
     // Re-confirming entry-1 clears only that id's tombstone.
     storePendingRecoveryAuthorization("entry-1");
     expect(hasPendingRecoveryAuthorization("entry-1")).toBe(true);
+  });
+
+  it("does not authorize a wrong history id for /recovery entry", () => {
+    storePendingRecoveryAuthorization("entry-a");
+
+    expect(hasPendingRecoveryAuthorization("entry-b")).toBe(false);
+    expect(consumePendingRecoveryAuthorization("entry-b")).toBe(false);
+    expect(hasPendingRecoveryAuthorization("entry-a")).toBe(true);
   });
 });
 
