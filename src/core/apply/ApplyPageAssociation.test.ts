@@ -83,7 +83,7 @@ describe("ApplyPageAssociation", () => {
         historyEntryId: "entry-sysmain",
         status: "failed",
         error: "Apply failed",
-        message: null
+        message: undefined
       })
     );
 
