@@ -110,6 +110,9 @@ describe("VerificationService.verify", () => {
   });
 
   it("keeps the recovery verification mode when the plugin throws", async () => {
+    storePendingRecoveryResult(
+      buildRecoveryResult({ historyEntryId: "entry-2", optimizationId: "sysmain" })
+    );
     verifyMock.mockRejectedValue("verify handler missing");
 
     const result = await VerificationService.verify("sysmain", { mode: "recovery", historyEntryId: "entry-2" });
@@ -168,6 +171,7 @@ describe("VerificationService.verify", () => {
 
   it("does not clear pending apply when recovery-mode plugin verification throws", async () => {
     storePendingApplyResult(buildApplyResult({ historyEntryId: "entry-1" }));
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-recovery" }));
     verifyMock.mockRejectedValue(new Error("recovery verify crashed"));
 
     const result = await VerificationService.verify("windows-search", {
@@ -245,8 +249,14 @@ describe("VerificationService.verify", () => {
       })
     );
 
-    await VerificationService.verify("windows-search", { mode: "recovery", historyEntryId: "entry-other" });
+    const result = await VerificationService.verify("windows-search", {
+      mode: "recovery",
+      historyEntryId: "entry-other"
+    });
 
+    // Missing association for entry-other fails closed before plugin verify/consume.
+    expect(result.status).toBe("Pending / Not Available");
+    expect(verifyMock).not.toHaveBeenCalled();
     expect(readPendingRecoveryResult("entry-pending")?.message).toBe("Keep");
     expect(readPendingRecoveryResult("entry-other")).toBeNull();
   });
@@ -264,6 +274,56 @@ describe("VerificationService.verify", () => {
     await VerificationService.verify("windows-search", { mode: "recovery", historyEntryId: "entry-1" });
 
     expect(readPendingRecoveryResult("entry-1")?.historyEntryId).toBe("entry-1");
+  });
+
+  it("does not verify or consume pending when route optimizationId mismatches history/pending", async () => {
+    storePendingRecoveryResult(
+      buildRecoveryResult({ historyEntryId: "entry-1", optimizationId: "windows-search", message: "Keep" })
+    );
+    verifyMock.mockResolvedValue(
+      buildVerificationResult({
+        historyEntryId: "entry-1",
+        optimizationId: "sysmain",
+        status: "Verified"
+      })
+    );
+
+    const result = await VerificationService.verify("sysmain", {
+      mode: "recovery",
+      historyEntryId: "entry-1"
+    });
+
+    expect(result.status).toBe("Pending / Not Available");
+    expect(result.message).toMatch(/does not match this optimization/);
+    expect(verifyMock).not.toHaveBeenCalled();
+    expect(readPendingRecoveryResult("entry-1")?.message).toBe("Keep");
+  });
+
+  it("does not consume pending when historyId is missing for recovery verify", async () => {
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-1", message: "Keep" }));
+
+    const result = await VerificationService.verify("windows-search", { mode: "recovery" });
+
+    expect(result.status).toBe("Pending / Not Available");
+    expect(verifyMock).not.toHaveBeenCalled();
+    expect(readPendingRecoveryResult("entry-1")?.message).toBe("Keep");
+  });
+
+  it("does not consume pending when terminal result optimizationId disagrees with the route", async () => {
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-1", message: "Keep" }));
+    verifyMock.mockResolvedValue(
+      buildVerificationResult({
+        historyEntryId: "entry-1",
+        optimizationId: "sysmain",
+        status: "Verified"
+      })
+    );
+
+    // Association passes (pending is windows-search); refuse consume on result id mismatch.
+    await VerificationService.verify("windows-search", { mode: "recovery", historyEntryId: "entry-1" });
+
+    expect(verifyMock).toHaveBeenCalledTimes(1);
+    expect(readPendingRecoveryResult("entry-1")?.message).toBe("Keep");
   });
 
   it("does not consume pending when commitSideEffects is false until commitVerification runs", async () => {

@@ -6,6 +6,7 @@ import {
 import type { VerificationExecutionResult } from "../OptimizationExecutionTypes";
 import { resolveApplyVerificationSource } from "./ApplyVerificationSupport";
 import { nowTimestamp } from "./ExecutionRuntime";
+import { resolveRecoveryVerificationAssociation } from "./RecoveryVerificationSupport";
 
 const EXPECTED_APPLY_STATE = "Disabled";
 
@@ -61,6 +62,17 @@ export class SysMainVerifier {
   }
 
   async verifyRecovery(historyEntryId: string): Promise<VerificationExecutionResult> {
+    const association = resolveRecoveryVerificationAssociation("sysmain", historyEntryId);
+
+    if (!association.ok) {
+      return unavailable(
+        association.reason === "mismatch"
+          ? "Recovery verification target does not match this optimization or history entry."
+          : "No completed Recovery result was found. Verification is pending.",
+        historyEntryId
+      );
+    }
+
     const recoveryResult = readPendingRecoveryResult(historyEntryId);
     const historyEntry = WindowsOptimizationService.getHistoryEntry(historyEntryId);
 
