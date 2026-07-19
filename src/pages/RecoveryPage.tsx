@@ -1,16 +1,18 @@
 import { Check, Clock, History, Loader2, ShieldCheck } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ErrorPresentation } from "../components/error/ErrorPresentation";
 import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
 import { useTranslation } from "../core/localization/LanguageProvider";
 import { translateOptimizationStatus } from "../core/localization/localizationHelpers";
 import { translateRuntimeMessage } from "../core/localization/RuntimeMessageLocalizationService";
+import { startRecoveryPageLifecycle } from "../core/recovery/RecoveryPageLifecycle";
 import { OptimizationExecutor } from "../core/windows/OptimizationExecutor";
 import {
   clearPendingRecoveryAuthorization,
   clearPendingRecoveryResult,
   hasPendingRecoveryAuthorization,
+  storePendingRecoveryAuthorization,
   storePendingRecoveryResult,
   type OptimizationRecoveryResult,
   WindowsOptimizationService
@@ -25,6 +27,8 @@ const recoveryStepKeys = [
 ] as const;
 
 const stepDurationMs = 1000;
+const recoveryTickMs = 120;
+const recoveryDurationMs = recoveryStepKeys.length * stepDurationMs;
 
 export function RecoveryPage() {
   const { t } = useTranslation();
@@ -35,68 +39,58 @@ export function RecoveryPage() {
   const [result, setResult] = useState<OptimizationRecoveryResult | null>(null);
   const [unexpectedFailure, setUnexpectedFailure] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
-  const hasStarted = useRef(false);
   const recoverySteps = useMemo(() => recoveryStepKeys.map((key) => t(key)), [t]);
-  const showProgressAnimation = unexpectedFailure === null && (result === null || result.status === "success");
 
   useEffect(() => {
-    if (!entry || result || hasStarted.current || !isAuthorized) {
+    if (!entry || !isAuthorized) {
       return;
     }
 
-    hasStarted.current = true;
     clearPendingRecoveryAuthorization();
     clearPendingRecoveryResult();
-    OptimizationExecutor.restore(entry)
-      .then((recoveryResult) => {
+    setResult(null);
+    setUnexpectedFailure(null);
+    setProgress(0);
+
+    const lifecycle = startRecoveryPageLifecycle({
+      runRestore: () => OptimizationExecutor.restore(entry),
+      recoveryDurationMs,
+      recoveryTickMs,
+      onProgress: setProgress,
+      onSucceeded(recoveryResult) {
+        // Only successful recoveries become pending verification input.
         storePendingRecoveryResult(recoveryResult);
         setResult(recoveryResult);
-
-        if (recoveryResult.status !== "success") {
-          setProgress(100);
+      },
+      onFailed(failure) {
+        if (failure.kind === "result") {
+          setResult(failure.result);
+          return;
         }
-      })
-      .catch((error: unknown) => {
-        setUnexpectedFailure(error instanceof Error ? error.message : String(error));
-        setProgress(100);
-      });
-  }, [entry, isAuthorized, result]);
 
-  useEffect(() => {
-    if (!entry || result || !showProgressAnimation) {
-      return;
-    }
-
-    const startedAt = Date.now();
-    const totalDuration = recoverySteps.length * stepDurationMs;
-
-    const intervalId = window.setInterval(() => {
-      const elapsed = Date.now() - startedAt;
-      const nextProgress = Math.min(100, Math.round((elapsed / totalDuration) * 100));
-      setProgress(nextProgress);
-
-      if (nextProgress >= 100) {
-        window.clearInterval(intervalId);
+        setUnexpectedFailure(failure.errorMessage);
+      },
+      onDisposeWhileRecovering() {
+        // StrictMode remounts after effect cleanup; re-arm the one-session gate
+        // so the remounted page can continue without bypassing confirmation on retry.
+        storePendingRecoveryAuthorization(entry.id);
       }
-    }, 120);
+    });
 
     return () => {
-      window.clearInterval(intervalId);
+      lifecycle.dispose();
     };
-  }, [entry, recoverySteps.length, result, showProgressAnimation]);
+  }, [entry, isAuthorized]);
 
-  useEffect(() => {
-    if (result?.status === "success") {
-      setProgress(100);
-    }
-  }, [result]);
-
-  const completed = progress >= 100 && result !== null;
   const activeStepIndex = useMemo(
     () => Math.min(recoverySteps.length - 1, Math.floor((progress / 100) * recoverySteps.length)),
     [progress, recoverySteps.length]
   );
   const estimatedRemainingSeconds = Math.max(0, Math.ceil(((100 - progress) / 100) * 5));
+  const recoveryRetryHref = `/recover/${entry?.id ?? ""}`;
+  const failedRecoveryError =
+    result && result.status !== "success" ? ErrorPresentationService.fromRecoveryResult(result) : null;
+  const successReady = result?.status === "success" && progress >= 100;
 
   if (!entry || !isAuthorized) {
     return (
@@ -120,7 +114,7 @@ export function RecoveryPage() {
           actions={{
             goBackHref: "/history",
             historyHref: "/history",
-            retryHref: `/recover/${entry.id}`
+            retryHref: recoveryRetryHref
           }}
           descriptor={ErrorPresentationService.fromTechnicalError(unexpectedFailure, "recovery", {
             type: "recovery-failed"
@@ -131,26 +125,23 @@ export function RecoveryPage() {
     );
   }
 
-  if (completed) {
-    const isSuccess = result.status === "success";
-    const recoveryError = ErrorPresentationService.fromRecoveryResult(result);
+  if (failedRecoveryError) {
+    return (
+      <div className="tm-centered-shell">
+        <ErrorPresentation
+          actions={{
+            goBackHref: "/history",
+            historyHref: "/history",
+            retryHref: recoveryRetryHref
+          }}
+          descriptor={failedRecoveryError}
+          layout="centered"
+        />
+      </div>
+    );
+  }
 
-    if (!isSuccess && recoveryError) {
-      return (
-        <div className="tm-centered-shell">
-          <ErrorPresentation
-            actions={{
-              goBackHref: "/history",
-              historyHref: "/history",
-              retryHref: `/recover/${entry.id}`
-            }}
-            descriptor={recoveryError}
-            layout="centered"
-          />
-        </div>
-      );
-    }
-
+  if (successReady && result) {
     return (
       <div className="tm-centered-shell">
         <section className="tm-centered-card">
