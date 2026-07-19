@@ -15,6 +15,13 @@ type VerificationMode = "apply" | "recovery";
 interface VerificationOptions {
   mode?: VerificationMode;
   historyEntryId?: string;
+  /**
+   * When false, skip history recording and pending apply/recovery consumption.
+   * The caller must invoke commitVerification() only after accepting the result
+   * as the current VerificationPage attempt (avoids stale Promise side effects).
+   * Defaults to true for existing call sites and unit tests.
+   */
+  commitSideEffects?: boolean;
 }
 
 function failedVerification(
@@ -80,6 +87,7 @@ function consumePendingRecoveryResult(verificationResult: VerificationResult) {
 export class VerificationService {
   static async verify(optimizationId: OptimizationId, options: VerificationOptions = {}): Promise<VerificationResult> {
     const mode = options.mode ?? "apply";
+    const commitSideEffects = options.commitSideEffects !== false;
     let result: VerificationResult;
 
     try {
@@ -103,6 +111,19 @@ export class VerificationService {
         }
       : result;
 
+    if (commitSideEffects) {
+      this.commitVerification(optimizationId, mode, verificationResult);
+    }
+
+    return verificationResult;
+  }
+
+  /** Record history and consume the matching pending slot for a terminal result. */
+  static commitVerification(
+    optimizationId: OptimizationId,
+    mode: VerificationMode,
+    verificationResult: VerificationResult
+  ): void {
     if (verificationResult.historyEntryId) {
       WindowsOptimizationService.recordVerification(verificationResult);
     }
@@ -112,7 +133,5 @@ export class VerificationService {
     } else {
       consumePendingRecoveryResult(verificationResult);
     }
-
-    return verificationResult;
   }
 }
