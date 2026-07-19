@@ -110,4 +110,39 @@ describe("resolveApplyVerificationSource", () => {
       reason: "missing"
     });
   });
+
+  it("resolves each optimization from its own pending apply slot after interleaved applies", () => {
+    storePendingApplyResult(
+      buildApplyResult({
+        optimizationId: "windows-search",
+        historyEntryId: "entry-search",
+        previousState: "Running"
+      })
+    );
+    storePendingApplyResult(
+      buildApplyResult({
+        optimizationId: "sysmain",
+        historyEntryId: "entry-sysmain",
+        previousState: "Stopped"
+      })
+    );
+
+    expect(resolveApplyVerificationSource("windows-search", "Disabled")).toEqual({
+      ok: true,
+      source: {
+        previousState: "Running",
+        expectedState: "Disabled",
+        historyEntryId: "entry-search"
+      }
+    });
+    expect(resolveApplyVerificationSource("sysmain", "Disabled")).toEqual({
+      ok: true,
+      source: {
+        previousState: "Stopped",
+        expectedState: "Disabled",
+        historyEntryId: "entry-sysmain"
+      }
+    });
+    expect(resolveApplyVerificationSource("hags", "Enabled").ok).toBe(false);
+  });
 });

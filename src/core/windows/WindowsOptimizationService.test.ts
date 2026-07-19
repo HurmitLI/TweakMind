@@ -177,6 +177,52 @@ describe("pending apply result validation", () => {
     expect(window.sessionStorage.getItem(pendingApplyResultStorageKey)).toBeNull();
     expect(window.localStorage.getItem(pendingApplyResultStorageKey)).toBeNull();
   });
+
+  it("keeps pending apply results for different optimizations in separate keyed slots", () => {
+    storePendingApplyResult(buildApplyResult({ optimizationId: "windows-search", historyEntryId: "entry-search" }));
+    storePendingApplyResult(
+      buildApplyResult({ optimizationId: "sysmain", historyEntryId: "entry-sysmain", previousState: "Stopped" })
+    );
+
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-search");
+    expect(readPendingApplyResult("sysmain")?.historyEntryId).toBe("entry-sysmain");
+    expect(readPendingApplyResult("sysmain")?.previousState).toBe("Stopped");
+  });
+
+  it("clears only the matching optimization pending slot", () => {
+    storePendingApplyResult(buildApplyResult({ optimizationId: "windows-search", historyEntryId: "entry-search" }));
+    storePendingApplyResult(buildApplyResult({ optimizationId: "hags", historyEntryId: "entry-hags" }));
+
+    clearPendingApplyResult("windows-search");
+
+    expect(readPendingApplyResult("windows-search")).toBeNull();
+    expect(readPendingApplyResult("hags")?.historyEntryId).toBe("entry-hags");
+  });
+
+  it("migrates a legacy single-slot payload without mis-associating other optimization ids", () => {
+    const legacy = buildApplyResult({ optimizationId: "windows-search", historyEntryId: "entry-legacy" });
+    window.sessionStorage.setItem(pendingApplyResultStorageKey, JSON.stringify(legacy));
+    window.localStorage.setItem(pendingApplyResultStorageKey, JSON.stringify(legacy));
+
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-legacy");
+    expect(readPendingApplyResult("game-mode")).toBeNull();
+
+    storePendingApplyResult(buildApplyResult({ optimizationId: "game-mode", historyEntryId: "entry-game" }));
+
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-legacy");
+    expect(readPendingApplyResult("game-mode")?.historyEntryId).toBe("entry-game");
+  });
+
+  it("ignores corrupt map keys that do not match the embedded optimization id", () => {
+    const misplaced = {
+      sysmain: buildApplyResult({ optimizationId: "windows-search", historyEntryId: "entry-search" })
+    };
+    window.sessionStorage.setItem(pendingApplyResultStorageKey, JSON.stringify(misplaced));
+    window.localStorage.setItem(pendingApplyResultStorageKey, JSON.stringify(misplaced));
+
+    expect(readPendingApplyResult("sysmain")).toBeNull();
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-search");
+  });
 });
 
 describe("pending recovery authorization lifecycle", () => {

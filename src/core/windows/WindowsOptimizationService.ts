@@ -229,25 +229,94 @@ function storePendingValue(storageKey: string, value: unknown) {
   window.localStorage.setItem(storageKey, serialized);
 }
 
+type PendingApplyMap = Record<string, OptimizationApplyResult>;
+
+function readPendingApplyMapFromStorage(storage: Storage): PendingApplyMap {
+  try {
+    const stored = storage.getItem(pendingApplyResultStorageKey);
+
+    if (!stored) {
+      return {};
+    }
+
+    const parsed = JSON.parse(stored) as unknown;
+
+    // Legacy single-slot payload from older builds.
+    if (isValidApplyResult(parsed)) {
+      return { [parsed.optimizationId]: parsed };
+    }
+
+    if (!isRecord(parsed)) {
+      return {};
+    }
+
+    const map: PendingApplyMap = {};
+
+    for (const value of Object.values(parsed)) {
+      if (!isValidApplyResult(value)) {
+        continue;
+      }
+
+      // Always key by the result's own optimizationId to avoid wrong association
+      // when a corrupt map key does not match the embedded id.
+      map[value.optimizationId] = value;
+    }
+
+    return map;
+  } catch {
+    return {};
+  }
+}
+
+function readMergedPendingApplyMap(): PendingApplyMap {
+  const localMap = readPendingApplyMapFromStorage(window.localStorage);
+  const sessionMap = readPendingApplyMapFromStorage(window.sessionStorage);
+
+  // Session wins per optimization id when both copies exist.
+  return { ...localMap, ...sessionMap };
+}
+
+function writePendingApplyMap(map: PendingApplyMap) {
+  if (Object.keys(map).length === 0) {
+    window.sessionStorage.removeItem(pendingApplyResultStorageKey);
+    window.localStorage.removeItem(pendingApplyResultStorageKey);
+    return;
+  }
+
+  storePendingValue(pendingApplyResultStorageKey, map);
+}
+
 export function storePendingApplyResult(result: OptimizationApplyResult) {
-  storePendingValue(pendingApplyResultStorageKey, result);
+  const map = readMergedPendingApplyMap();
+  map[result.optimizationId] = result;
+  writePendingApplyMap(map);
 }
 
 export function readPendingApplyResult(optimizationId: OptimizationId): OptimizationApplyResult | null {
-  const sessionResult = readPendingValue(window.sessionStorage, pendingApplyResultStorageKey, isValidApplyResult);
-  const localResult = readPendingValue(window.localStorage, pendingApplyResultStorageKey, isValidApplyResult);
-  const result = sessionResult ?? localResult;
+  const result = readMergedPendingApplyMap()[optimizationId];
 
-  if (!result) {
+  if (!result || result.optimizationId !== optimizationId) {
     return null;
   }
 
-  return result.optimizationId === optimizationId ? result : null;
+  return result;
 }
 
-export function clearPendingApplyResult() {
-  window.sessionStorage.removeItem(pendingApplyResultStorageKey);
-  window.localStorage.removeItem(pendingApplyResultStorageKey);
+export function clearPendingApplyResult(optimizationId?: OptimizationId) {
+  if (!optimizationId) {
+    window.sessionStorage.removeItem(pendingApplyResultStorageKey);
+    window.localStorage.removeItem(pendingApplyResultStorageKey);
+    return;
+  }
+
+  const map = readMergedPendingApplyMap();
+
+  if (!(optimizationId in map)) {
+    return;
+  }
+
+  delete map[optimizationId];
+  writePendingApplyMap(map);
 }
 
 export function storePendingRecoveryResult(result: OptimizationRecoveryResult) {
