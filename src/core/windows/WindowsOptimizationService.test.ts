@@ -11,6 +11,7 @@ import {
   consumePendingRecoveryAuthorization,
   hasPendingRecoveryAuthorization,
   resetConsumedRecoveryAuthorizationForTests,
+  resetPendingApplyRuntimeForTests,
   isValidApplyResult,
   isValidHistoryEntry,
   isValidRecoveryResult,
@@ -76,11 +77,13 @@ beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
   resetConsumedRecoveryAuthorizationForTests();
+  resetPendingApplyRuntimeForTests();
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
   resetConsumedRecoveryAuthorizationForTests();
+  resetPendingApplyRuntimeForTests();
 });
 
 describe("isValidHistoryEntry", () => {
@@ -358,6 +361,159 @@ describe("pending apply result validation", () => {
     expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-a");
     expect(readPendingApplyResult("hags")?.historyEntryId).toBe("entry-hags");
     expect(readPendingApplyResult("sysmain")).toBeNull();
+  });
+
+  it("returns the new local write when stale session setItem fails (not the old session history id)", () => {
+    const stale = buildApplyResult({ optimizationId: "windows-search", historyEntryId: "entry-stale-session" });
+    window.sessionStorage.setItem(pendingApplyResultStorageKey, JSON.stringify({ "windows-search": stale }));
+    window.localStorage.setItem(
+      pendingApplyResultStorageKey,
+      JSON.stringify({ "windows-search": buildApplyResult({ optimizationId: "windows-search", historyEntryId: "entry-stale-local" }) })
+    );
+
+    const originalSetItem = Storage.prototype.setItem;
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.sessionStorage && key === pendingApplyResultStorageKey) {
+        throw new Error("QuotaExceededError");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+    // Keep the stale session payload even if best-effort remove is attempted.
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.sessionStorage && key === pendingApplyResultStorageKey) {
+        throw new Error("session remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    storePendingApplyResult(buildApplyResult({ optimizationId: "windows-search", historyEntryId: "entry-fresh-local" }));
+
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-fresh-local");
+    expect(window.localStorage.getItem(pendingApplyResultStorageKey)).toContain("entry-fresh-local");
+    expect(window.sessionStorage.getItem(pendingApplyResultStorageKey)).toContain("entry-stale-session");
+  });
+
+  it("returns the new session write when stale local setItem fails", () => {
+    const staleLocal = buildApplyResult({ optimizationId: "sysmain", historyEntryId: "entry-stale-local" });
+    window.localStorage.setItem(pendingApplyResultStorageKey, JSON.stringify({ sysmain: staleLocal }));
+    window.sessionStorage.setItem(
+      pendingApplyResultStorageKey,
+      JSON.stringify({ sysmain: buildApplyResult({ optimizationId: "sysmain", historyEntryId: "entry-stale-session" }) })
+    );
+
+    const originalSetItem = Storage.prototype.setItem;
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.localStorage && key === pendingApplyResultStorageKey) {
+        throw new Error("QuotaExceededError");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.localStorage && key === pendingApplyResultStorageKey) {
+        throw new Error("local remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    storePendingApplyResult(buildApplyResult({ optimizationId: "sysmain", historyEntryId: "entry-fresh-session" }));
+
+    expect(readPendingApplyResult("sysmain")?.historyEntryId).toBe("entry-fresh-session");
+    expect(window.sessionStorage.getItem(pendingApplyResultStorageKey)).toContain("entry-fresh-session");
+    expect(window.localStorage.getItem(pendingApplyResultStorageKey)).toContain("entry-stale-local");
+  });
+
+  it("hides a cleared slot in-process when rewrite and remove both fail, keeping other ids isolated", () => {
+    storePendingApplyResult(buildApplyResult({ optimizationId: "windows-search", historyEntryId: "entry-a" }));
+    storePendingApplyResult(buildApplyResult({ optimizationId: "sysmain", historyEntryId: "entry-b" }));
+
+    const originalSetItem = Storage.prototype.setItem;
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (key === pendingApplyResultStorageKey) {
+        throw new Error("rewrite denied");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (key === pendingApplyResultStorageKey) {
+        throw new Error("remove denied");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    expect(() => clearPendingApplyResult("windows-search")).not.toThrow();
+    expect(readPendingApplyResult("windows-search")).toBeNull();
+    expect(readPendingApplyResult("sysmain")?.historyEntryId).toBe("entry-b");
+    // Physical leftovers may remain when both rewrite and remove fail.
+    expect(window.sessionStorage.getItem(pendingApplyResultStorageKey)).toContain("entry-a");
+  });
+
+  it("rebuilds a previously cleared slot after rewrite/remove dual failure once store succeeds again", () => {
+    storePendingApplyResult(buildApplyResult({ optimizationId: "windows-search", historyEntryId: "entry-old" }));
+    storePendingApplyResult(buildApplyResult({ optimizationId: "hags", historyEntryId: "entry-hags" }));
+
+    const originalSetItem = Storage.prototype.setItem;
+    const originalRemoveItem = Storage.prototype.removeItem;
+    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+    const removeItemSpy = vi.spyOn(Storage.prototype, "removeItem");
+    let blockMutations = true;
+
+    setItemSpy.mockImplementation(function (this: Storage, key, value) {
+      if (blockMutations && key === pendingApplyResultStorageKey) {
+        throw new Error("rewrite denied");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+    removeItemSpy.mockImplementation(function (this: Storage, key) {
+      if (blockMutations && key === pendingApplyResultStorageKey) {
+        throw new Error("remove denied");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    clearPendingApplyResult("windows-search");
+    expect(readPendingApplyResult("windows-search")).toBeNull();
+    expect(readPendingApplyResult("hags")?.historyEntryId).toBe("entry-hags");
+
+    blockMutations = false;
+    storePendingApplyResult(buildApplyResult({ optimizationId: "windows-search", historyEntryId: "entry-rebuilt" }));
+
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-rebuilt");
+    expect(readPendingApplyResult("hags")?.historyEntryId).toBe("entry-hags");
+    expect(readPendingApplyResult("sysmain")).toBeNull();
+  });
+
+  it("does not promote an in-memory map when both storages fail to persist", () => {
+    window.sessionStorage.setItem(
+      pendingApplyResultStorageKey,
+      JSON.stringify({ "windows-search": buildApplyResult({ historyEntryId: "entry-prior" }) })
+    );
+
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key) {
+      if (key === pendingApplyResultStorageKey) {
+        throw new Error(this === window.sessionStorage ? "session denied" : "local denied");
+      }
+
+      throw new Error("unexpected key");
+    });
+
+    expect(() =>
+      storePendingApplyResult(buildApplyResult({ historyEntryId: "entry-never-persisted" }))
+    ).toThrow(/Failed to persist pending apply result/);
+
+    // Dual-fail must not masquerade as success: prior durable value remains readable,
+    // and the unpersisted history id must not appear.
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-prior");
   });
 });
 

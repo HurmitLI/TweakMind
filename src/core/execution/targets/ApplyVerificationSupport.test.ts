@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  resetPendingApplyRuntimeForTests,
   storePendingApplyResult,
   WindowsOptimizationService,
   type OptimizationApplyResult,
@@ -42,6 +43,7 @@ function buildApplyResult(overrides: Partial<OptimizationApplyResult> = {}): Opt
 beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
+  resetPendingApplyRuntimeForTests();
 });
 
 describe("resolveApplyVerificationSource", () => {

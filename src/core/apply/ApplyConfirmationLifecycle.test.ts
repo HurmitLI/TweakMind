@@ -3,6 +3,7 @@ import {
   clearPendingApplyResult,
   pendingApplyResultStorageKey,
   readPendingApplyResult,
+  resetPendingApplyRuntimeForTests,
   storePendingApplyResult,
   type OptimizationApplyResult
 } from "../windows/WindowsOptimizationService";
@@ -31,11 +32,13 @@ beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
   resetApplyConfirmationLifecycleForTests();
+  resetPendingApplyRuntimeForTests();
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
   resetApplyConfirmationLifecycleForTests();
+  resetPendingApplyRuntimeForTests();
 });
 
 describe("startApplyConfirmationLifecycle", () => {
@@ -326,5 +329,89 @@ describe("startApplyConfirmationLifecycle", () => {
     expect(onUiSuccess).not.toHaveBeenCalled();
     expect(onUiFailure).toHaveBeenCalledWith(expect.stringMatching(/Failed to persist pending apply result/));
     expect(readPendingApplyResult("windows-search")).toBeNull();
+  });
+
+  it("does not navigate with a stale session history id when only local persist succeeds", async () => {
+    const stale = buildResult({ historyEntryId: "entry-stale-session" });
+    window.sessionStorage.setItem(pendingApplyResultStorageKey, JSON.stringify({ "windows-search": stale }));
+
+    const originalSetItem = Storage.prototype.setItem;
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.sessionStorage && key === pendingApplyResultStorageKey) {
+        throw new Error("QuotaExceededError");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.sessionStorage && key === pendingApplyResultStorageKey) {
+        throw new Error("session remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    const onUiSuccess = vi.fn();
+    const onUiFailure = vi.fn();
+
+    const handle = startApplyConfirmationLifecycle({
+      optimizationId: "windows-search",
+      runApply: async () => buildResult({ historyEntryId: "entry-fresh-local" }),
+      persistResult: storePendingApplyResult,
+      onUiSuccess,
+      onUiFailure
+    });
+
+    await Promise.resolve();
+    expect(handle.getStatus()).toBe("succeeded");
+    expect(onUiFailure).not.toHaveBeenCalled();
+    expect(onUiSuccess).toHaveBeenCalledTimes(1);
+    expect(onUiSuccess.mock.calls[0][0].historyEntryId).toBe("entry-fresh-local");
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-fresh-local");
+  });
+
+  it("keeps cleared slots hidden after set/remove dual failure without wrong success navigation", async () => {
+    storePendingApplyResult(buildResult({ optimizationId: "windows-search", historyEntryId: "entry-old" }));
+
+    const originalSetItem = Storage.prototype.setItem;
+    const originalRemoveItem = Storage.prototype.removeItem;
+    let blockMutations = true;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (blockMutations && key === pendingApplyResultStorageKey) {
+        throw new Error("rewrite denied");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (blockMutations && key === pendingApplyResultStorageKey) {
+        throw new Error("remove denied");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    clearPendingApplyResult("windows-search");
+    expect(readPendingApplyResult("windows-search")).toBeNull();
+
+    blockMutations = false;
+    const onUiSuccess = vi.fn();
+    const onUiFailure = vi.fn();
+
+    const handle = startApplyConfirmationLifecycle({
+      optimizationId: "windows-search",
+      runApply: async () => buildResult({ historyEntryId: "entry-rebuilt" }),
+      persistResult: storePendingApplyResult,
+      onUiSuccess,
+      onUiFailure
+    });
+
+    await Promise.resolve();
+    expect(handle.getStatus()).toBe("succeeded");
+    expect(onUiFailure).not.toHaveBeenCalled();
+    expect(onUiSuccess).toHaveBeenCalledTimes(1);
+    expect(onUiSuccess.mock.calls[0][0].historyEntryId).toBe("entry-rebuilt");
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-rebuilt");
   });
 });

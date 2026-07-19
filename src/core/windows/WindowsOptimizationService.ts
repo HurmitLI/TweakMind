@@ -253,12 +253,42 @@ function readPendingApplyMapFromStorage(storage: Storage): PendingApplyMap {
   }
 }
 
-function readMergedPendingApplyMap(): PendingApplyMap {
+function readMergedPendingApplyMapFromStorage(): PendingApplyMap {
   const localMap = readPendingApplyMapFromStorage(window.localStorage);
   const sessionMap = readPendingApplyMapFromStorage(window.sessionStorage);
 
   // Session wins per optimization id when both copies exist.
   return { ...localMap, ...sessionMap };
+}
+
+/**
+ * In-process authoritative pending-apply map after a successful store/clear.
+ * `null` means "no runtime authority yet — read from dual storage".
+ * An empty object means "intentionally empty" and suppresses stale storage
+ * leftovers that failed to rewrite/remove on one or both sides.
+ */
+let runtimePendingApplySnapshot: PendingApplyMap | null = null;
+
+function clonePendingApplyMap(map: PendingApplyMap): PendingApplyMap {
+  return { ...map };
+}
+
+/**
+ * Prefer the runtime snapshot whenever this process has successfully stored or
+ * cleared pending apply state, so a failed-side stale copy cannot override a
+ * newer one-sided durable write via session-over-local merge.
+ */
+function getAuthoritativePendingApplyMap(): PendingApplyMap {
+  if (runtimePendingApplySnapshot !== null) {
+    return clonePendingApplyMap(runtimePendingApplySnapshot);
+  }
+
+  return readMergedPendingApplyMapFromStorage();
+}
+
+/** Test-only: drop the in-process pending-apply snapshot between cases. */
+export function resetPendingApplyRuntimeForTests(): void {
+  runtimePendingApplySnapshot = null;
 }
 
 function toPendingStorageErrorMessage(error: unknown): string {
@@ -293,6 +323,8 @@ function removePendingApplyValueFromStorage(storage: Storage): void {
 /**
  * Persist the keyed pending-apply map to sessionStorage and localStorage
  * independently. Succeeds when at least one durable copy is written.
+ * On one-sided success, best-effort remove the failed side so a stale copy
+ * cannot resurrect via merge after restart when remove is allowed.
  */
 function writePendingApplyMap(map: PendingApplyMap) {
   if (Object.keys(map).length === 0) {
@@ -306,6 +338,14 @@ function writePendingApplyMap(map: PendingApplyMap) {
   const localWrite = writePendingApplyValueToStorage(window.localStorage, serialized);
 
   if (sessionWrite.ok || localWrite.ok) {
+    if (!sessionWrite.ok) {
+      removePendingApplyValueFromStorage(window.sessionStorage);
+    }
+
+    if (!localWrite.ok) {
+      removePendingApplyValueFromStorage(window.localStorage);
+    }
+
     return;
   }
 
@@ -315,13 +355,15 @@ function writePendingApplyMap(map: PendingApplyMap) {
 }
 
 export function storePendingApplyResult(result: OptimizationApplyResult) {
-  const map = readMergedPendingApplyMap();
+  const map = getAuthoritativePendingApplyMap();
   map[result.optimizationId] = result;
   writePendingApplyMap(map);
+  // Only after at least one durable copy succeeds — never promote an unpersisted map.
+  runtimePendingApplySnapshot = clonePendingApplyMap(map);
 }
 
 export function readPendingApplyResult(optimizationId: OptimizationId): OptimizationApplyResult | null {
-  const result = readMergedPendingApplyMap()[optimizationId];
+  const result = getAuthoritativePendingApplyMap()[optimizationId];
 
   if (!result || result.optimizationId !== optimizationId) {
     return null;
@@ -360,13 +402,19 @@ export function clearPendingApplyResult(optimizationId?: OptimizationId) {
   if (!optimizationId) {
     removePendingApplyValueFromStorage(window.sessionStorage);
     removePendingApplyValueFromStorage(window.localStorage);
+    // Empty snapshot suppresses uncleared leftovers when removeItem fails.
+    runtimePendingApplySnapshot = {};
     return;
   }
 
+  const map = getAuthoritativePendingApplyMap();
+  delete map[optimizationId];
+
   // Clear each storage independently so one-sided rewrite/remove failures cannot
-  // skip the other side or let a stale map revive the matched slot.
+  // skip the other side. Runtime snapshot still hides the slot if both fail.
   clearPendingApplySlotFromStorage(window.sessionStorage, optimizationId);
   clearPendingApplySlotFromStorage(window.localStorage, optimizationId);
+  runtimePendingApplySnapshot = clonePendingApplyMap(map);
 }
 
 type PendingRecoveryMap = Record<string, OptimizationRecoveryResult>;
