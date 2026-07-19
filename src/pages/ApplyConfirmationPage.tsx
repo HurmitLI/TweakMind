@@ -1,12 +1,16 @@
 import { ArrowLeft, CheckCircle2, Info, ShieldCheck } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ApplyModeBadge, getApplyModeLabel } from "../components/apply/ApplyModeBadge";
 import { LoadingState } from "../components/common/LoadingState";
 import { ErrorPresentation } from "../components/error/ErrorPresentation";
 import { RecommendationBadge } from "../components/decision/RecommendationBadge";
-import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
+import {
+  startApplyConfirmationLifecycle,
+  type ApplyConfirmationLifecycleHandle
+} from "../core/apply/ApplyConfirmationLifecycle";
 import { getApplyConfirmationPlan } from "../core/apply/ApplyConfirmationPlan";
+import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
 import { useTranslation } from "../core/localization/LanguageProvider";
 import { translateOptimizationStatus, translateRecommendation, translateRiskLevel } from "../core/localization/localizationHelpers";
 import { translateRuntimeMessage } from "../core/localization/RuntimeMessageLocalizationService";
@@ -64,27 +68,49 @@ export function ApplyConfirmationPage() {
         : "/report";
   const [isConfirming, setIsConfirming] = useState(false);
   const [applyError, setApplyError] = useState<ReturnType<typeof ErrorPresentationService.fromTechnicalError> | null>(null);
+  const applyAttemptRef = useRef<ApplyConfirmationLifecycleHandle | null>(null);
 
-  async function confirmAndApply() {
+  useEffect(() => {
+    setIsConfirming(false);
+    setApplyError(null);
+
+    return () => {
+      applyAttemptRef.current?.dispose();
+      applyAttemptRef.current = null;
+    };
+  }, [optimization.id]);
+
+  function confirmAndApply() {
     if (!plan.canApply) {
       setApplyError(plan.canRealApply ? null : ErrorPresentationService.forApplyUnavailable(false));
       return;
     }
 
+    const optimizationId = optimization.id;
+    const handle = startApplyConfirmationLifecycle({
+      optimizationId,
+      runApply: () => OptimizationExecutor.apply(optimizationId),
+      persistResult: storePendingApplyResult,
+      onUiSuccess(result) {
+        applyAttemptRef.current = null;
+        setIsConfirming(false);
+        navigate(`/apply?id=${result.optimizationId}`);
+      },
+      onUiFailure(errorMessage) {
+        applyAttemptRef.current = null;
+        setIsConfirming(false);
+        setApplyError(ErrorPresentationService.fromTechnicalError(errorMessage, "apply"));
+      }
+    });
+
+    // Synchronous duplicate gate: ignore rapid double-click / overlapping retry.
+    if (!handle.didStart) {
+      return;
+    }
+
+    applyAttemptRef.current = handle;
     setApplyError(null);
     setIsConfirming(true);
-
-    try {
-      const result = await OptimizationExecutor.apply(optimization.id);
-      storePendingApplyResult(result);
-      navigate(`/apply?id=${optimization.id}`);
-    } catch (error) {
-      setApplyError(
-        ErrorPresentationService.fromTechnicalError(error instanceof Error ? error.message : String(error), "apply")
-      );
-    } finally {
-      setIsConfirming(false);
-    }
   }
 
   const recoveryTimeValue =
