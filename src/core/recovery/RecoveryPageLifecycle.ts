@@ -1,4 +1,7 @@
-import type { OptimizationRecoveryResult } from "../windows/WindowsOptimizationService";
+import {
+  consumePendingRecoveryAuthorization,
+  type OptimizationRecoveryResult
+} from "../windows/WindowsOptimizationService";
 
 export type RecoveryPageLifecycleStatus = "recovering" | "succeeded" | "failed";
 
@@ -225,9 +228,10 @@ function releaseRecoverySessionIfIdle(historyEntryId: string, session: InFlightS
  *
  * StrictMode: effect cleanup unsubscribes, then the remount resubscribes in the
  * same turn and joins the existing in-flight restore (no second runRestore, no
- * authorization rewrite). Real navigation: dispose stops UI updates but keeps
+ * onStartFresh rewrite). Real navigation: dispose stops UI updates but keeps
  * the in-flight gate until the restore Promise settles, matching apply's
- * anti-duplicate semantics.
+ * anti-duplicate semantics. Re-confirm while in flight may rewrite auth; join
+ * consumes that matched authorization without starting another restore.
  */
 export function subscribeRecoveryPageLifecycle(
   options: SubscribeRecoveryPageLifecycleOptions
@@ -298,6 +302,16 @@ export function subscribeRecoveryPageLifecycle(
   } else {
     // Cancel any deferred UI teardown scheduled by a StrictMode cleanup.
     session.epoch += 1;
+
+    // Join must not call onStartFresh (no second restore / pending wipe), but a
+    // History re-confirm may have rewritten session auth for this history id.
+    // Consume it here so settle + leave cannot auto-start another restore via
+    // leftover /recovery?historyId=… authorization.
+    try {
+      consumePendingRecoveryAuthorization(options.historyEntryId);
+    } catch {
+      // Never block joining an already-running restore.
+    }
   }
 
   const subscriber: Subscriber = {
