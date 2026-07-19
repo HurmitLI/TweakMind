@@ -5,6 +5,7 @@ import {
   pendingRecoveryAuthorizationStorageKey,
   readPendingRecoveryResult,
   resetConsumedRecoveryAuthorizationForTests,
+  resetPendingRecoveryRuntimeForTests,
   storePendingRecoveryAuthorization,
   storePendingRecoveryResult,
   type OptimizationRecoveryResult
@@ -46,12 +47,14 @@ beforeEach(() => {
   window.sessionStorage.clear();
   resetRecoveryConfirmationTransitionForTests();
   resetConsumedRecoveryAuthorizationForTests();
+  resetPendingRecoveryRuntimeForTests();
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
   resetRecoveryConfirmationTransitionForTests();
   resetConsumedRecoveryAuthorizationForTests();
+  resetPendingRecoveryRuntimeForTests();
 });
 
 describe("beginRecoveryConfirmationTransition", () => {

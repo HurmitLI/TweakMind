@@ -12,6 +12,7 @@ import {
   hasPendingRecoveryAuthorization,
   resetConsumedRecoveryAuthorizationForTests,
   resetPendingApplyRuntimeForTests,
+  resetPendingRecoveryRuntimeForTests,
   isValidApplyResult,
   isValidHistoryEntry,
   isValidRecoveryResult,
@@ -78,12 +79,14 @@ beforeEach(() => {
   window.sessionStorage.clear();
   resetConsumedRecoveryAuthorizationForTests();
   resetPendingApplyRuntimeForTests();
+  resetPendingRecoveryRuntimeForTests();
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
   resetConsumedRecoveryAuthorizationForTests();
   resetPendingApplyRuntimeForTests();
+  resetPendingRecoveryRuntimeForTests();
 });
 
 describe("isValidHistoryEntry", () => {
@@ -673,5 +676,249 @@ describe("pending recovery result validation", () => {
 
     expect(readPendingRecoveryResult("entry-wrong-key")).toBeNull();
     expect(readPendingRecoveryResult("entry-embedded")?.message).toBe("Embedded");
+  });
+
+  it("succeeds when sessionStorage writes and localStorage quota fails", () => {
+    const originalSetItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.localStorage && key === pendingRecoveryResultStorageKey) {
+        throw new Error("QuotaExceededError");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+
+    expect(() =>
+      storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-session", message: "SessionOnly" }))
+    ).not.toThrow();
+
+    expect(window.sessionStorage.getItem(pendingRecoveryResultStorageKey)).not.toBeNull();
+    expect(window.localStorage.getItem(pendingRecoveryResultStorageKey)).toBeNull();
+    expect(readPendingRecoveryResult("entry-session")?.message).toBe("SessionOnly");
+    expect(readPendingRecoveryResult("entry-other")).toBeNull();
+  });
+
+  it("succeeds when localStorage writes and sessionStorage is unavailable", () => {
+    const originalSetItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.sessionStorage && key === pendingRecoveryResultStorageKey) {
+        throw new Error("SecurityError");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+
+    expect(() =>
+      storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-local", message: "LocalOnly" }))
+    ).not.toThrow();
+
+    expect(window.localStorage.getItem(pendingRecoveryResultStorageKey)).not.toBeNull();
+    expect(window.sessionStorage.getItem(pendingRecoveryResultStorageKey)).toBeNull();
+    expect(readPendingRecoveryResult("entry-local")?.message).toBe("LocalOnly");
+    expect(readPendingRecoveryResult("entry-other")).toBeNull();
+  });
+
+  it("returns the new local write when stale session setItem fails (not the old recovery message)", () => {
+    const stale = buildRecoveryResult({ historyEntryId: "entry-1", message: "StaleSession" });
+    window.sessionStorage.setItem(pendingRecoveryResultStorageKey, JSON.stringify({ "entry-1": stale }));
+    window.localStorage.setItem(
+      pendingRecoveryResultStorageKey,
+      JSON.stringify({ "entry-1": buildRecoveryResult({ historyEntryId: "entry-1", message: "StaleLocal" }) })
+    );
+
+    const originalSetItem = Storage.prototype.setItem;
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.sessionStorage && key === pendingRecoveryResultStorageKey) {
+        throw new Error("QuotaExceededError");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.sessionStorage && key === pendingRecoveryResultStorageKey) {
+        throw new Error("session remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-1", message: "FreshLocal" }));
+
+    expect(readPendingRecoveryResult("entry-1")?.message).toBe("FreshLocal");
+    expect(window.localStorage.getItem(pendingRecoveryResultStorageKey)).toContain("FreshLocal");
+    expect(window.sessionStorage.getItem(pendingRecoveryResultStorageKey)).toContain("StaleSession");
+  });
+
+  it("returns the new session write when stale local setItem fails", () => {
+    window.localStorage.setItem(
+      pendingRecoveryResultStorageKey,
+      JSON.stringify({ "entry-1": buildRecoveryResult({ historyEntryId: "entry-1", message: "StaleLocal" }) })
+    );
+    window.sessionStorage.setItem(
+      pendingRecoveryResultStorageKey,
+      JSON.stringify({ "entry-1": buildRecoveryResult({ historyEntryId: "entry-1", message: "StaleSession" }) })
+    );
+
+    const originalSetItem = Storage.prototype.setItem;
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.localStorage && key === pendingRecoveryResultStorageKey) {
+        throw new Error("QuotaExceededError");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.localStorage && key === pendingRecoveryResultStorageKey) {
+        throw new Error("local remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-1", message: "FreshSession" }));
+
+    expect(readPendingRecoveryResult("entry-1")?.message).toBe("FreshSession");
+    expect(window.sessionStorage.getItem(pendingRecoveryResultStorageKey)).toContain("FreshSession");
+    expect(window.localStorage.getItem(pendingRecoveryResultStorageKey)).toContain("StaleLocal");
+  });
+
+  it("throws a diagnostic error when both storages fail to write pending recovery", () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key) {
+      if (key === pendingRecoveryResultStorageKey) {
+        throw new Error(this === window.sessionStorage ? "session denied" : "local denied");
+      }
+
+      throw new Error("unexpected key");
+    });
+
+    expect(() => storePendingRecoveryResult(buildRecoveryResult())).toThrow(
+      /Failed to persist pending recovery result to sessionStorage \(session denied\) and localStorage \(local denied\)/
+    );
+    expect(readPendingRecoveryResult("entry-1")).toBeNull();
+  });
+
+  it("does not promote an in-memory map when both storages fail to persist recovery", () => {
+    window.sessionStorage.setItem(
+      pendingRecoveryResultStorageKey,
+      JSON.stringify({ "entry-1": buildRecoveryResult({ message: "Prior" }) })
+    );
+
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key) {
+      if (key === pendingRecoveryResultStorageKey) {
+        throw new Error(this === window.sessionStorage ? "session denied" : "local denied");
+      }
+
+      throw new Error("unexpected key");
+    });
+
+    expect(() => storePendingRecoveryResult(buildRecoveryResult({ message: "NeverPersisted" }))).toThrow(
+      /Failed to persist pending recovery result/
+    );
+    expect(readPendingRecoveryResult("entry-1")?.message).toBe("Prior");
+  });
+
+  it("hides a cleared recovery slot in-process when rewrite and remove both fail, keeping other history ids isolated", () => {
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-a", message: "A" }));
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-b", message: "B" }));
+
+    const originalSetItem = Storage.prototype.setItem;
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (key === pendingRecoveryResultStorageKey) {
+        throw new Error("rewrite denied");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (key === pendingRecoveryResultStorageKey) {
+        throw new Error("remove denied");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    expect(() => clearPendingRecoveryResult("entry-a")).not.toThrow();
+    expect(readPendingRecoveryResult("entry-a")).toBeNull();
+    expect(readPendingRecoveryResult("entry-b")?.message).toBe("B");
+    expect(window.sessionStorage.getItem(pendingRecoveryResultStorageKey)).toContain('"entry-a"');
+  });
+
+  it("rebuilds a previously cleared recovery slot after rewrite/remove dual failure once store succeeds again", () => {
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-a", message: "Old" }));
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-b", message: "Keep" }));
+
+    const originalSetItem = Storage.prototype.setItem;
+    const originalRemoveItem = Storage.prototype.removeItem;
+    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+    const removeItemSpy = vi.spyOn(Storage.prototype, "removeItem");
+    let blockMutations = true;
+
+    setItemSpy.mockImplementation(function (this: Storage, key, value) {
+      if (blockMutations && key === pendingRecoveryResultStorageKey) {
+        throw new Error("rewrite denied");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+    removeItemSpy.mockImplementation(function (this: Storage, key) {
+      if (blockMutations && key === pendingRecoveryResultStorageKey) {
+        throw new Error("remove denied");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    clearPendingRecoveryResult("entry-a");
+    expect(readPendingRecoveryResult("entry-a")).toBeNull();
+    expect(readPendingRecoveryResult("entry-b")?.message).toBe("Keep");
+
+    blockMutations = false;
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-a", message: "Rebuilt" }));
+
+    expect(readPendingRecoveryResult("entry-a")?.message).toBe("Rebuilt");
+    expect(readPendingRecoveryResult("entry-b")?.message).toBe("Keep");
+    expect(readPendingRecoveryResult("entry-missing")).toBeNull();
+  });
+
+  it("keeps interleaved history ids readable after one-sided store degradation", () => {
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-a", message: "A" }));
+
+    const originalSetItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.localStorage && key === pendingRecoveryResultStorageKey) {
+        throw new Error("QuotaExceededError");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-b", message: "B" }));
+
+    expect(readPendingRecoveryResult("entry-a")?.message).toBe("A");
+    expect(readPendingRecoveryResult("entry-b")?.message).toBe("B");
+    expect(readPendingRecoveryResult("entry-c")).toBeNull();
+  });
+
+  it("recovers on retry after a previous dual-storage pending recovery failure", () => {
+    const originalSetItem = Storage.prototype.setItem;
+    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+    let denyWrites = true;
+
+    setItemSpy.mockImplementation(function (this: Storage, key, value) {
+      if (denyWrites && key === pendingRecoveryResultStorageKey) {
+        throw new Error("storage denied");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+
+    expect(() => storePendingRecoveryResult(buildRecoveryResult({ message: "First" }))).toThrow();
+
+    denyWrites = false;
+    storePendingRecoveryResult(buildRecoveryResult({ message: "Retry" }));
+    expect(readPendingRecoveryResult("entry-1")?.message).toBe("Retry");
   });
 });

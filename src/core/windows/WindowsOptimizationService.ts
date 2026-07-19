@@ -208,12 +208,6 @@ export class WindowsOptimizationService {
   }
 }
 
-function storePendingValue(storageKey: string, value: unknown) {
-  const serialized = JSON.stringify(value);
-  window.sessionStorage.setItem(storageKey, serialized);
-  window.localStorage.setItem(storageKey, serialized);
-}
-
 type PendingApplyMap = Record<string, OptimizationApplyResult>;
 
 function readPendingApplyMapFromStorage(storage: Storage): PendingApplyMap {
@@ -456,7 +450,7 @@ function readPendingRecoveryMapFromStorage(storage: Storage): PendingRecoveryMap
   }
 }
 
-function readMergedPendingRecoveryMap(): PendingRecoveryMap {
+function readMergedPendingRecoveryMapFromStorage(): PendingRecoveryMap {
   const localMap = readPendingRecoveryMapFromStorage(window.localStorage);
   const sessionMap = readPendingRecoveryMapFromStorage(window.sessionStorage);
 
@@ -464,24 +458,92 @@ function readMergedPendingRecoveryMap(): PendingRecoveryMap {
   return { ...localMap, ...sessionMap };
 }
 
+/**
+ * In-process authoritative pending-recovery map after a successful store/clear.
+ * Mirrors pending-apply: `null` reads dual storage; `{}` suppresses leftovers
+ * when rewrite/remove failed on one or both sides.
+ */
+let runtimePendingRecoverySnapshot: PendingRecoveryMap | null = null;
+
+function clonePendingRecoveryMap(map: PendingRecoveryMap): PendingRecoveryMap {
+  return { ...map };
+}
+
+function getAuthoritativePendingRecoveryMap(): PendingRecoveryMap {
+  if (runtimePendingRecoverySnapshot !== null) {
+    return clonePendingRecoveryMap(runtimePendingRecoverySnapshot);
+  }
+
+  return readMergedPendingRecoveryMapFromStorage();
+}
+
+/** Test-only: drop the in-process pending-recovery snapshot between cases. */
+export function resetPendingRecoveryRuntimeForTests(): void {
+  runtimePendingRecoverySnapshot = null;
+}
+
+function writePendingRecoveryValueToStorage(
+  storage: Storage,
+  serialized: string
+): { ok: true } | { ok: false; error: unknown } {
+  try {
+    storage.setItem(pendingRecoveryResultStorageKey, serialized);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
+function removePendingRecoveryValueFromStorage(storage: Storage): void {
+  try {
+    storage.removeItem(pendingRecoveryResultStorageKey);
+  } catch {
+    // Best-effort: continue clearing/writing the other storage.
+  }
+}
+
+/**
+ * Persist the keyed pending-recovery map to sessionStorage and localStorage
+ * independently. Succeeds when at least one durable copy is written.
+ */
 function writePendingRecoveryMap(map: PendingRecoveryMap) {
   if (Object.keys(map).length === 0) {
-    window.sessionStorage.removeItem(pendingRecoveryResultStorageKey);
-    window.localStorage.removeItem(pendingRecoveryResultStorageKey);
+    removePendingRecoveryValueFromStorage(window.sessionStorage);
+    removePendingRecoveryValueFromStorage(window.localStorage);
     return;
   }
 
-  storePendingValue(pendingRecoveryResultStorageKey, map);
+  const serialized = JSON.stringify(map);
+  const sessionWrite = writePendingRecoveryValueToStorage(window.sessionStorage, serialized);
+  const localWrite = writePendingRecoveryValueToStorage(window.localStorage, serialized);
+
+  if (sessionWrite.ok || localWrite.ok) {
+    if (!sessionWrite.ok) {
+      removePendingRecoveryValueFromStorage(window.sessionStorage);
+    }
+
+    if (!localWrite.ok) {
+      removePendingRecoveryValueFromStorage(window.localStorage);
+    }
+
+    return;
+  }
+
+  throw new Error(
+    `Failed to persist pending recovery result to sessionStorage (${toPendingStorageErrorMessage(sessionWrite.error)}) and localStorage (${toPendingStorageErrorMessage(localWrite.error)}).`
+  );
 }
 
 export function storePendingRecoveryResult(result: OptimizationRecoveryResult) {
-  const map = readMergedPendingRecoveryMap();
+  const map = getAuthoritativePendingRecoveryMap();
   map[result.historyEntryId] = result;
   writePendingRecoveryMap(map);
+  // Only after at least one durable copy succeeds — never promote an unpersisted map.
+  runtimePendingRecoverySnapshot = clonePendingRecoveryMap(map);
 }
 
 export function readPendingRecoveryResult(historyEntryId: string): OptimizationRecoveryResult | null {
-  const result = readMergedPendingRecoveryMap()[historyEntryId];
+  const result = getAuthoritativePendingRecoveryMap()[historyEntryId];
 
   if (!result || result.historyEntryId !== historyEntryId) {
     return null;
@@ -589,19 +651,46 @@ export function clearPendingRecoveryAuthorization() {
   }
 }
 
+function clearPendingRecoverySlotFromStorage(storage: Storage, historyEntryId: string): void {
+  try {
+    const map = readPendingRecoveryMapFromStorage(storage);
+
+    if (!(historyEntryId in map)) {
+      return;
+    }
+
+    delete map[historyEntryId];
+
+    if (Object.keys(map).length === 0) {
+      removePendingRecoveryValueFromStorage(storage);
+      return;
+    }
+
+    const write = writePendingRecoveryValueToStorage(storage, JSON.stringify(map));
+
+    if (!write.ok) {
+      // Stale per-storage copies must not resurrect a cleared slot via merge.
+      removePendingRecoveryValueFromStorage(storage);
+    }
+  } catch {
+    removePendingRecoveryValueFromStorage(storage);
+  }
+}
+
 export function clearPendingRecoveryResult(historyEntryId?: string) {
   if (!historyEntryId) {
-    window.sessionStorage.removeItem(pendingRecoveryResultStorageKey);
-    window.localStorage.removeItem(pendingRecoveryResultStorageKey);
+    removePendingRecoveryValueFromStorage(window.sessionStorage);
+    removePendingRecoveryValueFromStorage(window.localStorage);
+    runtimePendingRecoverySnapshot = {};
     return;
   }
 
-  const map = readMergedPendingRecoveryMap();
-
-  if (!(historyEntryId in map)) {
-    return;
-  }
-
+  const map = getAuthoritativePendingRecoveryMap();
   delete map[historyEntryId];
-  writePendingRecoveryMap(map);
+
+  // Clear each storage independently so one-sided rewrite/remove failures cannot
+  // skip the other side. Runtime snapshot still hides the slot if both fail.
+  clearPendingRecoverySlotFromStorage(window.sessionStorage, historyEntryId);
+  clearPendingRecoverySlotFromStorage(window.localStorage, historyEntryId);
+  runtimePendingRecoverySnapshot = clonePendingRecoveryMap(map);
 }
