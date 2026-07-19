@@ -109,24 +109,23 @@ describe("OptimizationExecutor.apply", () => {
     );
   });
 
-  it("still resolves a successful apply when history localStorage write fails", async () => {
+  it("keeps status=success with a diagnosable history note when history write fails after native success", async () => {
     applyMock.mockResolvedValue(buildApplyResult({ message: "Native applied." }));
     denyHistoryWrites();
 
-    await expect(OptimizationExecutor.apply("windows-search")).resolves.toEqual(
-      expect.objectContaining({
-        status: "success",
-        optimizationId: "windows-search",
-        message: "Native applied.",
-        historyEntryId: expect.any(String)
-      })
-    );
+    const result = await OptimizationExecutor.apply("windows-search");
 
+    expect(result.status).toBe("success");
+    expect(result.optimizationId).toBe("windows-search");
+    expect(result.historyEntryId).toEqual(expect.any(String));
+    expect(result.message).toContain("Native applied.");
+    expect(result.message).toMatch(/History could not be persisted \(QuotaExceededError\)/);
+    expect(result.error).toBeNull();
     expect(WindowsOptimizationService.getHistory()).toEqual([]);
     expect(applyMock).toHaveBeenCalledTimes(1);
   });
 
-  it("still resolves a failed apply when history localStorage write fails", async () => {
+  it("preserves native failure error when history write also fails (no fake success)", async () => {
     applyMock.mockResolvedValue(
       buildApplyResult({
         status: "failed",
@@ -141,7 +140,8 @@ describe("OptimizationExecutor.apply", () => {
 
     expect(result.status).toBe("failed");
     expect(result.error).toBe("Access denied");
-    expect(result.historyEntryId).toBeTruthy();
+    expect(result.message).toBeUndefined();
+    expect(result.historyEntryId).toEqual(expect.any(String));
     expect(WindowsOptimizationService.getHistory()).toEqual([]);
   });
 
@@ -164,7 +164,9 @@ describe("OptimizationExecutor.apply", () => {
     });
 
     expect(onUiSuccess).toHaveBeenCalledTimes(1);
+    expect(onUiSuccess.mock.calls[0][0].status).toBe("success");
     expect(onUiSuccess.mock.calls[0][0].historyEntryId).toBeTruthy();
+    expect(onUiSuccess.mock.calls[0][0].message).toMatch(/History could not be persisted/);
     expect(onUiFailure).not.toHaveBeenCalled();
     expect(isApplyConfirmationInFlight("windows-search")).toBe(false);
     expect(applyMock).toHaveBeenCalledTimes(1);
@@ -208,25 +210,24 @@ describe("OptimizationExecutor.restore", () => {
     expect(updated?.recoveryMessage).toContain("recover handler missing");
   });
 
-  it("still resolves a successful restore when recovery history write fails", async () => {
+  it("keeps status=success with a diagnosable history note when recovery history write fails after native success", async () => {
     const entry = WindowsOptimizationService.recordHistory(buildHistoryEntry());
     recoverMock.mockResolvedValue(buildRecoveryResult({ historyEntryId: entry.id, message: "Native restored." }));
     denyHistoryWrites();
 
-    await expect(OptimizationExecutor.restore(entry)).resolves.toEqual(
-      expect.objectContaining({
-        status: "success",
-        historyEntryId: entry.id,
-        message: "Native restored."
-      })
-    );
+    const result = await OptimizationExecutor.restore(entry);
 
+    expect(result.status).toBe("success");
+    expect(result.historyEntryId).toBe(entry.id);
+    expect(result.message).toContain("Native restored.");
+    expect(result.message).toMatch(/History could not be persisted \(QuotaExceededError\)/);
+    expect(result.error).toBeNull();
     // Pre-existing entry remains; recoveryStatus may be unchanged when the update write fails.
     expect(WindowsOptimizationService.getHistoryEntry(entry.id)?.id).toBe(entry.id);
     expect(recoverMock).toHaveBeenCalledTimes(1);
   });
 
-  it("still resolves a failed restore when recovery history write fails", async () => {
+  it("preserves native restore failure error when history write also fails (no fake success)", async () => {
     const entry = WindowsOptimizationService.recordHistory(buildHistoryEntry());
     recoverMock.mockRejectedValue(new Error("native restore denied"));
     denyHistoryWrites();
@@ -236,5 +237,7 @@ describe("OptimizationExecutor.restore", () => {
     expect(result.status).toBe("failed");
     expect(result.historyEntryId).toBe(entry.id);
     expect(result.error).toContain("native restore denied");
+    expect(result.error).not.toMatch(/History could not be persisted/);
+    expect(result.message).toBeUndefined();
   });
 });

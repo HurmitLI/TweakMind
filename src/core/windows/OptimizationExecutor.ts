@@ -26,39 +26,70 @@ function toApplyHistoryEntry(result: OptimizationApplyResult): OptimizationHisto
   };
 }
 
+type HistoryPersistAttempt = { ok: true } | { ok: false; error: unknown };
+
 /**
  * Best-effort history persistence after native work. A localStorage quota/privacy
  * failure must not reject the executor Promise — Confirm/Recovery would show a
  * false failure and invite a duplicate real apply/restore.
  */
-function tryRecordApplyHistory(entry: OptimizationHistoryEntry): void {
+function tryRecordApplyHistory(entry: OptimizationHistoryEntry): HistoryPersistAttempt {
   try {
     WindowsOptimizationService.recordHistory(entry);
-  } catch {
-    // Native apply already finished; keep the synthesized historyEntryId for pending.
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error };
   }
 }
 
-function tryRecordRecoveryResult(result: OptimizationRecoveryResult): void {
+function tryRecordRecoveryResult(result: OptimizationRecoveryResult): HistoryPersistAttempt {
   try {
     WindowsOptimizationService.recordRecoveryResult(result);
-  } catch {
-    // Native restore (or synthesized failure) already finished.
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error };
   }
+}
+
+function toHistoryPersistDiagnostic(error: unknown): string {
+  return `History could not be persisted (${toErrorMessage(error)}).`;
+}
+
+/**
+ * After native success, keep status=success (never fake an apply/restore failure)
+ * but surface a diagnosable history-persist note. After native failure, leave
+ * message/error untouched so storage faults cannot mask the real outcome.
+ */
+function withHistoryPersistNote<T extends { status: string; message?: string }>(
+  result: T,
+  persist: HistoryPersistAttempt
+): T {
+  if (persist.ok || result.status !== "success") {
+    return result;
+  }
+
+  const note = toHistoryPersistDiagnostic(persist.error);
+  const existing = result.message?.trim();
+
+  return {
+    ...result,
+    message: existing ? `${existing} ${note}` : note
+  };
 }
 
 export class OptimizationExecutor {
   static async apply(optimizationId: OptimizationId): Promise<OptimizationApplyResult> {
     const result = await OptimizationPluginManager.apply(optimizationId);
     const historyEntry = toApplyHistoryEntry(result);
-    tryRecordApplyHistory(historyEntry);
+    const persist = tryRecordApplyHistory(historyEntry);
+    const settled = withHistoryPersistNote(result, persist);
 
-    if (result.status === "success") {
+    if (settled.status === "success") {
       clearStoredScanResult();
     }
 
     return {
-      ...result,
+      ...settled,
       historyEntryId: historyEntry.id
     };
   }
@@ -83,11 +114,13 @@ export class OptimizationExecutor {
       };
     }
 
-    tryRecordRecoveryResult(result);
-    if (result.status === "success") {
+    const persist = tryRecordRecoveryResult(result);
+    const settled = withHistoryPersistNote(result, persist);
+
+    if (settled.status === "success") {
       clearStoredScanResult();
     }
 
-    return result;
+    return settled;
   }
 }
