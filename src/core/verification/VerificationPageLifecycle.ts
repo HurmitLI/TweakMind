@@ -27,6 +27,9 @@ function toErrorMessage(error: unknown): string {
  * Owns one VerificationPage verify Promise so dispose/param switches ignore
  * stale settles. Callers should run verify with commitSideEffects: false and
  * commit only from onSettled while this handle is still active.
+ *
+ * onSettled/commit synchronous throws are captured and converged to
+ * onUnexpectedFailure so the page cannot stay stuck in verifying.
  */
 export function startVerificationPageLifecycle(
   options: VerificationPageLifecycleOptions
@@ -34,22 +37,39 @@ export function startVerificationPageLifecycle(
   let disposed = false;
   let status: VerificationPageLifecycleStatus = "verifying";
 
-  const markSettled = (result: VerificationResult) => {
-    if (disposed || status !== "verifying") {
-      return;
-    }
-
-    status = "settled";
-    options.onSettled(result);
-  };
-
-  const markUnexpectedFailure = (error: unknown) => {
+  const notifyUnexpectedFailure = (error: unknown) => {
     if (disposed || status !== "verifying") {
       return;
     }
 
     status = "failed";
-    options.onUnexpectedFailure(toErrorMessage(error));
+
+    try {
+      options.onUnexpectedFailure(toErrorMessage(error));
+    } catch {
+      // Failure presentation must not escape as an unhandled rejection.
+    }
+  };
+
+  const markSettled = (result: VerificationResult) => {
+    if (disposed || status !== "verifying") {
+      return;
+    }
+
+    try {
+      options.onSettled(result);
+    } catch (error) {
+      // Commit/presentation threw: converge to a retryable unexpected failure
+      // without leaving status stuck on verifying or settled.
+      notifyUnexpectedFailure(error);
+      return;
+    }
+
+    if (disposed || status !== "verifying") {
+      return;
+    }
+
+    status = "settled";
   };
 
   let verifyPromise: Promise<VerificationResult>;
@@ -60,7 +80,7 @@ export function startVerificationPageLifecycle(
     verifyPromise = Promise.reject(error);
   }
 
-  void verifyPromise.then(markSettled, markUnexpectedFailure);
+  void verifyPromise.then(markSettled, notifyUnexpectedFailure);
 
   return {
     dispose() {

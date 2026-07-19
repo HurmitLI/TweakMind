@@ -216,4 +216,83 @@ describe("startVerificationPageLifecycle", () => {
     expect(onSettled).toHaveBeenCalledTimes(1);
     expect(onUnexpectedFailure).toHaveBeenCalledTimes(1);
   });
+
+  it("converges onSettled/commit synchronous throws to onUnexpectedFailure once", async () => {
+    const onSettled = vi.fn(() => {
+      throw new Error("localStorage quota exceeded");
+    });
+    const onUnexpectedFailure = vi.fn();
+
+    const handle = startVerificationPageLifecycle({
+      runVerify: async () => buildResult(),
+      onSettled,
+      onUnexpectedFailure
+    });
+
+    await Promise.resolve();
+
+    expect(handle.getStatus()).toBe("failed");
+    expect(onSettled).toHaveBeenCalledTimes(1);
+    expect(onUnexpectedFailure).toHaveBeenCalledTimes(1);
+    expect(onUnexpectedFailure).toHaveBeenCalledWith("localStorage quota exceeded");
+  });
+
+  it("does not notify failure for a disposed attempt when onSettled would throw", async () => {
+    const onSettled = vi.fn(() => {
+      throw new Error("should not run");
+    });
+    const onUnexpectedFailure = vi.fn();
+    let resolveVerify!: (value: VerificationResult) => void;
+
+    const handle = startVerificationPageLifecycle({
+      runVerify: () =>
+        new Promise((resolve) => {
+          resolveVerify = resolve;
+        }),
+      onSettled,
+      onUnexpectedFailure
+    });
+
+    handle.dispose();
+    resolveVerify(buildResult());
+    await Promise.resolve();
+
+    expect(handle.getStatus()).toBe("verifying");
+    expect(onSettled).not.toHaveBeenCalled();
+    expect(onUnexpectedFailure).not.toHaveBeenCalled();
+  });
+
+  it("notifies onSettled throw only once and allows a later retry to succeed", async () => {
+    const onUnexpectedFailure = vi.fn();
+    let settleAttempts = 0;
+
+    const first = startVerificationPageLifecycle({
+      runVerify: async () => buildResult({ message: "first" }),
+      onSettled: () => {
+        settleAttempts += 1;
+        throw new Error("commit failed");
+      },
+      onUnexpectedFailure
+    });
+
+    await Promise.resolve();
+    expect(first.getStatus()).toBe("failed");
+    expect(onUnexpectedFailure).toHaveBeenCalledTimes(1);
+    expect(settleAttempts).toBe(1);
+    first.dispose();
+
+    const onSettledRetry = vi.fn();
+    const second = startVerificationPageLifecycle({
+      runVerify: async () => buildResult({ message: "retry ok" }),
+      onSettled: onSettledRetry,
+      onUnexpectedFailure
+    });
+
+    await Promise.resolve();
+    expect(second.getStatus()).toBe("settled");
+    expect(onSettledRetry).toHaveBeenCalledTimes(1);
+    expect(onUnexpectedFailure).toHaveBeenCalledTimes(1);
+    expect(settleAttempts).toBe(1);
+  });
 });
+
