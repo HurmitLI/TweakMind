@@ -3,7 +3,9 @@ import { toErrorMessage } from "../error/errorMessage";
 import { OptimizationPluginManager } from "../plugins/OptimizationPluginManager";
 import {
   clearPendingApplyResult,
+  clearPendingRecoveryResult,
   readPendingApplyResult,
+  readPendingRecoveryResult,
   WindowsOptimizationService
 } from "../windows/WindowsOptimizationService";
 import type { VerificationResult } from "./VerificationResult";
@@ -55,6 +57,26 @@ function consumePendingApplyResult(optimizationId: OptimizationId, verificationR
   clearPendingApplyResult(optimizationId);
 }
 
+function consumePendingRecoveryResult(verificationResult: VerificationResult) {
+  if (verificationResult.status !== "Verified" && verificationResult.status !== "Failed") {
+    return;
+  }
+
+  const historyEntryId = verificationResult.historyEntryId;
+
+  if (!historyEntryId) {
+    return;
+  }
+
+  const pendingRecoveryResult = readPendingRecoveryResult(historyEntryId);
+
+  if (!pendingRecoveryResult) {
+    return;
+  }
+
+  clearPendingRecoveryResult(historyEntryId);
+}
+
 export class VerificationService {
   static async verify(optimizationId: OptimizationId, options: VerificationOptions = {}): Promise<VerificationResult> {
     const mode = options.mode ?? "apply";
@@ -87,6 +109,8 @@ export class VerificationService {
 
     if (mode === "apply") {
       consumePendingApplyResult(optimizationId, verificationResult);
+    } else {
+      consumePendingRecoveryResult(verificationResult);
     }
 
     return verificationResult;

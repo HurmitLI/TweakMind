@@ -319,20 +319,77 @@ export function clearPendingApplyResult(optimizationId?: OptimizationId) {
   writePendingApplyMap(map);
 }
 
+type PendingRecoveryMap = Record<string, OptimizationRecoveryResult>;
+
+function readPendingRecoveryMapFromStorage(storage: Storage): PendingRecoveryMap {
+  try {
+    const stored = storage.getItem(pendingRecoveryResultStorageKey);
+
+    if (!stored) {
+      return {};
+    }
+
+    const parsed = JSON.parse(stored) as unknown;
+
+    // Legacy single-slot payload from older builds.
+    if (isValidRecoveryResult(parsed)) {
+      return { [parsed.historyEntryId]: parsed };
+    }
+
+    if (!isRecord(parsed)) {
+      return {};
+    }
+
+    const map: PendingRecoveryMap = {};
+
+    for (const value of Object.values(parsed)) {
+      if (!isValidRecoveryResult(value)) {
+        continue;
+      }
+
+      // Always key by the result's own historyEntryId to avoid wrong association
+      // when a corrupt map key does not match the embedded id.
+      map[value.historyEntryId] = value;
+    }
+
+    return map;
+  } catch {
+    return {};
+  }
+}
+
+function readMergedPendingRecoveryMap(): PendingRecoveryMap {
+  const localMap = readPendingRecoveryMapFromStorage(window.localStorage);
+  const sessionMap = readPendingRecoveryMapFromStorage(window.sessionStorage);
+
+  // Session wins per history entry id when both copies exist.
+  return { ...localMap, ...sessionMap };
+}
+
+function writePendingRecoveryMap(map: PendingRecoveryMap) {
+  if (Object.keys(map).length === 0) {
+    window.sessionStorage.removeItem(pendingRecoveryResultStorageKey);
+    window.localStorage.removeItem(pendingRecoveryResultStorageKey);
+    return;
+  }
+
+  storePendingValue(pendingRecoveryResultStorageKey, map);
+}
+
 export function storePendingRecoveryResult(result: OptimizationRecoveryResult) {
-  storePendingValue(pendingRecoveryResultStorageKey, result);
+  const map = readMergedPendingRecoveryMap();
+  map[result.historyEntryId] = result;
+  writePendingRecoveryMap(map);
 }
 
 export function readPendingRecoveryResult(historyEntryId: string): OptimizationRecoveryResult | null {
-  const sessionResult = readPendingValue(window.sessionStorage, pendingRecoveryResultStorageKey, isValidRecoveryResult);
-  const result =
-    sessionResult ?? readPendingValue(window.localStorage, pendingRecoveryResultStorageKey, isValidRecoveryResult);
+  const result = readMergedPendingRecoveryMap()[historyEntryId];
 
-  if (!result) {
+  if (!result || result.historyEntryId !== historyEntryId) {
     return null;
   }
 
-  return result.historyEntryId === historyEntryId ? result : null;
+  return result;
 }
 
 export function storePendingRecoveryAuthorization(historyEntryId: string) {
@@ -354,7 +411,19 @@ export function clearPendingRecoveryAuthorization() {
   window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
 }
 
-export function clearPendingRecoveryResult() {
-  window.sessionStorage.removeItem(pendingRecoveryResultStorageKey);
-  window.localStorage.removeItem(pendingRecoveryResultStorageKey);
+export function clearPendingRecoveryResult(historyEntryId?: string) {
+  if (!historyEntryId) {
+    window.sessionStorage.removeItem(pendingRecoveryResultStorageKey);
+    window.localStorage.removeItem(pendingRecoveryResultStorageKey);
+    return;
+  }
+
+  const map = readMergedPendingRecoveryMap();
+
+  if (!(historyEntryId in map)) {
+    return;
+  }
+
+  delete map[historyEntryId];
+  writePendingRecoveryMap(map);
 }

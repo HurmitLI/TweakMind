@@ -7,6 +7,7 @@ import type {
 import {
   clearPendingApplyResult,
   clearPendingRecoveryAuthorization,
+  clearPendingRecoveryResult,
   hasPendingRecoveryAuthorization,
   isValidApplyResult,
   isValidHistoryEntry,
@@ -274,5 +275,54 @@ describe("pending recovery result validation", () => {
   it("requires error to be a string or null", () => {
     expect(isValidRecoveryResult(buildRecoveryResult({ error: 42 as unknown as string }))).toBe(false);
     expect(isValidRecoveryResult(buildRecoveryResult({ error: "failed" }))).toBe(true);
+  });
+
+  it("keeps interleaved recovery results for different history entries in separate keyed slots", () => {
+    storePendingRecoveryResult(
+      buildRecoveryResult({ historyEntryId: "entry-a", optimizationId: "windows-search", message: "A" })
+    );
+    storePendingRecoveryResult(
+      buildRecoveryResult({ historyEntryId: "entry-b", optimizationId: "sysmain", message: "B", previousState: "Stopped" })
+    );
+
+    expect(readPendingRecoveryResult("entry-a")?.message).toBe("A");
+    expect(readPendingRecoveryResult("entry-b")?.message).toBe("B");
+    expect(readPendingRecoveryResult("entry-b")?.previousState).toBe("Stopped");
+    expect(readPendingRecoveryResult("entry-missing")).toBeNull();
+  });
+
+  it("clears only the matching history-entry pending recovery slot", () => {
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-a", message: "A" }));
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-b", message: "B" }));
+
+    clearPendingRecoveryResult("entry-a");
+
+    expect(readPendingRecoveryResult("entry-a")).toBeNull();
+    expect(readPendingRecoveryResult("entry-b")?.message).toBe("B");
+  });
+
+  it("migrates a legacy single-slot recovery payload without mis-associating other history ids", () => {
+    const legacy = buildRecoveryResult({ historyEntryId: "entry-legacy", message: "Legacy restore" });
+    window.sessionStorage.setItem(pendingRecoveryResultStorageKey, JSON.stringify(legacy));
+    window.localStorage.setItem(pendingRecoveryResultStorageKey, JSON.stringify(legacy));
+
+    expect(readPendingRecoveryResult("entry-legacy")?.message).toBe("Legacy restore");
+    expect(readPendingRecoveryResult("entry-other")).toBeNull();
+
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-other", message: "Other" }));
+
+    expect(readPendingRecoveryResult("entry-legacy")?.message).toBe("Legacy restore");
+    expect(readPendingRecoveryResult("entry-other")?.message).toBe("Other");
+  });
+
+  it("ignores corrupt map keys that do not match the embedded history entry id", () => {
+    const misplaced = {
+      "entry-wrong-key": buildRecoveryResult({ historyEntryId: "entry-embedded", message: "Embedded" })
+    };
+    window.sessionStorage.setItem(pendingRecoveryResultStorageKey, JSON.stringify(misplaced));
+    window.localStorage.setItem(pendingRecoveryResultStorageKey, JSON.stringify(misplaced));
+
+    expect(readPendingRecoveryResult("entry-wrong-key")).toBeNull();
+    expect(readPendingRecoveryResult("entry-embedded")?.message).toBe("Embedded");
   });
 });
