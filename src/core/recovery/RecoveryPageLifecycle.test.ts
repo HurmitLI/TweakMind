@@ -434,7 +434,7 @@ describe("subscribeRecoveryPageLifecycle authorization safety", () => {
 
     expect(join.didStartFresh).toBe(false);
     expect(runRestore).toHaveBeenCalledTimes(1);
-    // Auth slot is single-key; join for entry-1 must not consume a different id's auth.
+    // Keyed auth: join for entry-1 must not consume a different history id's auth.
     expect(hasPendingRecoveryAuthorization("entry-other")).toBe(true);
     expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
     expect(hasInFlightRecoveryLifecycle("entry-1")).toBe(true);
@@ -444,6 +444,22 @@ describe("subscribeRecoveryPageLifecycle authorization safety", () => {
     await Promise.resolve();
     join.unsubscribe();
     await Promise.resolve();
+
+    // entry-other auth must still gate only that history id after entry-1 settles.
+    expect(hasPendingRecoveryAuthorization("entry-other")).toBe(true);
+    expect(hasInFlightRecoveryLifecycle("entry-1")).toBe(false);
+  });
+
+  it("does not let entry-b auth start a restore for entry-a without its own confirm", async () => {
+    storePendingRecoveryAuthorization("entry-b");
+
+    const runRestore = vi.fn(async () => buildResult({ historyEntryId: "entry-a" }));
+    const canEnterA =
+      hasPendingRecoveryAuthorization("entry-a") || hasInFlightRecoveryLifecycle("entry-a");
+
+    expect(canEnterA).toBe(false);
+    expect(hasPendingRecoveryAuthorization("entry-b")).toBe(true);
+    expect(runRestore).not.toHaveBeenCalled();
   });
 
   it("releases the in-flight gate after dispose once the pending restore settles", async () => {

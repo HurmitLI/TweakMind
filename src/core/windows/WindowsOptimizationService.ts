@@ -560,74 +560,139 @@ export function readPendingRecoveryResult(historyEntryId: string): OptimizationR
  */
 const consumedRecoveryAuthorizationIds = new Set<string>();
 
+type PendingRecoveryAuthMap = Record<string, true>;
+
+/**
+ * Read the keyed one-session authorization map from sessionStorage.
+ * Migrates legacy single-string payloads (`"entry-1"`) into a one-key map.
+ */
+function readPendingRecoveryAuthMap(): PendingRecoveryAuthMap {
+  try {
+    const stored = window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey);
+
+    if (!stored) {
+      return {};
+    }
+
+    // Legacy single-slot payload from older builds: bare historyEntryId string.
+    if (!stored.startsWith("{") && !stored.startsWith("[")) {
+      const legacyId = stored.trim();
+      return legacyId ? { [legacyId]: true } : {};
+    }
+
+    const parsed = JSON.parse(stored) as unknown;
+
+    if (typeof parsed === "string") {
+      const legacyId = parsed.trim();
+      return legacyId ? { [legacyId]: true } : {};
+    }
+
+    if (!isRecord(parsed)) {
+      return {};
+    }
+
+    const map: PendingRecoveryAuthMap = {};
+
+    for (const [key, value] of Object.entries(parsed)) {
+      if (!key.trim()) {
+        continue;
+      }
+
+      // Accept `{ "entry-1": true }` and tolerate accidental self-keyed copies.
+      if (value === true || value === key) {
+        map[key] = true;
+      }
+    }
+
+    return map;
+  } catch {
+    return {};
+  }
+}
+
+function writePendingRecoveryAuthMap(map: PendingRecoveryAuthMap): void {
+  if (Object.keys(map).length === 0) {
+    window.sessionStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+    return;
+  }
+
+  window.sessionStorage.setItem(pendingRecoveryAuthorizationStorageKey, JSON.stringify(map));
+}
+
+function removeLegacyLocalRecoveryAuthorization(): void {
+  try {
+    window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+  } catch {
+    // Best-effort legacy cleanup only.
+  }
+}
+
 /** Test-only: drop runtime consumed marks between cases. */
 export function resetConsumedRecoveryAuthorizationForTests(): void {
   consumedRecoveryAuthorizationIds.clear();
 }
 
 export function storePendingRecoveryAuthorization(historyEntryId: string) {
-  // Authorization is a one-session confirm gate. Persisting it in localStorage
-  // would let /recovery?historyId=… auto-run after an app restart without a
-  // fresh confirmation click.
-  window.sessionStorage.setItem(pendingRecoveryAuthorizationStorageKey, historyEntryId);
+  if (!historyEntryId.trim()) {
+    throw new Error("Missing history entry id for recovery authorization.");
+  }
+
+  // Authorization is a one-session confirm gate keyed by historyEntryId.
+  // Persisting it in localStorage would let /recovery?historyId=… auto-run
+  // after an app restart without a fresh confirmation click.
+  const map = readPendingRecoveryAuthMap();
+  map[historyEntryId] = true;
+  writePendingRecoveryAuthMap(map);
 
   // A fresh confirmation successfully rewritten for this id may be used again.
   consumedRecoveryAuthorizationIds.delete(historyEntryId);
 
-  try {
-    window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
-  } catch {
-    // Session auth is authoritative; a localStorage cleanup failure must not
-    // roll back a successful authorization write.
-  }
+  removeLegacyLocalRecoveryAuthorization();
 }
 
 export function hasPendingRecoveryAuthorization(historyEntryId: string) {
   // Drop any legacy durable authorization left by older builds.
   // Best-effort only: privacy/storage policies that reject removeItem must not
   // block reading a valid one-session authorization from sessionStorage.
-  try {
-    window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
-  } catch {
-    // Ignore — sessionStorage remains the sole authorization authority.
-  }
+  removeLegacyLocalRecoveryAuthorization();
 
-  if (consumedRecoveryAuthorizationIds.has(historyEntryId)) {
+  if (!historyEntryId.trim() || consumedRecoveryAuthorizationIds.has(historyEntryId)) {
     return false;
   }
 
-  return window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey) === historyEntryId;
+  return historyEntryId in readPendingRecoveryAuthMap();
 }
 
 /**
  * Precisely consume a one-session recovery authorization for historyEntryId.
- * On match: mark runtime-consumed first, then best-effort remove session/local
- * copies. Never throws. Returns true when the matching authorization was
- * accepted for consume (including when physical removeItem fails).
+ * On match: mark runtime-consumed first, then best-effort rewrite/remove the
+ * keyed session map (and legacy local). Never throws. Returns true when the
+ * matching authorization was accepted for consume (including when physical
+ * storage mutation fails).
  */
 export function consumePendingRecoveryAuthorization(historyEntryId: string): boolean {
-  if (consumedRecoveryAuthorizationIds.has(historyEntryId)) {
+  if (!historyEntryId.trim() || consumedRecoveryAuthorizationIds.has(historyEntryId)) {
     return false;
   }
 
-  try {
-    window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
-  } catch {
-    // Best-effort legacy cleanup only.
-  }
+  removeLegacyLocalRecoveryAuthorization();
 
   try {
-    if (window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey) !== historyEntryId) {
+    const map = readPendingRecoveryAuthMap();
+
+    if (!(historyEntryId in map)) {
       return false;
     }
 
-    // Tombstone before remove so a persistent remove failure cannot replay later.
+    // Tombstone before rewrite/remove so a persistent storage failure cannot replay.
     consumedRecoveryAuthorizationIds.add(historyEntryId);
+    delete map[historyEntryId];
 
     try {
-      window.sessionStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+      writePendingRecoveryAuthMap(map);
     } catch {
-      // Physical remove failed; runtime tombstone still blocks replay.
+      // Physical rewrite failed; runtime tombstone still blocks replay for this id.
+      // Other history ids remain authorized via the leftover map when readable.
     }
 
     return true;
@@ -644,11 +709,7 @@ export function clearPendingRecoveryAuthorization() {
     // Best-effort: continue clearing the other storage.
   }
 
-  try {
-    window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
-  } catch {
-    // Best-effort legacy cleanup.
-  }
+  removeLegacyLocalRecoveryAuthorization();
 }
 
 function clearPendingRecoverySlotFromStorage(storage: Storage, historyEntryId: string): void {

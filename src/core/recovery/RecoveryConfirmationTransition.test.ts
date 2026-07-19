@@ -143,7 +143,7 @@ describe("beginRecoveryConfirmationTransition", () => {
     expect(readPendingRecoveryResult("entry-b")?.message).toBe("B");
   });
 
-  it("route-id switch style: confirming entry-b after entry-a keeps slots isolated", () => {
+  it("route-id switch style: confirming entry-b after entry-a keeps auth and pending slots isolated", () => {
     storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-a", message: "A" }));
     storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-b", message: "B" }));
 
@@ -152,14 +152,16 @@ describe("beginRecoveryConfirmationTransition", () => {
     expect(readPendingRecoveryResult("entry-b")?.message).toBe("B");
 
     expect(beginRecoveryConfirmationTransition("entry-b")).toEqual({ ok: true });
+    // Keyed auth: confirming b must not overwrite/revoke a.
     expect(hasPendingRecoveryAuthorization("entry-b")).toBe(true);
-    expect(hasPendingRecoveryAuthorization("entry-a")).toBe(false);
+    expect(hasPendingRecoveryAuthorization("entry-a")).toBe(true);
     expect(readPendingRecoveryResult("entry-a")).toBeNull();
     expect(readPendingRecoveryResult("entry-b")).toBeNull();
 
     clearPendingRecoveryAuthorization();
     storePendingRecoveryAuthorization("entry-b");
     expect(hasPendingRecoveryAuthorization("entry-b")).toBe(true);
+    expect(hasPendingRecoveryAuthorization("entry-a")).toBe(false);
   });
 
   it("rejects empty history ids without clearing unrelated pending slots", () => {
@@ -194,6 +196,17 @@ describe("beginRecoveryConfirmationTransition", () => {
     // RecoveryPage reads authorization immediately after navigation.
     expect(hasPendingRecoveryAuthorization("entry-a")).toBe(true);
     expect(hasPendingRecoveryAuthorization("entry-b")).toBe(false);
-    expect(window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBe("entry-a");
+    expect(JSON.parse(window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey) ?? "{}")).toEqual({
+      "entry-a": true
+    });
+  });
+
+  it("keeps both authorizations when confirming two history ids back-to-back", () => {
+    expect(beginRecoveryConfirmationTransition("entry-a")).toEqual({ ok: true });
+    expect(beginRecoveryConfirmationTransition("entry-b")).toEqual({ ok: true });
+
+    expect(hasPendingRecoveryAuthorization("entry-a")).toBe(true);
+    expect(hasPendingRecoveryAuthorization("entry-b")).toBe(true);
+    expect(hasPendingRecoveryAuthorization("entry-c")).toBe(false);
   });
 });
