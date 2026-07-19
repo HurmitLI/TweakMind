@@ -6,6 +6,7 @@ import {
   isValidScanResult,
   parseScanResultTimestamp,
   readStoredScanResult,
+  resetScanResultRuntimeForTests,
   scanResultStorageKey,
   storeScanResult,
   toRecommendationResult
@@ -50,11 +51,13 @@ function buildScanResult(overrides: Partial<ScanResult> = {}): ScanResult {
 beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
+  resetScanResultRuntimeForTests();
 });
 
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  resetScanResultRuntimeForTests();
 });
 
 describe("isValidScanResult", () => {
@@ -286,6 +289,7 @@ describe("clearStoredScanResult", () => {
 
     expect(() => clearStoredScanResult()).not.toThrow();
     expect(window.localStorage.getItem(scanResultStorageKey)).toBeNull();
+    expect(readStoredScanResult()).toBeNull();
   });
 
   it("clears sessionStorage even when localStorage removeItem throws", () => {
@@ -301,6 +305,131 @@ describe("clearStoredScanResult", () => {
 
     expect(() => clearStoredScanResult()).not.toThrow();
     expect(window.sessionStorage.getItem(scanResultStorageKey)).toBeNull();
+    expect(readStoredScanResult()).toBeNull();
+  });
+
+  it("hides a stale session leftover in-process when session remove fails after clear", () => {
+    const stale = buildScanResult({ estimatedImpact: "StaleSession" });
+    storeScanResult(stale);
+
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.sessionStorage && key === scanResultStorageKey) {
+        throw new Error("session remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    clearStoredScanResult();
+
+    expect(window.sessionStorage.getItem(scanResultStorageKey)).toContain("StaleSession");
+    expect(window.localStorage.getItem(scanResultStorageKey)).toBeNull();
+    expect(readStoredScanResult()).toBeNull();
+  });
+
+  it("hides a stale local leftover in-process when local remove fails after clear", () => {
+    storeScanResult(buildScanResult({ estimatedImpact: "StaleLocal" }));
+
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.localStorage && key === scanResultStorageKey) {
+        throw new Error("local remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    clearStoredScanResult();
+
+    expect(window.localStorage.getItem(scanResultStorageKey)).toContain("StaleLocal");
+    expect(window.sessionStorage.getItem(scanResultStorageKey)).toBeNull();
+    expect(readStoredScanResult()).toBeNull();
+  });
+
+  it("hides leftovers when session and local removeItem both fail", () => {
+    storeScanResult(buildScanResult({ estimatedImpact: "Uncleared" }));
+
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (key === scanResultStorageKey) {
+        throw new Error("remove denied");
+      }
+
+      throw new Error("unexpected key");
+    });
+
+    expect(() => clearStoredScanResult()).not.toThrow();
+    expect(window.sessionStorage.getItem(scanResultStorageKey)).toContain("Uncleared");
+    expect(window.localStorage.getItem(scanResultStorageKey)).toContain("Uncleared");
+    expect(readStoredScanResult()).toBeNull();
+  });
+
+  it("rebuilds a readable scan after clear remove dual-failure once store succeeds again", () => {
+    storeScanResult(buildScanResult({ estimatedImpact: "Old" }));
+
+    const originalSetItem = Storage.prototype.setItem;
+    const originalRemoveItem = Storage.prototype.removeItem;
+    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+    const removeItemSpy = vi.spyOn(Storage.prototype, "removeItem");
+    let blockMutations = true;
+
+    setItemSpy.mockImplementation(function (this: Storage, key, value) {
+      if (blockMutations && key === scanResultStorageKey) {
+        throw new Error("set denied");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+    removeItemSpy.mockImplementation(function (this: Storage, key) {
+      if (blockMutations && key === scanResultStorageKey) {
+        throw new Error("remove denied");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    clearStoredScanResult();
+    expect(readStoredScanResult()).toBeNull();
+
+    blockMutations = false;
+    storeScanResult(buildScanResult({ estimatedImpact: "Rebuilt" }));
+
+    expect(readStoredScanResult()?.estimatedImpact).toBe("Rebuilt");
+  });
+
+  it("prefers a new one-sided local write over a stale session copy after clear", () => {
+    storeScanResult(buildScanResult({ estimatedImpact: "StaleSession", timestamp: "1700000000" }));
+    clearStoredScanResult();
+
+    // Plant a stale session payload before denying session writes/removes.
+    const originalSetItem = Storage.prototype.setItem;
+    originalSetItem.call(
+      window.sessionStorage,
+      scanResultStorageKey,
+      JSON.stringify(buildScanResult({ estimatedImpact: "StaleSession", timestamp: "1800000000" }))
+    );
+
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.sessionStorage && key === scanResultStorageKey) {
+        throw new Error("QuotaExceededError");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.sessionStorage && key === scanResultStorageKey) {
+        throw new Error("session remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    storeScanResult(buildScanResult({ estimatedImpact: "FreshLocal", timestamp: "1700000100" }));
+
+    expect(readStoredScanResult()?.estimatedImpact).toBe("FreshLocal");
+    expect(window.localStorage.getItem(scanResultStorageKey)).toContain("FreshLocal");
+    expect(window.sessionStorage.getItem(scanResultStorageKey)).toContain("StaleSession");
   });
 });
 
