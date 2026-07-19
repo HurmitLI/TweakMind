@@ -1,6 +1,8 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { startScanPageLifecycle } from "./ScanPageLifecycle";
 import type { OptimizationScanResult, ScanResult } from "./ScanResult";
 import {
+  clearStoredScanResult,
   isValidScanResult,
   parseScanResultTimestamp,
   readStoredScanResult,
@@ -48,6 +50,11 @@ function buildScanResult(overrides: Partial<ScanResult> = {}): ScanResult {
 beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 describe("isValidScanResult", () => {
@@ -169,6 +176,19 @@ describe("readStoredScanResult", () => {
 
     expect(readStoredScanResult()?.estimatedImpact).toBe("Readable");
   });
+
+  it("uses the valid side when the other storage copy is corrupt JSON", () => {
+    const valid = buildScanResult({ estimatedImpact: "ValidSide" });
+    window.sessionStorage.setItem(scanResultStorageKey, JSON.stringify(valid));
+    window.localStorage.setItem(scanResultStorageKey, "{ not json");
+
+    expect(readStoredScanResult()?.estimatedImpact).toBe("ValidSide");
+
+    window.localStorage.setItem(scanResultStorageKey, JSON.stringify(valid));
+    window.sessionStorage.setItem(scanResultStorageKey, "{ not json");
+
+    expect(readStoredScanResult()?.estimatedImpact).toBe("ValidSide");
+  });
 });
 
 describe("storeScanResult", () => {
@@ -184,6 +204,166 @@ describe("storeScanResult", () => {
 
     expect(window.localStorage.getItem(scanResultStorageKey)).toBeNull();
     expect(window.sessionStorage.getItem(scanResultStorageKey)).toBeNull();
+  });
+
+  it("succeeds when sessionStorage writes and localStorage quota fails", () => {
+    const result = buildScanResult({ estimatedImpact: "SessionOnly" });
+    const originalSetItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.localStorage) {
+        throw new Error("QuotaExceededError");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+
+    expect(() => storeScanResult(result)).not.toThrow();
+    expect(window.sessionStorage.getItem(scanResultStorageKey)).not.toBeNull();
+    expect(window.localStorage.getItem(scanResultStorageKey)).toBeNull();
+    expect(readStoredScanResult()?.estimatedImpact).toBe("SessionOnly");
+  });
+
+  it("succeeds when localStorage writes and sessionStorage is unavailable", () => {
+    const result = buildScanResult({ estimatedImpact: "LocalOnly" });
+    const originalSetItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.sessionStorage) {
+        throw new Error("SecurityError");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+
+    expect(() => storeScanResult(result)).not.toThrow();
+    expect(window.localStorage.getItem(scanResultStorageKey)).not.toBeNull();
+    expect(window.sessionStorage.getItem(scanResultStorageKey)).toBeNull();
+    expect(readStoredScanResult()?.estimatedImpact).toBe("LocalOnly");
+  });
+
+  it("throws a diagnostic error when both storages fail to write", () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage) {
+      throw new Error(this === window.sessionStorage ? "session denied" : "local denied");
+    });
+
+    expect(() => storeScanResult(buildScanResult())).toThrow(
+      /Failed to persist scan result to sessionStorage \(session denied\) and localStorage \(local denied\)/
+    );
+    expect(readStoredScanResult()).toBeNull();
+  });
+
+  it("recovers on retry after a previous dual-storage failure", () => {
+    const originalSetItem = Storage.prototype.setItem;
+    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+    let denyWrites = true;
+
+    setItemSpy.mockImplementation(function (this: Storage, key, value) {
+      if (denyWrites) {
+        throw new Error("storage denied");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+
+    expect(() => storeScanResult(buildScanResult({ estimatedImpact: "First" }))).toThrow();
+
+    denyWrites = false;
+    storeScanResult(buildScanResult({ estimatedImpact: "RetryOk" }));
+    expect(readStoredScanResult()?.estimatedImpact).toBe("RetryOk");
+  });
+});
+
+describe("clearStoredScanResult", () => {
+  it("clears localStorage even when sessionStorage removeItem throws", () => {
+    storeScanResult(buildScanResult());
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.sessionStorage) {
+        throw new Error("session remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    expect(() => clearStoredScanResult()).not.toThrow();
+    expect(window.localStorage.getItem(scanResultStorageKey)).toBeNull();
+  });
+
+  it("clears sessionStorage even when localStorage removeItem throws", () => {
+    storeScanResult(buildScanResult());
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.localStorage) {
+        throw new Error("local remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    expect(() => clearStoredScanResult()).not.toThrow();
+    expect(window.sessionStorage.getItem(scanResultStorageKey)).toBeNull();
+  });
+});
+
+describe("scan persistence failures through ScanPageLifecycle", () => {
+  it("dual-store failure converges to failed without false 100% success navigation", async () => {
+    vi.useFakeTimers();
+
+    const originalSetItem = Storage.prototype.setItem;
+    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+    let denyWrites = true;
+
+    setItemSpy.mockImplementation(function (this: Storage, key, value) {
+      if (denyWrites) {
+        throw new Error("storage denied");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+
+    const onSucceeded = vi.fn();
+    const onFailed = vi.fn();
+    let attempt = 0;
+
+    const startAttempt = () =>
+      startScanPageLifecycle({
+        runScan: async () => {
+          attempt += 1;
+
+          if (attempt === 1) {
+            storeScanResult(buildScanResult({ estimatedImpact: "Failing" }));
+            return;
+          }
+
+          denyWrites = false;
+          storeScanResult(buildScanResult({ estimatedImpact: "Recovered" }));
+        },
+        scanDurationMs: 400,
+        scanTickMs: 100,
+        successNavigateDelayMs: 100,
+        onProgress: vi.fn(),
+        onSucceeded,
+        onFailed
+      });
+
+    const first = startAttempt();
+    await Promise.resolve();
+    expect(first.getStatus()).toBe("failed");
+    expect(onFailed).toHaveBeenCalledTimes(1);
+    expect(onFailed.mock.calls[0]?.[0]).toMatch(/Failed to persist scan result/);
+    expect(onSucceeded).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(onSucceeded).not.toHaveBeenCalled();
+    first.dispose();
+
+    const second = startAttempt();
+    await Promise.resolve();
+    expect(second.getStatus()).toBe("succeeded");
+
+    await vi.advanceTimersByTimeAsync(500);
+    expect(onSucceeded).toHaveBeenCalledTimes(1);
+    expect(readStoredScanResult()?.estimatedImpact).toBe("Recovered");
+    second.dispose();
   });
 });
 

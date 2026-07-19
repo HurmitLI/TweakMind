@@ -157,6 +157,7 @@ function pickNewerScanResult(localResult: ScanResult, sessionResult: ScanResult)
 }
 
 export function readStoredScanResult(): ScanResult | null {
+  // Each side is read independently; corrupt/missing copies degrade to the other.
   const localResult = readScanResultFromStorage(window.localStorage);
   const sessionResult = readScanResultFromStorage(window.sessionStorage);
 
@@ -167,19 +168,61 @@ export function readStoredScanResult(): ScanResult | null {
   return localResult ?? sessionResult;
 }
 
+function toStorageErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  const asString = String(error ?? "").trim();
+  return asString || "unknown storage error";
+}
+
+function writeScanResultToStorage(storage: Storage, serialized: string): { ok: true } | { ok: false; error: unknown } {
+  try {
+    storage.setItem(scanResultStorageKey, serialized);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
+function removeScanResultFromStorage(storage: Storage): { ok: true } | { ok: false; error: unknown } {
+  try {
+    storage.removeItem(scanResultStorageKey);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
+/**
+ * Persist to sessionStorage and localStorage independently.
+ * Succeeds when at least one durable copy is written; throws only when both fail.
+ */
 export function storeScanResult(scanResult: ScanResult) {
   if (!isValidScanResult(scanResult)) {
     return;
   }
 
   const serialized = JSON.stringify(scanResult);
-  window.sessionStorage.setItem(scanResultStorageKey, serialized);
-  window.localStorage.setItem(scanResultStorageKey, serialized);
+  const sessionWrite = writeScanResultToStorage(window.sessionStorage, serialized);
+  const localWrite = writeScanResultToStorage(window.localStorage, serialized);
+
+  if (sessionWrite.ok || localWrite.ok) {
+    return;
+  }
+
+  throw new Error(
+    `Failed to persist scan result to sessionStorage (${toStorageErrorMessage(sessionWrite.error)}) and localStorage (${toStorageErrorMessage(localWrite.error)}).`
+  );
 }
 
+/**
+ * Clear both storages independently so a failure on one side cannot leave the other uncleared.
+ */
 export function clearStoredScanResult() {
-  window.sessionStorage.removeItem(scanResultStorageKey);
-  window.localStorage.removeItem(scanResultStorageKey);
+  removeScanResultFromStorage(window.sessionStorage);
+  removeScanResultFromStorage(window.localStorage);
 }
 
 export function toRecommendationResult(result: OptimizationScanResult): RecommendationResult {
