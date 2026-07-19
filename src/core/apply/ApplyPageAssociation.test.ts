@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearPendingApplyResult,
+  resetPendingApplyRuntimeForTests,
   storePendingApplyResult,
   type OptimizationApplyResult
 } from "../windows/WindowsOptimizationService";
@@ -32,11 +33,13 @@ function buildApplyResult(overrides: Partial<OptimizationApplyResult> = {}): Opt
 beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
+  resetPendingApplyRuntimeForTests();
 });
 
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  resetPendingApplyRuntimeForTests();
 });
 
 describe("ApplyPageAssociation", () => {

@@ -3,6 +3,7 @@ import type { VerificationExecutionResult } from "../execution/OptimizationExecu
 import {
   readPendingApplyResult,
   readPendingRecoveryResult,
+  resetPendingApplyRuntimeForTests,
   storePendingApplyResult,
   storePendingRecoveryResult,
   type OptimizationApplyResult,
@@ -66,6 +67,7 @@ beforeEach(() => {
   verifyMock.mockReset();
   window.localStorage.clear();
   window.sessionStorage.clear();
+  resetPendingApplyRuntimeForTests();
 });
 
 describe("VerificationService.verify", () => {
