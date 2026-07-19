@@ -6,13 +6,16 @@ import { ErrorPresentationService } from "../core/error/ErrorPresentationService
 import { useTranslation } from "../core/localization/LanguageProvider";
 import { translateOptimizationStatus } from "../core/localization/localizationHelpers";
 import { translateRuntimeMessage } from "../core/localization/RuntimeMessageLocalizationService";
-import { startRecoveryPageLifecycle } from "../core/recovery/RecoveryPageLifecycle";
+import {
+  getRecoveryConfirmationHref,
+  hasInFlightRecoveryLifecycle,
+  subscribeRecoveryPageLifecycle
+} from "../core/recovery/RecoveryPageLifecycle";
 import { OptimizationExecutor } from "../core/windows/OptimizationExecutor";
 import {
   clearPendingRecoveryAuthorization,
   clearPendingRecoveryResult,
   hasPendingRecoveryAuthorization,
-  storePendingRecoveryAuthorization,
   storePendingRecoveryResult,
   type OptimizationRecoveryResult,
   WindowsOptimizationService
@@ -35,7 +38,11 @@ export function RecoveryPage() {
   const [searchParams] = useSearchParams();
   const historyEntryId = searchParams.get("historyId") ?? "";
   const entry = historyEntryId ? WindowsOptimizationService.getHistoryEntry(historyEntryId) : undefined;
-  const [isAuthorized] = useState(() => (historyEntryId ? hasPendingRecoveryAuthorization(historyEntryId) : false));
+  const [isAuthorized] = useState(() =>
+    historyEntryId
+      ? hasPendingRecoveryAuthorization(historyEntryId) || hasInFlightRecoveryLifecycle(historyEntryId)
+      : false
+  );
   const [result, setResult] = useState<OptimizationRecoveryResult | null>(null);
   const [unexpectedFailure, setUnexpectedFailure] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -46,16 +53,16 @@ export function RecoveryPage() {
       return;
     }
 
-    clearPendingRecoveryAuthorization();
-    clearPendingRecoveryResult();
-    setResult(null);
-    setUnexpectedFailure(null);
-    setProgress(0);
-
-    const lifecycle = startRecoveryPageLifecycle({
+    const subscription = subscribeRecoveryPageLifecycle({
+      historyEntryId: entry.id,
       runRestore: () => OptimizationExecutor.restore(entry),
       recoveryDurationMs,
       recoveryTickMs,
+      onStartFresh() {
+        // Consume the one-session confirmation gate exactly once per restore attempt.
+        clearPendingRecoveryAuthorization();
+        clearPendingRecoveryResult();
+      },
       onProgress: setProgress,
       onSucceeded(recoveryResult) {
         // Only successful recoveries become pending verification input.
@@ -69,16 +76,11 @@ export function RecoveryPage() {
         }
 
         setUnexpectedFailure(failure.errorMessage);
-      },
-      onDisposeWhileRecovering() {
-        // StrictMode remounts after effect cleanup; re-arm the one-session gate
-        // so the remounted page can continue without bypassing confirmation on retry.
-        storePendingRecoveryAuthorization(entry.id);
       }
     });
 
     return () => {
-      lifecycle.dispose();
+      subscription.unsubscribe();
     };
   }, [entry, isAuthorized]);
 
@@ -87,7 +89,7 @@ export function RecoveryPage() {
     [progress, recoverySteps.length]
   );
   const estimatedRemainingSeconds = Math.max(0, Math.ceil(((100 - progress) / 100) * 5));
-  const recoveryRetryHref = `/recover/${entry?.id ?? ""}`;
+  const recoveryRetryHref = getRecoveryConfirmationHref(entry?.id ?? "");
   const failedRecoveryError =
     result && result.status !== "success" ? ErrorPresentationService.fromRecoveryResult(result) : null;
   const successReady = result?.status === "success" && progress >= 100;

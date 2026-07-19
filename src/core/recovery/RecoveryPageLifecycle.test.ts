@@ -1,6 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { OptimizationRecoveryResult } from "../windows/WindowsOptimizationService";
-import { startRecoveryPageLifecycle } from "./RecoveryPageLifecycle";
+import {
+  clearPendingRecoveryAuthorization,
+  hasPendingRecoveryAuthorization,
+  storePendingRecoveryAuthorization,
+  type OptimizationRecoveryResult
+} from "../windows/WindowsOptimizationService";
+import {
+  getRecoveryConfirmationHref,
+  hasInFlightRecoveryLifecycle,
+  resetRecoveryPageLifecycleForTests,
+  startRecoveryPageLifecycle,
+  subscribeRecoveryPageLifecycle
+} from "./RecoveryPageLifecycle";
 
 function buildResult(overrides: Partial<OptimizationRecoveryResult> = {}): OptimizationRecoveryResult {
   return {
@@ -20,6 +31,7 @@ describe("startRecoveryPageLifecycle", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+    resetRecoveryPageLifecycleForTests();
   });
 
   it("reports success after restore settles and progress can reach 100%", async () => {
@@ -155,7 +167,6 @@ describe("startRecoveryPageLifecycle", () => {
     const onProgress = vi.fn();
     const onSucceeded = vi.fn();
     const onFailed = vi.fn();
-    const onDisposeWhileRecovering = vi.fn();
 
     const successHandle = startRecoveryPageLifecycle({
       runRestore: () =>
@@ -166,12 +177,10 @@ describe("startRecoveryPageLifecycle", () => {
       recoveryTickMs: 100,
       onProgress,
       onSucceeded,
-      onFailed,
-      onDisposeWhileRecovering
+      onFailed
     });
 
     successHandle.dispose();
-    expect(onDisposeWhileRecovering).toHaveBeenCalledTimes(1);
     resolveRestore(buildResult());
     await Promise.resolve();
     await vi.advanceTimersByTimeAsync(500);
@@ -188,8 +197,7 @@ describe("startRecoveryPageLifecycle", () => {
       recoveryTickMs: 100,
       onProgress,
       onSucceeded,
-      onFailed,
-      onDisposeWhileRecovering
+      onFailed
     });
 
     failureHandle.dispose();
@@ -199,144 +207,6 @@ describe("startRecoveryPageLifecycle", () => {
 
     expect(onSucceeded).not.toHaveBeenCalled();
     expect(onFailed).not.toHaveBeenCalled();
-    expect(onDisposeWhileRecovering).toHaveBeenCalledTimes(2);
-  });
-
-  it("does not restore authorization dispose hook after a settled failure", async () => {
-    vi.useFakeTimers();
-
-    const onDisposeWhileRecovering = vi.fn();
-    const handle = startRecoveryPageLifecycle({
-      runRestore: async () => buildResult({ status: "failed", error: "nope" }),
-      recoveryDurationMs: 400,
-      recoveryTickMs: 100,
-      onProgress: vi.fn(),
-      onSucceeded: vi.fn(),
-      onFailed: vi.fn(),
-      onDisposeWhileRecovering
-    });
-
-    await Promise.resolve();
-    expect(handle.getStatus()).toBe("failed");
-    handle.dispose();
-    expect(onDisposeWhileRecovering).not.toHaveBeenCalled();
-  });
-
-  it("allows a fresh attempt after a previous hard failure (retry path)", async () => {
-    vi.useFakeTimers();
-
-    const onProgress = vi.fn();
-    const onSucceeded = vi.fn();
-    const onFailed = vi.fn();
-    let attempt = 0;
-
-    const startAttempt = () =>
-      startRecoveryPageLifecycle({
-        runRestore: async () => {
-          attempt += 1;
-
-          if (attempt === 1) {
-            return buildResult({ status: "failed", error: "First attempt failed" });
-          }
-
-          return buildResult();
-        },
-        recoveryDurationMs: 400,
-        recoveryTickMs: 100,
-        onProgress,
-        onSucceeded,
-        onFailed
-      });
-
-    const first = startAttempt();
-    await Promise.resolve();
-    expect(first.getStatus()).toBe("failed");
-    first.dispose();
-
-    const second = startAttempt();
-    await Promise.resolve();
-    expect(second.getStatus()).toBe("succeeded");
-    expect(onSucceeded).toHaveBeenCalledTimes(1);
-    expect(onFailed).toHaveBeenCalledTimes(1);
-
-    second.dispose();
-  });
-
-  it("StrictMode-style remount: dispose re-arms auth hook and ignores stale resolve", async () => {
-    vi.useFakeTimers();
-
-    let resolveFirst!: (value: OptimizationRecoveryResult) => void;
-    const onSucceeded = vi.fn();
-    const onFailed = vi.fn();
-    const onDisposeWhileRecovering = vi.fn();
-
-    const first = startRecoveryPageLifecycle({
-      runRestore: () =>
-        new Promise((resolve) => {
-          resolveFirst = resolve;
-        }),
-      recoveryDurationMs: 1000,
-      recoveryTickMs: 100,
-      onProgress: vi.fn(),
-      onSucceeded,
-      onFailed,
-      onDisposeWhileRecovering
-    });
-
-    first.dispose();
-    expect(onDisposeWhileRecovering).toHaveBeenCalledTimes(1);
-
-    const second = startRecoveryPageLifecycle({
-      runRestore: async () => buildResult({ historyEntryId: "entry-remount" }),
-      recoveryDurationMs: 1000,
-      recoveryTickMs: 100,
-      onProgress: vi.fn(),
-      onSucceeded,
-      onFailed,
-      onDisposeWhileRecovering
-    });
-
-    resolveFirst(buildResult({ historyEntryId: "entry-stale" }));
-    await Promise.resolve();
-
-    expect(onSucceeded).toHaveBeenCalledTimes(1);
-    expect(onSucceeded.mock.calls[0]?.[0]?.historyEntryId).toBe("entry-remount");
-    expect(onFailed).not.toHaveBeenCalled();
-
-    second.dispose();
-    // Second already succeeded before dispose, so auth re-arm must not run again.
-    expect(onDisposeWhileRecovering).toHaveBeenCalledTimes(1);
-  });
-
-  it("failed settle leaves authorization cleared so retry must re-confirm", async () => {
-    vi.useFakeTimers();
-
-    const {
-      clearPendingRecoveryAuthorization,
-      hasPendingRecoveryAuthorization,
-      storePendingRecoveryAuthorization
-    } = await import("../windows/WindowsOptimizationService");
-
-    storePendingRecoveryAuthorization("entry-1");
-    clearPendingRecoveryAuthorization();
-
-    const handle = startRecoveryPageLifecycle({
-      runRestore: async () => buildResult({ status: "failed", error: "hard fail" }),
-      recoveryDurationMs: 400,
-      recoveryTickMs: 100,
-      onProgress: vi.fn(),
-      onSucceeded: vi.fn(),
-      onFailed: vi.fn(),
-      onDisposeWhileRecovering() {
-        storePendingRecoveryAuthorization("entry-1");
-      }
-    });
-
-    await Promise.resolve();
-    expect(handle.getStatus()).toBe("failed");
-    handle.dispose();
-
-    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
   });
 
   it("does not report success while progress is already 100% but restore is still open", async () => {
@@ -373,5 +243,192 @@ describe("startRecoveryPageLifecycle", () => {
   });
 });
 
+describe("subscribeRecoveryPageLifecycle authorization safety", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    resetRecoveryPageLifecycleForTests();
+    clearPendingRecoveryAuthorization();
+  });
 
+  it("ordinary dispose / navigation leave does not re-arm recovery authorization", async () => {
+    storePendingRecoveryAuthorization("entry-1");
 
+    const runRestore = vi.fn(
+      () =>
+        new Promise<OptimizationRecoveryResult>(() => {
+          /* leave in-flight */
+        })
+    );
+
+    const first = subscribeRecoveryPageLifecycle({
+      historyEntryId: "entry-1",
+      runRestore,
+      recoveryDurationMs: 1000,
+      recoveryTickMs: 100,
+      onStartFresh() {
+        clearPendingRecoveryAuthorization();
+      },
+      onProgress: vi.fn(),
+      onSucceeded: vi.fn(),
+      onFailed: vi.fn()
+    });
+
+    expect(first.didStartFresh).toBe(true);
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+    expect(hasInFlightRecoveryLifecycle("entry-1")).toBe(true);
+
+    // Real route leave: unsubscribe and let deferred teardown run (no resubscribe).
+    first.unsubscribe();
+    await Promise.resolve();
+
+    expect(hasInFlightRecoveryLifecycle("entry-1")).toBe(false);
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+    expect(runRestore).toHaveBeenCalledTimes(1);
+  });
+
+  it("StrictMode-style dispose + resubscribe does not call runRestore twice and never rewrites auth", async () => {
+    storePendingRecoveryAuthorization("entry-1");
+
+    let resolveRestore!: (value: OptimizationRecoveryResult) => void;
+    const runRestore = vi.fn(
+      () =>
+        new Promise<OptimizationRecoveryResult>((resolve) => {
+          resolveRestore = resolve;
+        })
+    );
+    const onSucceeded = vi.fn();
+    const onFailed = vi.fn();
+
+    const first = subscribeRecoveryPageLifecycle({
+      historyEntryId: "entry-1",
+      runRestore,
+      recoveryDurationMs: 1000,
+      recoveryTickMs: 100,
+      onStartFresh() {
+        clearPendingRecoveryAuthorization();
+      },
+      onProgress: vi.fn(),
+      onSucceeded,
+      onFailed
+    });
+
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+
+    // StrictMode: cleanup then setup in the same turn before microtask teardown.
+    first.unsubscribe();
+    expect(hasInFlightRecoveryLifecycle("entry-1")).toBe(true);
+
+    const second = subscribeRecoveryPageLifecycle({
+      historyEntryId: "entry-1",
+      runRestore,
+      recoveryDurationMs: 1000,
+      recoveryTickMs: 100,
+      onStartFresh() {
+        clearPendingRecoveryAuthorization();
+        storePendingRecoveryAuthorization("entry-1");
+      },
+      onProgress: vi.fn(),
+      onSucceeded,
+      onFailed
+    });
+
+    expect(second.didStartFresh).toBe(false);
+    expect(runRestore).toHaveBeenCalledTimes(1);
+    // onStartFresh must not run again, so auth stays consumed.
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+
+    await Promise.resolve();
+    expect(hasInFlightRecoveryLifecycle("entry-1")).toBe(true);
+
+    resolveRestore(buildResult());
+    await Promise.resolve();
+
+    expect(onSucceeded).toHaveBeenCalledTimes(1);
+    expect(onFailed).not.toHaveBeenCalled();
+
+    second.unsubscribe();
+    await Promise.resolve();
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+  });
+
+  it("hard failure leaves authorization cleared and retry href points at the confirmation page", async () => {
+    storePendingRecoveryAuthorization("entry-1");
+
+    const onSucceeded = vi.fn();
+    const onFailed = vi.fn();
+
+    const subscription = subscribeRecoveryPageLifecycle({
+      historyEntryId: "entry-1",
+      runRestore: async () => buildResult({ status: "failed", error: "hard fail" }),
+      recoveryDurationMs: 400,
+      recoveryTickMs: 100,
+      onStartFresh() {
+        clearPendingRecoveryAuthorization();
+      },
+      onProgress: vi.fn(),
+      onSucceeded,
+      onFailed
+    });
+
+    await Promise.resolve();
+    expect(subscription.getStatus()).toBe("failed");
+    expect(onSucceeded).not.toHaveBeenCalled();
+    expect(onFailed).toHaveBeenCalledTimes(1);
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+    expect(getRecoveryConfirmationHref("entry-1")).toBe("/recover/entry-1");
+
+    subscription.unsubscribe();
+    await Promise.resolve();
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+    expect(hasInFlightRecoveryLifecycle("entry-1")).toBe(false);
+  });
+
+  it("unsubscribed subscribers do not receive late Promise settle updates", async () => {
+    let resolveRestore!: (value: OptimizationRecoveryResult) => void;
+    const onSucceeded = vi.fn();
+    const onFailed = vi.fn();
+
+    const subscription = subscribeRecoveryPageLifecycle({
+      historyEntryId: "entry-late",
+      runRestore: () =>
+        new Promise((resolve) => {
+          resolveRestore = resolve;
+        }),
+      recoveryDurationMs: 1000,
+      recoveryTickMs: 100,
+      onProgress: vi.fn(),
+      onSucceeded,
+      onFailed
+    });
+
+    subscription.unsubscribe();
+    await Promise.resolve();
+
+    resolveRestore(buildResult({ historyEntryId: "entry-late" }));
+    await Promise.resolve();
+
+    expect(onSucceeded).not.toHaveBeenCalled();
+    expect(onFailed).not.toHaveBeenCalled();
+    expect(hasInFlightRecoveryLifecycle("entry-late")).toBe(false);
+  });
+
+  it("failed restore does not invoke onSucceeded (no pending success write path)", async () => {
+    const onSucceeded = vi.fn();
+
+    const subscription = subscribeRecoveryPageLifecycle({
+      historyEntryId: "entry-fail",
+      runRestore: async () => buildResult({ status: "failed", error: "nope" }),
+      recoveryDurationMs: 400,
+      recoveryTickMs: 100,
+      onProgress: vi.fn(),
+      onSucceeded,
+      onFailed: vi.fn()
+    });
+
+    await Promise.resolve();
+    expect(onSucceeded).not.toHaveBeenCalled();
+    subscription.unsubscribe();
+    await Promise.resolve();
+  });
+});
