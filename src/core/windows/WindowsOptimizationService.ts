@@ -382,12 +382,25 @@ export function storePendingRecoveryAuthorization(historyEntryId: string) {
   // would let /recovery?historyId=… auto-run after an app restart without a
   // fresh confirmation click.
   window.sessionStorage.setItem(pendingRecoveryAuthorizationStorageKey, historyEntryId);
-  window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+
+  try {
+    window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+  } catch {
+    // Session auth is authoritative; a localStorage cleanup failure must not
+    // roll back a successful authorization write.
+  }
 }
 
 export function hasPendingRecoveryAuthorization(historyEntryId: string) {
   // Drop any legacy durable authorization left by older builds.
-  window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+  // Best-effort only: privacy/storage policies that reject removeItem must not
+  // block reading a valid one-session authorization from sessionStorage.
+  try {
+    window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+  } catch {
+    // Ignore — sessionStorage remains the sole authorization authority.
+  }
+
   return window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey) === historyEntryId;
 }
 
