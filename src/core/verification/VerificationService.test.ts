@@ -1,9 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { VerificationExecutionResult } from "../execution/OptimizationExecutionTypes";
 import {
+  clearPendingRecoveryResult,
+  pendingRecoveryResultStorageKey,
   readPendingApplyResult,
   readPendingRecoveryResult,
   resetPendingApplyRuntimeForTests,
+  resetPendingRecoveryRuntimeForTests,
   storePendingApplyResult,
   storePendingRecoveryResult,
   type OptimizationApplyResult,
@@ -68,6 +71,13 @@ beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
   resetPendingApplyRuntimeForTests();
+  resetPendingRecoveryRuntimeForTests();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  resetPendingApplyRuntimeForTests();
+  resetPendingRecoveryRuntimeForTests();
 });
 
 describe("VerificationService.verify", () => {
@@ -298,5 +308,85 @@ describe("VerificationService.verify", () => {
     expect(stale.historyEntryId).toBe("entry-a");
     expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-a");
     expect(readPendingApplyResult("sysmain")?.historyEntryId).toBe("entry-b");
+  });
+
+  it("does not consume a stale session recovery pending when only local persist succeeded with a fresh result", async () => {
+    const stale = buildRecoveryResult({ historyEntryId: "entry-1", message: "StaleSession" });
+    window.sessionStorage.setItem(pendingRecoveryResultStorageKey, JSON.stringify({ "entry-1": stale }));
+
+    const originalSetItem = Storage.prototype.setItem;
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.sessionStorage && key === pendingRecoveryResultStorageKey) {
+        throw new Error("QuotaExceededError");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.sessionStorage && key === pendingRecoveryResultStorageKey) {
+        throw new Error("session remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-1", message: "FreshLocal" }));
+    expect(readPendingRecoveryResult("entry-1")?.message).toBe("FreshLocal");
+
+    verifyMock.mockResolvedValue(
+      buildVerificationResult({
+        historyEntryId: "entry-1",
+        status: "Verified",
+        message: "Verified fresh recovery."
+      })
+    );
+
+    const result = await VerificationService.verify("windows-search", {
+      mode: "recovery",
+      historyEntryId: "entry-1"
+    });
+
+    expect(result.status).toBe("Verified");
+    expect(result.message).toBe("Verified fresh recovery.");
+    expect(readPendingRecoveryResult("entry-1")).toBeNull();
+  });
+
+  it("keeps other history ids after verify clear when rewrite/remove both fail for the matched slot", async () => {
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-a", message: "A" }));
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-b", message: "B" }));
+
+    const originalSetItem = Storage.prototype.setItem;
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (key === pendingRecoveryResultStorageKey) {
+        throw new Error("rewrite denied");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (key === pendingRecoveryResultStorageKey) {
+        throw new Error("remove denied");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    verifyMock.mockResolvedValue(
+      buildVerificationResult({
+        historyEntryId: "entry-a",
+        status: "Verified"
+      })
+    );
+
+    await VerificationService.verify("windows-search", { mode: "recovery", historyEntryId: "entry-a" });
+
+    expect(readPendingRecoveryResult("entry-a")).toBeNull();
+    expect(readPendingRecoveryResult("entry-b")?.message).toBe("B");
+    // Physical leftovers must not resurrect the cleared slot for a later read.
+    expect(window.sessionStorage.getItem(pendingRecoveryResultStorageKey)).toContain("entry-a");
+    clearPendingRecoveryResult("entry-b");
+    expect(readPendingRecoveryResult("entry-b")).toBeNull();
   });
 });

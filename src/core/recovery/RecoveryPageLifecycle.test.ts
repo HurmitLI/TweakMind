@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearPendingRecoveryAuthorization,
   clearPendingRecoveryResult,
@@ -8,6 +8,7 @@ import {
   pendingRecoveryResultStorageKey,
   readPendingRecoveryResult,
   resetConsumedRecoveryAuthorizationForTests,
+  resetPendingRecoveryRuntimeForTests,
   storePendingRecoveryAuthorization,
   storePendingRecoveryResult,
   type OptimizationRecoveryResult
@@ -45,11 +46,20 @@ function buildResult(overrides: Partial<OptimizationRecoveryResult> = {}): Optim
 }
 
 describe("startRecoveryPageLifecycle", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    resetRecoveryPageLifecycleForTests();
+    resetConsumedRecoveryAuthorizationForTests();
+    resetPendingRecoveryRuntimeForTests();
+  });
+
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
     resetRecoveryPageLifecycleForTests();
     resetConsumedRecoveryAuthorizationForTests();
+    resetPendingRecoveryRuntimeForTests();
   });
 
   it("reports success after restore settles and progress can reach 100%", async () => {
@@ -262,11 +272,21 @@ describe("startRecoveryPageLifecycle", () => {
 });
 
 describe("subscribeRecoveryPageLifecycle authorization safety", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    resetRecoveryPageLifecycleForTests();
+    resetConsumedRecoveryAuthorizationForTests();
+    resetPendingRecoveryRuntimeForTests();
+    clearPendingRecoveryAuthorization();
+  });
+
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
     resetRecoveryPageLifecycleForTests();
     resetConsumedRecoveryAuthorizationForTests();
+    resetPendingRecoveryRuntimeForTests();
     clearPendingRecoveryAuthorization();
   });
 
@@ -650,6 +670,94 @@ describe("subscribeRecoveryPageLifecycle authorization safety", () => {
 
     await Promise.resolve();
     expect(onSucceeded).not.toHaveBeenCalled();
+    subscription.unsubscribe();
+    await Promise.resolve();
+  });
+
+  it("does not leave a stale session recovery pending after one-sided local persist on success", async () => {
+    const stale = buildResult({ historyEntryId: "entry-1", message: "StaleSession" });
+    window.sessionStorage.setItem(pendingRecoveryResultStorageKey, JSON.stringify({ "entry-1": stale }));
+
+    const originalSetItem = Storage.prototype.setItem;
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.sessionStorage && key === pendingRecoveryResultStorageKey) {
+        throw new Error("QuotaExceededError");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.sessionStorage && key === pendingRecoveryResultStorageKey) {
+        throw new Error("session remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    const onSucceeded = vi.fn((result: OptimizationRecoveryResult) => {
+      storePendingRecoveryResult(result);
+    });
+    const onFailed = vi.fn();
+
+    const subscription = subscribeRecoveryPageLifecycle({
+      historyEntryId: "entry-1",
+      runRestore: async () => buildResult({ historyEntryId: "entry-1", message: "FreshLocal" }),
+      recoveryDurationMs: 400,
+      recoveryTickMs: 100,
+      onProgress: vi.fn(),
+      onSucceeded,
+      onFailed
+    });
+
+    await Promise.resolve();
+    expect(onFailed).not.toHaveBeenCalled();
+    expect(onSucceeded).toHaveBeenCalledTimes(1);
+    expect(onSucceeded.mock.calls[0][0].message).toBe("FreshLocal");
+    expect(readPendingRecoveryResult("entry-1")?.message).toBe("FreshLocal");
+
+    subscription.unsubscribe();
+    await Promise.resolve();
+  });
+
+  it("surfaces dual pending-recovery persist failure without inventing a durable success pending", async () => {
+    const originalSetItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (key === pendingRecoveryResultStorageKey) {
+        throw new Error("storage denied");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+
+    let persistThrew = false;
+    const onSucceeded = vi.fn((result: OptimizationRecoveryResult) => {
+      try {
+        storePendingRecoveryResult(result);
+      } catch (error) {
+        persistThrew = true;
+        expect(String(error)).toMatch(/Failed to persist pending recovery result/);
+      }
+    });
+    const onFailed = vi.fn();
+
+    const subscription = subscribeRecoveryPageLifecycle({
+      historyEntryId: "entry-1",
+      runRestore: async () => buildResult({ historyEntryId: "entry-1", message: "Lost" }),
+      recoveryDurationMs: 400,
+      recoveryTickMs: 100,
+      onProgress: vi.fn(),
+      onSucceeded,
+      onFailed
+    });
+
+    await Promise.resolve();
+    expect(onSucceeded).toHaveBeenCalledTimes(1);
+    expect(persistThrew).toBe(true);
+    // Dual-fail must not leave a readable success pending for verify navigation.
+    expect(readPendingRecoveryResult("entry-1")).toBeNull();
+    expect(onFailed).not.toHaveBeenCalled();
+
     subscription.unsubscribe();
     await Promise.resolve();
   });
