@@ -3,11 +3,17 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ErrorPresentation } from "../components/error/ErrorPresentation";
 import { getApplyModeLabelForMode } from "../components/apply/ApplyModeBadge";
+import {
+  getApplyConfirmationHref,
+  getApplyVerificationHref,
+  getInitialApplyProgress,
+  readMatchedPendingApplyResult,
+  shouldAnimateApplyProgress,
+  startApplyProgressAnimation
+} from "../core/apply/ApplyPageAssociation";
 import { ErrorPresentationService } from "../core/error/ErrorPresentationService";
 import { useTranslation } from "../core/localization/LanguageProvider";
 import { OptimizationRepository } from "../core/optimization/OptimizationRepository";
-import { readPendingApplyResult } from "../core/windows/WindowsOptimizationService";
-import type { OptimizationApplyResult } from "../core/windows/WindowsOptimizationService";
 import type { OptimizationId } from "../types/optimization";
 
 const applyStepKeys = [
@@ -18,41 +24,43 @@ const applyStepKeys = [
 ] as const;
 
 const stepDurationMs = 1150;
+const applyTickMs = 120;
 
 export function ApplyPage() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const defaultOptimization = OptimizationRepository.getDefault();
   const requestedOptimizationId = (searchParams.get("id") as OptimizationId | null) ?? defaultOptimization.id;
-  const optimization =
-    OptimizationRepository.getById(requestedOptimizationId) ?? defaultOptimization;
-  const [executionResult] = useState<OptimizationApplyResult | null>(() => readPendingApplyResult(optimization.id));
-  const showProgressAnimation = executionResult?.status === "success";
-  const [progress, setProgress] = useState(showProgressAnimation ? 0 : 100);
+  const optimization = OptimizationRepository.getById(requestedOptimizationId) ?? defaultOptimization;
+  // Re-resolve whenever the route optimization id changes (same-component navigations / history).
+  const executionResult = useMemo(
+    () => readMatchedPendingApplyResult(optimization.id),
+    [optimization.id]
+  );
+  const showProgressAnimation = shouldAnimateApplyProgress(executionResult);
+  const [progress, setProgress] = useState(() => getInitialApplyProgress(executionResult));
   const applySteps = useMemo(() => applyStepKeys.map((key) => t(key)), [t]);
+  const confirmationHref = getApplyConfirmationHref(optimization.id);
+
+  useEffect(() => {
+    setProgress(getInitialApplyProgress(executionResult));
+  }, [executionResult, optimization.id]);
 
   useEffect(() => {
     if (!executionResult || !showProgressAnimation) {
       return;
     }
 
-    const startedAt = Date.now();
-    const totalDuration = applySteps.length * stepDurationMs;
-
-    const intervalId = window.setInterval(() => {
-      const elapsed = Date.now() - startedAt;
-      const nextProgress = Math.min(100, Math.round((elapsed / totalDuration) * 100));
-      setProgress(nextProgress);
-
-      if (nextProgress >= 100) {
-        window.clearInterval(intervalId);
-      }
-    }, 120);
+    const animation = startApplyProgressAnimation({
+      durationMs: applySteps.length * stepDurationMs,
+      tickMs: applyTickMs,
+      onProgress: setProgress
+    });
 
     return () => {
-      window.clearInterval(intervalId);
+      animation.dispose();
     };
-  }, [applySteps.length, executionResult, showProgressAnimation]);
+  }, [applySteps.length, executionResult, optimization.id, showProgressAnimation]);
 
   const completed = progress >= 100 && executionResult !== null;
   const activeStepIndex = useMemo(
@@ -67,7 +75,7 @@ export function ApplyPage() {
         <section className="tm-centered-card">
           <h2 className="tm-typo-page">{t("apply.guard.title")}</h2>
           <p className="tm-mt-md mx-auto max-w-xl tm-typo-body">{t("apply.guard.description")}</p>
-          <Link className="tm-mt-lg tm-button-primary" to={`/confirm/${optimization.id}?from=decision`}>
+          <Link className="tm-mt-lg tm-button-primary" to={confirmationHref}>
             {t("apply.guard.action.openConfirmation")}
           </Link>
         </section>
@@ -76,17 +84,17 @@ export function ApplyPage() {
   }
 
   if (completed) {
-    const isSuccess = executionResult?.status === "success";
-    const applyError = executionResult ? ErrorPresentationService.fromApplyResult(executionResult) : null;
+    const isSuccess = executionResult.status === "success";
+    const applyError = ErrorPresentationService.fromApplyResult(executionResult);
 
     if (!isSuccess && applyError) {
       return (
         <div className="tm-centered-shell">
           <ErrorPresentation
             actions={{
-              goBackHref: `/confirm/${executionResult.optimizationId}?from=decision`,
+              goBackHref: getApplyConfirmationHref(executionResult.optimizationId),
               historyHref: "/history",
-              retryHref: `/confirm/${executionResult.optimizationId}?from=decision`
+              retryHref: getApplyConfirmationHref(executionResult.optimizationId)
             }}
             descriptor={applyError}
             layout="centered"
@@ -95,12 +103,11 @@ export function ApplyPage() {
       );
     }
 
-    const message =
-      isSuccess
-        ? executionResult.applyMode === "real"
-          ? t("apply.success.message.real")
-          : t("apply.success.message.mock")
-        : t("apply.success.message.failed");
+    const message = isSuccess
+      ? executionResult.applyMode === "real"
+        ? t("apply.success.message.real")
+        : t("apply.success.message.mock")
+      : t("apply.success.message.failed");
 
     return (
       <div className="tm-centered-shell">
@@ -112,18 +119,12 @@ export function ApplyPage() {
           <div className="tm-mt-md tm-status-badge">{getApplyModeLabelForMode(executionResult.applyMode)}</div>
           <p className="tm-mt-md mx-auto max-w-xl tm-typo-body">{message}</p>
           <div className="tm-mt-lg flex flex-col justify-center tm-gap-sm sm:flex-row">
-            <Link
-                className="tm-button-secondary"
-              to="/history"
-            >
+            <Link className="tm-button-secondary" to="/history">
               <History size={17} aria-hidden="true" />
               {t("common.action.openHistory")}
             </Link>
             {isSuccess ? (
-              <Link
-                className="tm-button-primary"
-                to={`/verify?id=${executionResult.optimizationId}${executionResult.historyEntryId ? `&historyId=${executionResult.historyEntryId}` : ""}`}
-              >
+              <Link className="tm-button-primary" to={getApplyVerificationHref(executionResult)}>
                 <ShieldCheck size={17} aria-hidden="true" />
                 {t("apply.success.action.verifyResult")}
               </Link>
