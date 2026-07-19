@@ -404,9 +404,44 @@ export function hasPendingRecoveryAuthorization(historyEntryId: string) {
   return window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey) === historyEntryId;
 }
 
+/**
+ * Precisely consume a one-session recovery authorization for historyEntryId.
+ * Legacy localStorage cleanup is best-effort. Never throws: a storage policy
+ * that blocks removeItem must not prevent RecoveryPage from starting restore.
+ * Returns true only when the matching session authorization was removed.
+ */
+export function consumePendingRecoveryAuthorization(historyEntryId: string): boolean {
+  try {
+    window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+  } catch {
+    // Best-effort legacy cleanup only.
+  }
+
+  try {
+    if (window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey) !== historyEntryId) {
+      return false;
+    }
+
+    window.sessionStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+    return true;
+  } catch {
+    // Session consume failed; do not re-grant and do not throw.
+    return false;
+  }
+}
+
 export function clearPendingRecoveryAuthorization() {
-  window.sessionStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
-  window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+  try {
+    window.sessionStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+  } catch {
+    // Best-effort: continue clearing the other storage.
+  }
+
+  try {
+    window.localStorage.removeItem(pendingRecoveryAuthorizationStorageKey);
+  } catch {
+    // Best-effort legacy cleanup.
+  }
 }
 
 export function clearPendingRecoveryResult(historyEntryId?: string) {

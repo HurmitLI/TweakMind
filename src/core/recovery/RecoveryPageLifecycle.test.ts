@@ -1,8 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   clearPendingRecoveryAuthorization,
+  clearPendingRecoveryResult,
+  consumePendingRecoveryAuthorization,
   hasPendingRecoveryAuthorization,
+  pendingRecoveryAuthorizationStorageKey,
+  pendingRecoveryResultStorageKey,
+  readPendingRecoveryResult,
   storePendingRecoveryAuthorization,
+  storePendingRecoveryResult,
   type OptimizationRecoveryResult
 } from "../windows/WindowsOptimizationService";
 import {
@@ -12,6 +18,16 @@ import {
   startRecoveryPageLifecycle,
   subscribeRecoveryPageLifecycle
 } from "./RecoveryPageLifecycle";
+
+function startFreshLikeRecoveryPage(historyEntryId: string) {
+  consumePendingRecoveryAuthorization(historyEntryId);
+
+  try {
+    clearPendingRecoveryResult(historyEntryId);
+  } catch {
+    // Mirror RecoveryPage best-effort pending clear.
+  }
+}
 
 function buildResult(overrides: Partial<OptimizationRecoveryResult> = {}): OptimizationRecoveryResult {
   return {
@@ -266,9 +282,7 @@ describe("subscribeRecoveryPageLifecycle authorization safety", () => {
       runRestore,
       recoveryDurationMs: 1000,
       recoveryTickMs: 100,
-      onStartFresh() {
-        clearPendingRecoveryAuthorization();
-      },
+      onStartFresh: () => startFreshLikeRecoveryPage("entry-1"),
       onProgress: vi.fn(),
       onSucceeded: vi.fn(),
       onFailed: vi.fn()
@@ -305,9 +319,7 @@ describe("subscribeRecoveryPageLifecycle authorization safety", () => {
       runRestore,
       recoveryDurationMs: 1000,
       recoveryTickMs: 100,
-      onStartFresh() {
-        clearPendingRecoveryAuthorization();
-      },
+      onStartFresh: () => startFreshLikeRecoveryPage("entry-1"),
       onProgress: vi.fn(),
       onSucceeded,
       onFailed
@@ -325,7 +337,7 @@ describe("subscribeRecoveryPageLifecycle authorization safety", () => {
       recoveryDurationMs: 1000,
       recoveryTickMs: 100,
       onStartFresh() {
-        clearPendingRecoveryAuthorization();
+        startFreshLikeRecoveryPage("entry-1");
         storePendingRecoveryAuthorization("entry-1");
       },
       onProgress: vi.fn(),
@@ -363,9 +375,7 @@ describe("subscribeRecoveryPageLifecycle authorization safety", () => {
       runRestore: async () => buildResult({ status: "failed", error: "hard fail" }),
       recoveryDurationMs: 400,
       recoveryTickMs: 100,
-      onStartFresh() {
-        clearPendingRecoveryAuthorization();
-      },
+      onStartFresh: () => startFreshLikeRecoveryPage("entry-1"),
       onProgress: vi.fn(),
       onSucceeded,
       onFailed
@@ -382,6 +392,153 @@ describe("subscribeRecoveryPageLifecycle authorization safety", () => {
     await Promise.resolve();
     expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
     expect(hasInFlightRecoveryLifecycle("entry-1")).toBe(false);
+  });
+
+  it("starts restore once even when sessionStorage removeItem throws during auth consume", async () => {
+    storePendingRecoveryAuthorization("entry-1");
+    const runRestore = vi.fn(async () => buildResult({ status: "failed", error: "restore hard fail" }));
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.sessionStorage && key === pendingRecoveryAuthorizationStorageKey) {
+        throw new Error("session remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    const subscription = subscribeRecoveryPageLifecycle({
+      historyEntryId: "entry-1",
+      runRestore,
+      recoveryDurationMs: 400,
+      recoveryTickMs: 100,
+      onStartFresh: () => startFreshLikeRecoveryPage("entry-1"),
+      onProgress: vi.fn(),
+      onSucceeded: vi.fn(),
+      onFailed: vi.fn()
+    });
+
+    await Promise.resolve();
+    expect(runRestore).toHaveBeenCalledTimes(1);
+    expect(subscription.getStatus()).toBe("failed");
+    expect(hasInFlightRecoveryLifecycle("entry-1")).toBe(true);
+
+    subscription.unsubscribe();
+    await Promise.resolve();
+  });
+
+  it("starts restore once when localStorage removeItem throws during auth consume", async () => {
+    storePendingRecoveryAuthorization("entry-1");
+    const runRestore = vi.fn(async () => buildResult());
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.localStorage) {
+        throw new Error("local remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    const onSucceeded = vi.fn();
+    const subscription = subscribeRecoveryPageLifecycle({
+      historyEntryId: "entry-1",
+      runRestore,
+      recoveryDurationMs: 400,
+      recoveryTickMs: 100,
+      onStartFresh: () => startFreshLikeRecoveryPage("entry-1"),
+      onProgress: vi.fn(),
+      onSucceeded,
+      onFailed: vi.fn()
+    });
+
+    await Promise.resolve();
+    expect(runRestore).toHaveBeenCalledTimes(1);
+    expect(onSucceeded).toHaveBeenCalledTimes(1);
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+
+    subscription.unsubscribe();
+    await Promise.resolve();
+  });
+
+  it("starts restore once when both session and local removeItem throw", async () => {
+    storePendingRecoveryAuthorization("entry-1");
+    const runRestore = vi.fn(async () => buildResult({ status: "failed", error: "still ran" }));
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new Error("all removes blocked");
+    });
+
+    const onFailed = vi.fn();
+    const subscription = subscribeRecoveryPageLifecycle({
+      historyEntryId: "entry-1",
+      runRestore,
+      recoveryDurationMs: 400,
+      recoveryTickMs: 100,
+      onStartFresh: () => startFreshLikeRecoveryPage("entry-1"),
+      onProgress: vi.fn(),
+      onSucceeded: vi.fn(),
+      onFailed
+    });
+
+    await Promise.resolve();
+    expect(runRestore).toHaveBeenCalledTimes(1);
+    expect(onFailed).toHaveBeenCalledWith({
+      kind: "result",
+      result: expect.objectContaining({ error: "still ran" })
+    });
+
+    // StrictMode resubscribe must not start a second restore.
+    subscription.unsubscribe();
+    const second = subscribeRecoveryPageLifecycle({
+      historyEntryId: "entry-1",
+      runRestore,
+      recoveryDurationMs: 400,
+      recoveryTickMs: 100,
+      onStartFresh: () => startFreshLikeRecoveryPage("entry-1"),
+      onProgress: vi.fn(),
+      onSucceeded: vi.fn(),
+      onFailed: vi.fn()
+    });
+
+    expect(second.didStartFresh).toBe(false);
+    expect(runRestore).toHaveBeenCalledTimes(1);
+    second.unsubscribe();
+    await Promise.resolve();
+  });
+
+  it("starts restore once when pending recovery map rewrite throws", async () => {
+    storePendingRecoveryAuthorization("entry-1");
+    storePendingRecoveryResult(buildResult({ historyEntryId: "entry-1", message: "old-pending" }));
+    storePendingRecoveryResult(buildResult({ historyEntryId: "entry-other", message: "keep-other" }));
+
+    const runRestore = vi.fn(async () => buildResult({ status: "failed", error: "restore failed" }));
+    const originalSetItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (key === pendingRecoveryResultStorageKey) {
+        throw new Error("pending map rewrite denied");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+
+    const onFailed = vi.fn();
+    const subscription = subscribeRecoveryPageLifecycle({
+      historyEntryId: "entry-1",
+      runRestore,
+      recoveryDurationMs: 400,
+      recoveryTickMs: 100,
+      onStartFresh: () => startFreshLikeRecoveryPage("entry-1"),
+      onProgress: vi.fn(),
+      onSucceeded: vi.fn(),
+      onFailed
+    });
+
+    await Promise.resolve();
+    expect(runRestore).toHaveBeenCalledTimes(1);
+    expect(onFailed).toHaveBeenCalledTimes(1);
+    // Other history id pending must remain isolated even if matched clear failed.
+    expect(readPendingRecoveryResult("entry-other")?.message).toBe("keep-other");
+
+    subscription.unsubscribe();
+    await Promise.resolve();
   });
 
   it("unsubscribed subscribers do not receive late Promise settle updates", async () => {

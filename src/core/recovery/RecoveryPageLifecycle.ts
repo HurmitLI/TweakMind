@@ -201,9 +201,11 @@ export function subscribeRecoveryPageLifecycle(
 
   if (!session) {
     didStartFresh = true;
-    options.onStartFresh?.();
 
     const subscribers = new Set<Subscriber>();
+    // Establish the in-flight restore session before consuming authorization /
+    // clearing pending storage so a storage throw cannot leave auth consumed
+    // without a real restore running.
     const created: InFlightSession = {
       subscribers,
       epoch: 0,
@@ -243,6 +245,12 @@ export function subscribeRecoveryPageLifecycle(
 
     session = created;
     inflightByHistoryEntryId.set(options.historyEntryId, session);
+
+    try {
+      options.onStartFresh?.();
+    } catch {
+      // Restore is already running; never re-grant authorization here.
+    }
   } else {
     // Cancel any deferred teardown scheduled by a StrictMode cleanup.
     session.epoch += 1;

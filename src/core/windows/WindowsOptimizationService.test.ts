@@ -8,6 +8,7 @@ import {
   clearPendingApplyResult,
   clearPendingRecoveryAuthorization,
   clearPendingRecoveryResult,
+  consumePendingRecoveryAuthorization,
   hasPendingRecoveryAuthorization,
   isValidApplyResult,
   isValidHistoryEntry,
@@ -273,6 +274,25 @@ describe("pending recovery authorization lifecycle", () => {
     expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
     expect(window.sessionStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBeNull();
     expect(window.localStorage.getItem(pendingRecoveryAuthorizationStorageKey)).toBeNull();
+  });
+
+  it("consumePendingRecoveryAuthorization removes only the matching session gate", () => {
+    storePendingRecoveryAuthorization("entry-1");
+
+    expect(consumePendingRecoveryAuthorization("entry-other")).toBe(false);
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(true);
+    expect(consumePendingRecoveryAuthorization("entry-1")).toBe(true);
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+  });
+
+  it("consumePendingRecoveryAuthorization survives session and local removeItem failures", () => {
+    storePendingRecoveryAuthorization("entry-1");
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new Error("remove blocked");
+    });
+
+    expect(consumePendingRecoveryAuthorization("entry-1")).toBe(false);
+    expect(() => clearPendingRecoveryAuthorization()).not.toThrow();
   });
 });
 
