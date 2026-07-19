@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearPendingApplyResult,
+  pendingApplyResultStorageKey,
   readPendingApplyResult,
   storePendingApplyResult,
   type OptimizationApplyResult
@@ -270,5 +271,60 @@ describe("startApplyConfirmationLifecycle", () => {
     expect(handle.getStatus()).toBe("failed");
     expect(onUiFailure).toHaveBeenCalledWith("Sync apply boom");
     expect(isApplyConfirmationInFlight("game-mode")).toBe(false);
+  });
+
+  it("treats one-sided pending-apply storage success as durable (no false UI failure)", async () => {
+    const originalSetItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.localStorage && key === pendingApplyResultStorageKey) {
+        throw new Error("QuotaExceededError");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+
+    const onUiSuccess = vi.fn();
+    const onUiFailure = vi.fn();
+
+    const handle = startApplyConfirmationLifecycle({
+      optimizationId: "windows-search",
+      runApply: async () => buildResult({ historyEntryId: "entry-session-only" }),
+      persistResult: storePendingApplyResult,
+      onUiSuccess,
+      onUiFailure
+    });
+
+    await Promise.resolve();
+    expect(handle.getStatus()).toBe("succeeded");
+    expect(onUiSuccess).toHaveBeenCalledTimes(1);
+    expect(onUiFailure).not.toHaveBeenCalled();
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-session-only");
+  });
+
+  it("surfaces dual pending-apply storage failure without navigating as success", async () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (_key: string) {
+      if (_key === pendingApplyResultStorageKey) {
+        throw new Error("storage denied");
+      }
+
+      throw new Error("unexpected key");
+    });
+
+    const onUiSuccess = vi.fn();
+    const onUiFailure = vi.fn();
+
+    const handle = startApplyConfirmationLifecycle({
+      optimizationId: "windows-search",
+      runApply: async () => buildResult({ historyEntryId: "entry-lost" }),
+      persistResult: storePendingApplyResult,
+      onUiSuccess,
+      onUiFailure
+    });
+
+    await Promise.resolve();
+    expect(handle.getStatus()).toBe("failed");
+    expect(onUiSuccess).not.toHaveBeenCalled();
+    expect(onUiFailure).toHaveBeenCalledWith(expect.stringMatching(/Failed to persist pending apply result/));
+    expect(readPendingApplyResult("windows-search")).toBeNull();
   });
 });

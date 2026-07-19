@@ -232,6 +232,133 @@ describe("pending apply result validation", () => {
     expect(readPendingApplyResult("sysmain")).toBeNull();
     expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-search");
   });
+
+  it("succeeds when sessionStorage writes and localStorage quota fails", () => {
+    const originalSetItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.localStorage && key === pendingApplyResultStorageKey) {
+        throw new Error("QuotaExceededError");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+
+    expect(() =>
+      storePendingApplyResult(buildApplyResult({ optimizationId: "windows-search", historyEntryId: "entry-session" }))
+    ).not.toThrow();
+
+    expect(window.sessionStorage.getItem(pendingApplyResultStorageKey)).not.toBeNull();
+    expect(window.localStorage.getItem(pendingApplyResultStorageKey)).toBeNull();
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-session");
+    expect(readPendingApplyResult("sysmain")).toBeNull();
+  });
+
+  it("succeeds when localStorage writes and sessionStorage is unavailable", () => {
+    const originalSetItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.sessionStorage && key === pendingApplyResultStorageKey) {
+        throw new Error("SecurityError");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+
+    expect(() =>
+      storePendingApplyResult(buildApplyResult({ optimizationId: "sysmain", historyEntryId: "entry-local" }))
+    ).not.toThrow();
+
+    expect(window.localStorage.getItem(pendingApplyResultStorageKey)).not.toBeNull();
+    expect(window.sessionStorage.getItem(pendingApplyResultStorageKey)).toBeNull();
+    expect(readPendingApplyResult("sysmain")?.historyEntryId).toBe("entry-local");
+    expect(readPendingApplyResult("windows-search")).toBeNull();
+  });
+
+  it("throws a diagnostic error when both storages fail to write pending apply", () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key) {
+      if (key === pendingApplyResultStorageKey) {
+        throw new Error(this === window.sessionStorage ? "session denied" : "local denied");
+      }
+
+      throw new Error("unexpected key");
+    });
+
+    expect(() => storePendingApplyResult(buildApplyResult())).toThrow(
+      /Failed to persist pending apply result to sessionStorage \(session denied\) and localStorage \(local denied\)/
+    );
+    expect(readPendingApplyResult("windows-search")).toBeNull();
+  });
+
+  it("recovers on retry after a previous dual-storage pending apply failure", () => {
+    const originalSetItem = Storage.prototype.setItem;
+    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+    let denyWrites = true;
+
+    setItemSpy.mockImplementation(function (this: Storage, key, value) {
+      if (denyWrites && key === pendingApplyResultStorageKey) {
+        throw new Error("storage denied");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+
+    expect(() => storePendingApplyResult(buildApplyResult({ historyEntryId: "entry-first" }))).toThrow();
+
+    denyWrites = false;
+    storePendingApplyResult(buildApplyResult({ historyEntryId: "entry-retry" }));
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-retry");
+  });
+
+  it("clears local pending apply even when sessionStorage removeItem throws", () => {
+    storePendingApplyResult(buildApplyResult());
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.sessionStorage && key === pendingApplyResultStorageKey) {
+        throw new Error("session remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    expect(() => clearPendingApplyResult()).not.toThrow();
+    expect(window.localStorage.getItem(pendingApplyResultStorageKey)).toBeNull();
+  });
+
+  it("clears only the matched slot on one-sided rewrite failure without wiping the other optimization", () => {
+    storePendingApplyResult(buildApplyResult({ optimizationId: "windows-search", historyEntryId: "entry-a" }));
+    storePendingApplyResult(buildApplyResult({ optimizationId: "sysmain", historyEntryId: "entry-b" }));
+
+    const originalSetItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.localStorage && key === pendingApplyResultStorageKey) {
+        throw new Error("local rewrite denied");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+
+    expect(() => clearPendingApplyResult("windows-search")).not.toThrow();
+    expect(readPendingApplyResult("windows-search")).toBeNull();
+    expect(readPendingApplyResult("sysmain")?.historyEntryId).toBe("entry-b");
+  });
+
+  it("keeps interleaved multi-optimization slots readable after one-sided store degradation", () => {
+    storePendingApplyResult(buildApplyResult({ optimizationId: "windows-search", historyEntryId: "entry-a" }));
+
+    const originalSetItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (this === window.localStorage && key === pendingApplyResultStorageKey) {
+        throw new Error("QuotaExceededError");
+      }
+
+      return originalSetItem.call(this, key, value);
+    });
+
+    storePendingApplyResult(buildApplyResult({ optimizationId: "hags", historyEntryId: "entry-hags" }));
+
+    expect(readPendingApplyResult("windows-search")?.historyEntryId).toBe("entry-a");
+    expect(readPendingApplyResult("hags")?.historyEntryId).toBe("entry-hags");
+    expect(readPendingApplyResult("sysmain")).toBeNull();
+  });
 });
 
 describe("pending recovery authorization lifecycle", () => {

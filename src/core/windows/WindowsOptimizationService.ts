@@ -261,14 +261,57 @@ function readMergedPendingApplyMap(): PendingApplyMap {
   return { ...localMap, ...sessionMap };
 }
 
+function toPendingStorageErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  const asString = String(error ?? "").trim();
+  return asString || "unknown storage error";
+}
+
+function writePendingApplyValueToStorage(
+  storage: Storage,
+  serialized: string
+): { ok: true } | { ok: false; error: unknown } {
+  try {
+    storage.setItem(pendingApplyResultStorageKey, serialized);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
+function removePendingApplyValueFromStorage(storage: Storage): void {
+  try {
+    storage.removeItem(pendingApplyResultStorageKey);
+  } catch {
+    // Best-effort: continue clearing/writing the other storage.
+  }
+}
+
+/**
+ * Persist the keyed pending-apply map to sessionStorage and localStorage
+ * independently. Succeeds when at least one durable copy is written.
+ */
 function writePendingApplyMap(map: PendingApplyMap) {
   if (Object.keys(map).length === 0) {
-    window.sessionStorage.removeItem(pendingApplyResultStorageKey);
-    window.localStorage.removeItem(pendingApplyResultStorageKey);
+    removePendingApplyValueFromStorage(window.sessionStorage);
+    removePendingApplyValueFromStorage(window.localStorage);
     return;
   }
 
-  storePendingValue(pendingApplyResultStorageKey, map);
+  const serialized = JSON.stringify(map);
+  const sessionWrite = writePendingApplyValueToStorage(window.sessionStorage, serialized);
+  const localWrite = writePendingApplyValueToStorage(window.localStorage, serialized);
+
+  if (sessionWrite.ok || localWrite.ok) {
+    return;
+  }
+
+  throw new Error(
+    `Failed to persist pending apply result to sessionStorage (${toPendingStorageErrorMessage(sessionWrite.error)}) and localStorage (${toPendingStorageErrorMessage(localWrite.error)}).`
+  );
 }
 
 export function storePendingApplyResult(result: OptimizationApplyResult) {
@@ -287,21 +330,43 @@ export function readPendingApplyResult(optimizationId: OptimizationId): Optimiza
   return result;
 }
 
+function clearPendingApplySlotFromStorage(storage: Storage, optimizationId: OptimizationId): void {
+  try {
+    const map = readPendingApplyMapFromStorage(storage);
+
+    if (!(optimizationId in map)) {
+      return;
+    }
+
+    delete map[optimizationId];
+
+    if (Object.keys(map).length === 0) {
+      removePendingApplyValueFromStorage(storage);
+      return;
+    }
+
+    const write = writePendingApplyValueToStorage(storage, JSON.stringify(map));
+
+    if (!write.ok) {
+      // Stale per-storage copies must not resurrect a cleared slot via merge.
+      removePendingApplyValueFromStorage(storage);
+    }
+  } catch {
+    removePendingApplyValueFromStorage(storage);
+  }
+}
+
 export function clearPendingApplyResult(optimizationId?: OptimizationId) {
   if (!optimizationId) {
-    window.sessionStorage.removeItem(pendingApplyResultStorageKey);
-    window.localStorage.removeItem(pendingApplyResultStorageKey);
+    removePendingApplyValueFromStorage(window.sessionStorage);
+    removePendingApplyValueFromStorage(window.localStorage);
     return;
   }
 
-  const map = readMergedPendingApplyMap();
-
-  if (!(optimizationId in map)) {
-    return;
-  }
-
-  delete map[optimizationId];
-  writePendingApplyMap(map);
+  // Clear each storage independently so one-sided rewrite/remove failures cannot
+  // skip the other side or let a stale map revive the matched slot.
+  clearPendingApplySlotFromStorage(window.sessionStorage, optimizationId);
+  clearPendingApplySlotFromStorage(window.localStorage, optimizationId);
 }
 
 type PendingRecoveryMap = Record<string, OptimizationRecoveryResult>;
