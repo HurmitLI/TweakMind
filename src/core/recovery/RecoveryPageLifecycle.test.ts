@@ -7,6 +7,7 @@ import {
   pendingRecoveryAuthorizationStorageKey,
   pendingRecoveryResultStorageKey,
   readPendingRecoveryResult,
+  resetConsumedRecoveryAuthorizationForTests,
   storePendingRecoveryAuthorization,
   storePendingRecoveryResult,
   type OptimizationRecoveryResult
@@ -48,6 +49,7 @@ describe("startRecoveryPageLifecycle", () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
     resetRecoveryPageLifecycleForTests();
+    resetConsumedRecoveryAuthorizationForTests();
   });
 
   it("reports success after restore settles and progress can reach 100%", async () => {
@@ -264,6 +266,7 @@ describe("subscribeRecoveryPageLifecycle authorization safety", () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
     resetRecoveryPageLifecycleForTests();
+    resetConsumedRecoveryAuthorizationForTests();
     clearPendingRecoveryAuthorization();
   });
 
@@ -501,6 +504,68 @@ describe("subscribeRecoveryPageLifecycle authorization safety", () => {
     expect(second.didStartFresh).toBe(false);
     expect(runRestore).toHaveBeenCalledTimes(1);
     second.unsubscribe();
+    await Promise.resolve();
+  });
+
+  it("blocks replay after consume when session removeItem keeps failing", async () => {
+    storePendingRecoveryAuthorization("entry-1");
+    const runRestore = vi.fn(async () => buildResult({ status: "failed", error: "once" }));
+    const originalRemoveItem = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key) {
+      if (this === window.sessionStorage && key === pendingRecoveryAuthorizationStorageKey) {
+        throw new Error("session remove blocked");
+      }
+
+      return originalRemoveItem.call(this, key);
+    });
+
+    const first = subscribeRecoveryPageLifecycle({
+      historyEntryId: "entry-1",
+      runRestore,
+      recoveryDurationMs: 400,
+      recoveryTickMs: 100,
+      onStartFresh: () => startFreshLikeRecoveryPage("entry-1"),
+      onProgress: vi.fn(),
+      onSucceeded: vi.fn(),
+      onFailed: vi.fn()
+    });
+
+    await Promise.resolve();
+    expect(runRestore).toHaveBeenCalledTimes(1);
+    expect(first.getStatus()).toBe("failed");
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+
+    first.unsubscribe();
+    await Promise.resolve();
+    expect(hasInFlightRecoveryLifecycle("entry-1")).toBe(false);
+
+    // Direct revisit gate (RecoveryPage): residue may remain, but tombstone denies entry.
+    const canReenter =
+      hasPendingRecoveryAuthorization("entry-1") || hasInFlightRecoveryLifecycle("entry-1");
+    expect(canReenter).toBe(false);
+    expect(consumePendingRecoveryAuthorization("entry-1")).toBe(false);
+    expect(runRestore).toHaveBeenCalledTimes(1);
+
+    // Re-confirm clears tombstone and allows exactly one new restore.
+    vi.mocked(Storage.prototype.removeItem).mockRestore();
+    storePendingRecoveryAuthorization("entry-1");
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(true);
+
+    const renewed = subscribeRecoveryPageLifecycle({
+      historyEntryId: "entry-1",
+      runRestore,
+      recoveryDurationMs: 400,
+      recoveryTickMs: 100,
+      onStartFresh: () => startFreshLikeRecoveryPage("entry-1"),
+      onProgress: vi.fn(),
+      onSucceeded: vi.fn(),
+      onFailed: vi.fn()
+    });
+
+    await Promise.resolve();
+    expect(runRestore).toHaveBeenCalledTimes(2);
+    expect(hasPendingRecoveryAuthorization("entry-1")).toBe(false);
+    renewed.unsubscribe();
     await Promise.resolve();
   });
 
