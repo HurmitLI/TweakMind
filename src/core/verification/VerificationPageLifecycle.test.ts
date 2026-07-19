@@ -295,4 +295,3 @@ describe("startVerificationPageLifecycle", () => {
     expect(settleAttempts).toBe(1);
   });
 });
-
