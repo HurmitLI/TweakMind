@@ -26,10 +26,32 @@ function toApplyHistoryEntry(result: OptimizationApplyResult): OptimizationHisto
   };
 }
 
+/**
+ * Best-effort history persistence after native work. A localStorage quota/privacy
+ * failure must not reject the executor Promise — Confirm/Recovery would show a
+ * false failure and invite a duplicate real apply/restore.
+ */
+function tryRecordApplyHistory(entry: OptimizationHistoryEntry): void {
+  try {
+    WindowsOptimizationService.recordHistory(entry);
+  } catch {
+    // Native apply already finished; keep the synthesized historyEntryId for pending.
+  }
+}
+
+function tryRecordRecoveryResult(result: OptimizationRecoveryResult): void {
+  try {
+    WindowsOptimizationService.recordRecoveryResult(result);
+  } catch {
+    // Native restore (or synthesized failure) already finished.
+  }
+}
+
 export class OptimizationExecutor {
   static async apply(optimizationId: OptimizationId): Promise<OptimizationApplyResult> {
     const result = await OptimizationPluginManager.apply(optimizationId);
-    const historyEntry = WindowsOptimizationService.recordHistory(toApplyHistoryEntry(result));
+    const historyEntry = toApplyHistoryEntry(result);
+    tryRecordApplyHistory(historyEntry);
 
     if (result.status === "success") {
       clearStoredScanResult();
@@ -61,7 +83,7 @@ export class OptimizationExecutor {
       };
     }
 
-    WindowsOptimizationService.recordRecoveryResult(result);
+    tryRecordRecoveryResult(result);
     if (result.status === "success") {
       clearStoredScanResult();
     }
