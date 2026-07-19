@@ -156,7 +156,17 @@ function pickNewerScanResult(localResult: ScanResult, sessionResult: ScanResult)
   return sessionTimestamp > localTimestamp ? sessionResult : localResult;
 }
 
-export function readStoredScanResult(): ScanResult | null {
+/**
+ * In-process scan authority after a successful store/clear in this JS session.
+ * `null` means read dual storage. `cleared` suppresses leftovers when removeItem
+ * fails on one or both sides. `value` prefers the just-persisted scan over a
+ * failed-side stale copy via newer-wins merge.
+ */
+type RuntimeScanAuthority = { kind: "cleared" } | { kind: "value"; scan: ScanResult };
+
+let runtimeScanAuthority: RuntimeScanAuthority | null = null;
+
+function readMergedScanResultFromStorage(): ScanResult | null {
   // Each side is read independently; corrupt/missing copies degrade to the other.
   const localResult = readScanResultFromStorage(window.localStorage);
   const sessionResult = readScanResultFromStorage(window.sessionStorage);
@@ -166,6 +176,23 @@ export function readStoredScanResult(): ScanResult | null {
   }
 
   return localResult ?? sessionResult;
+}
+
+export function readStoredScanResult(): ScanResult | null {
+  if (runtimeScanAuthority?.kind === "cleared") {
+    return null;
+  }
+
+  if (runtimeScanAuthority?.kind === "value") {
+    return runtimeScanAuthority.scan;
+  }
+
+  return readMergedScanResultFromStorage();
+}
+
+/** Test-only: drop the in-process scan authority between cases. */
+export function resetScanResultRuntimeForTests(): void {
+  runtimeScanAuthority = null;
 }
 
 function toStorageErrorMessage(error: unknown): string {
@@ -198,6 +225,8 @@ function removeScanResultFromStorage(storage: Storage): { ok: true } | { ok: fal
 /**
  * Persist to sessionStorage and localStorage independently.
  * Succeeds when at least one durable copy is written; throws only when both fail.
+ * On one-sided success, best-effort remove the failed side so a stale copy
+ * cannot resurrect via newer-wins merge after restart when remove is allowed.
  */
 export function storeScanResult(scanResult: ScanResult) {
   if (!isValidScanResult(scanResult)) {
@@ -209,6 +238,16 @@ export function storeScanResult(scanResult: ScanResult) {
   const localWrite = writeScanResultToStorage(window.localStorage, serialized);
 
   if (sessionWrite.ok || localWrite.ok) {
+    if (!sessionWrite.ok) {
+      removeScanResultFromStorage(window.sessionStorage);
+    }
+
+    if (!localWrite.ok) {
+      removeScanResultFromStorage(window.localStorage);
+    }
+
+    // Only after at least one durable copy succeeds — never promote an unpersisted scan.
+    runtimeScanAuthority = { kind: "value", scan: scanResult };
     return;
   }
 
@@ -218,11 +257,14 @@ export function storeScanResult(scanResult: ScanResult) {
 }
 
 /**
- * Clear both storages independently so a failure on one side cannot leave the other uncleared.
+ * Clear both storages independently so a failure on one side cannot leave the
+ * other uncleared. Always mark the process cleared so Decision/Apply cannot
+ * read a leftover copy when removeItem fails on one or both sides.
  */
 export function clearStoredScanResult() {
   removeScanResultFromStorage(window.sessionStorage);
   removeScanResultFromStorage(window.localStorage);
+  runtimeScanAuthority = { kind: "cleared" };
 }
 
 export function toRecommendationResult(result: OptimizationScanResult): RecommendationResult {
