@@ -127,7 +127,7 @@ export function RecoveryConfirmationPage() {
         <Link
           className="tm-button-primary"
           onClick={() => {
-            clearPendingRecoveryResult();
+            clearPendingRecoveryResult(entry.id);
             storePendingRecoveryAuthorization(entry.id);
           }}
           to={`/recovery?historyId=${entry.id}`}

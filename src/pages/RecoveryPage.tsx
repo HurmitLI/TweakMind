@@ -61,7 +61,7 @@ export function RecoveryPage() {
       onStartFresh() {
         // Consume the one-session confirmation gate exactly once per restore attempt.
         clearPendingRecoveryAuthorization();
-        clearPendingRecoveryResult();
+        clearPendingRecoveryResult(entry.id);
       },
       onProgress: setProgress,
       onSucceeded(recoveryResult) {

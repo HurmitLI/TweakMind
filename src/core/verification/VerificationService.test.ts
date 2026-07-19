@@ -2,8 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { VerificationExecutionResult } from "../execution/OptimizationExecutionTypes";
 import {
   readPendingApplyResult,
+  readPendingRecoveryResult,
   storePendingApplyResult,
-  type OptimizationApplyResult
+  storePendingRecoveryResult,
+  type OptimizationApplyResult,
+  type OptimizationRecoveryResult
 } from "../windows/WindowsOptimizationService";
 import { VerificationService } from "./VerificationService";
 
@@ -38,6 +41,21 @@ function buildApplyResult(overrides: Partial<OptimizationApplyResult> = {}): Opt
     previousState: "Running",
     currentState: "Disabled",
     message: "Applied.",
+    error: null,
+    timestamp: "1700000000",
+    ...overrides
+  };
+}
+
+function buildRecoveryResult(overrides: Partial<OptimizationRecoveryResult> = {}): OptimizationRecoveryResult {
+  return {
+    historyEntryId: "entry-1",
+    optimizationId: "windows-search",
+    status: "success",
+    previousState: "Disabled",
+    expectedState: "Running",
+    actualState: "Running",
+    message: "Restored.",
     error: null,
     timestamp: "1700000000",
     ...overrides
@@ -188,5 +206,51 @@ describe("VerificationService.verify", () => {
 
     expect(readPendingApplyResult("sysmain")?.historyEntryId).toBe("entry-sysmain");
     expect(readPendingApplyResult("windows-search")).toBeNull();
+  });
+
+  it("clears only the matching pending recovery slot after a terminal recovery verification", async () => {
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-a", message: "A" }));
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-b", message: "B" }));
+    verifyMock.mockResolvedValue(
+      buildVerificationResult({
+        historyEntryId: "entry-a",
+        status: "Verified"
+      })
+    );
+
+    await VerificationService.verify("windows-search", { mode: "recovery", historyEntryId: "entry-a" });
+
+    expect(readPendingRecoveryResult("entry-a")).toBeNull();
+    expect(readPendingRecoveryResult("entry-b")?.message).toBe("B");
+  });
+
+  it("does not clear pending recovery when verification targets a different history entry", async () => {
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-pending", message: "Keep" }));
+    verifyMock.mockResolvedValue(
+      buildVerificationResult({
+        historyEntryId: "entry-other",
+        status: "Verified"
+      })
+    );
+
+    await VerificationService.verify("windows-search", { mode: "recovery", historyEntryId: "entry-other" });
+
+    expect(readPendingRecoveryResult("entry-pending")?.message).toBe("Keep");
+    expect(readPendingRecoveryResult("entry-other")).toBeNull();
+  });
+
+  it("keeps pending recovery when recovery verification stays pending", async () => {
+    storePendingRecoveryResult(buildRecoveryResult({ historyEntryId: "entry-1" }));
+    verifyMock.mockResolvedValue(
+      buildVerificationResult({
+        historyEntryId: "entry-1",
+        status: "Pending / Not Available",
+        message: "No completed Recovery result was found. Verification is pending."
+      })
+    );
+
+    await VerificationService.verify("windows-search", { mode: "recovery", historyEntryId: "entry-1" });
+
+    expect(readPendingRecoveryResult("entry-1")?.historyEntryId).toBe("entry-1");
   });
 });
